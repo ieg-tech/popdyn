@@ -4,6 +4,23 @@ Populations dynamics logging tools
 ALCES 2018
 """
 
+from datetime import datetime
+from dateutil.tz import tzlocal
+
+# Pasted from simulation:
+# self.formalLog = {'Parameterization': {'Domain size': str(self.shape),
+#                                            'Cell size (x)': self.csx,
+#                                            'Cell size (y)': self.csy,
+#                                            'Start time': self.start_time,
+#                                            'Time step': self.time_step,
+#                                            'Age groups': str(zip(self.ages, self.durations))},
+#                       'Habitat': {},
+#                       'Population': {},
+#                       'Natality': {},
+#                       'Mortality': {},
+#                       'Time': [],
+#                       'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')]}
+
 
 def log_item(self, message, period):
     message = (message[:250] + '...') if len(message) > 250 else message  # truncate really long messages
@@ -11,7 +28,6 @@ def log_item(self, message, period):
         scenario_run=self.scenario_run,
         message=message,
         period=period)
-
 
 def write_xlsx(self, file_dict, path):
 

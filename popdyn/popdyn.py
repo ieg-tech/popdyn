@@ -1,26 +1,26 @@
 """
-Population dynamics simulation domain setup and solving
+Population dynamics simulation domain setup and model interface
 
-ALCES 2018
+Devin Cairns, 2018
 """
 
+from __future__ import print_function
 import os
-import numpy
-import time as profile_time
-from datetime import datetime
-from dateutil.tz import tzlocal
 from contextlib import contextmanager
+from ast import literal_eval
+import time as profile_time
+from collections import defaultdict
+import numpy as np
 import numexpr as ne
 import h5py
-from ast import literal_eval
-from osgeo import gdal
+from osgeo import gdal, osr
 
 
 class PopdynError(Exception):
     pass
 
 
-class domain(object):
+class Domain(object):
     """
     Population dynamics simulation domain.
 
@@ -30,30 +30,104 @@ class domain(object):
         -A specific spatial domain that is parameterized with a raster to inform the extent and resolution
         -A specific temporal resolution for discrete model time steps
 
-    Add data to the model using the built in class methods, and query the output file using popdyn.summary.
+    Add data to the model using the built in class methods.
+
+    Examples:
+    -----------
+    >>> import popdyn
+
+    Create an instance of the model domain, with a file path, and a raster to inform the study area
+
+    >>> my_model = popdyn.Domain('~/usr/pd_prj/peregrine_falcon_v23.popdyn', '~/usr/pd_proj/sahtu.tif', 1)
+    Popdyn domain ~/usr/pd_prj/peregrine_falcon_v23.popdyn created
+
+    Check the resulting specs
+
+    >>> my_model.csx  # Cell size in the x-direction
+    1000.0
+    >>> my_model.csy  # Cell size in the y-direction
+    1000.0
+    >>> my_model.shape  # Shape of the model domain (rows, cols)
+    (1426, 5269)
+
+    Add a male species to the model domain with three stage classes called 'Fledgling', 'Young', and 'Adult'.
+    'Young' and 'Adult' may reproduce, but Fledgling cannot reproduce.
+    Note that the age groups (years in the example) must match the units of the input time_step when
+    instantiating the class. I.e. this model is solved annually.
+
+    >>> my_model.add_species('Peregrine Falcon', ((0, 1), (2, 3), (4, 16)), ('Fledgling', 'Young', 'Adult'), 'male',
+                             (False, True, True))
+
+    Add a female species to the model domain with the same stage classes and reproduction parameters
+
+    >>> my_model.add_species('Peregrine Falcon', ((0, 1), (2, 3), (4, 16)), ('Fledgling', 'Young', 'Adult'), 'female',
+                             (False, True, True))
+
+    Add a habitat raster to the domain. Habitat is functionally the spatially-distributed carrying capacity (k)
+    of the species at a given time step.
+    Alternatively, a np.ndarray may be added in the place of the k dataset, but it must be
+    broadcastable to the domain.  For example. a scalar of 4 may be used, or an ndarray of shape (1426, 5269),
+    which was specified when creating this model domain.
+    When a raster is used, it will be transformed to match the model domain if it does not match. Where gaps, or
+    raster no data values exist, the resulting k will be zero.
+
+    >>> my_model.add_carry_capacity('Peregrine Falcon', '~/usr/pd_prj/peregrine_falcon_k_2018.tif', 2018)
+
+    Add another habitat at a different time step to account for some change
+
+    >>> my_model.add_carry_capacity('Peregrine Falcon', '~/usr/pd_prj/peregrine_falcon_k_2025.tif', 2025)
+    Warning: the input raster has been transformed to match the model domain:
+        Spatial Reference: NAD 1983 --> NAD 1983 NWT Lambert
+        Cell Size (x):     0.0000659 --> 1000.0
+        Cell Size (y):     0.0000742 --> 1000.0
+        Top:               65.85 --> 8834724.40
+        Left:              -124.95 --> -585644.0
+
+    Add fecundity
+
+    >>> my_model.
+
+    Add two mortality types
+
+    >>> my_model.
     """
 
-    def __init__(self, path, domain_raster=None, time_step=None):
+    def __init__(self, popdyn_path, domain_raster=None, time_step=None):
         """
-        Popdyn domain constructor
-        :param path: path to output popdyn file
-        :param domain_raster: raster used to parameterize the spatial domain if the path does not exist
-        :param kwargs:
+        PopDyn domain constructor.
+
+        A raster file or an existing .popdyn file is used to construct the Domain class instance.
+        All subsequent input data must be broadcastable to these specifications.
+        The time step will be used to solved the model, and inform the time-based units. It is important
+        to ensure Any additional time-based parameters (discrete or rate) added to the model are in
+        the same units.
+
+        :param str path: Path to a new or existing popdyn file on the disk
+        :param str domain_raster: Path to an existing raster on the disk
+        :param int[float] time_step: The temporal resolution of the domain
         """
         # If the path exists, parameterize the model based on the previous run
-        if os.path.isfile(path):
-            self.path = path  # Files are accessed through the file property
+        if os.path.isfile(popdyn_path):
+            self.path = popdyn_path  # Files are accessed through the file property
             self.update_from_file()
         else:
+            # The rest can't be None
+            if any([domain_raster is None, time_step is None]):
+                raise PopdynError('If an input popdyn file is not specified, a domain raster and time step must be.')
+
             # Make sure the name suits the specifications
-            self.path = self.create_file(path)
+            self.path = self.create_file(popdyn_path)
 
             # Read the specifications of the spatial domain using the input raster
-            self.gather_domain(domain_raster)
+            spatial_params = self.data_from_raster(domain_raster)
+            self.csx, self.csy,  self.shape, self.top, self.left, self.projection = spatial_params
 
         # Create some other attributes
         self.profiler = {}  # Used for profiling function times
         self.time_step = float(time_step)
+        self.groups = defaultdict(dict)
+        self.group_ages = defaultdict(dict)
+        self.group_reproduction = defaultdict(dict)
 
     def time_this(func):
         """Decorator for profiling methods"""
@@ -68,16 +142,98 @@ class domain(object):
             return execution
         return inner
 
-    def gather_domain(self, domain_raster):
-        """Parameterize the spatial domain using a raster"""
-        file_source = gdal.Open(domain_raster)
-        if file_source is None:
-            raise PopdynError('Unable to read the source raster {}'.format(domain_raster))
+    def data_from_raster(self, raster):
+        """
+        Collect data from an input raster.
+        The raster will be transformed to match the  study domain
+        using nearest neighbour interpolation if it doesn't match.
+        Currently only the first band of rasters is supported.
 
+        :param str raster: Path to a GDAL-supported raster dataset
+        :return: The underlying raster data
+        """
+        file_source = gdal.Open(raster)
+        if file_source is None:
+            raise PopdynError('Unable to read the source raster {}'.format(raster))
+
+        # Collect the spatial info
         gt = file_source.GetGeoTransform()
-        self.csx, self.csy = map(float, (gt[1], abs(gt[5])))
-        self.shape = (file_source.RasterYSize, file_source.RasterXSize)
-        del file_source
+        csx, csy, top, left = float(gt[1]), float(abs(gt[5])), gt[3], gt[0]
+        shape = (file_source.RasterYSize, file_source.RasterXSize)
+        projection = file_source.GetProjectionRef()
+
+        if not hasattr(self, 'shape'):
+            # This is the first call, during construction, only collect raster specifications
+            return csx, csy, shape, top, left, projection
+
+        # Collecting data...see if a transform is required
+        # Spatial References
+        in_sr = osr.SpatialReference()
+        domain_sr = osr.SpatialReference()
+        in_sr.ImportFromWkt(projection)
+        domain_sr.ImportFromWkt(projection)
+
+        # Extent and position
+        spatial_tests = zip([top, left, csx, csy, shape],
+                            [self.top, self.left, self.csx, self.csy, self.shape])
+        spatial_tests = [np.isclose(d_in, d_d) for d_in, d_d in spatial_tests]
+
+        # They all must be true to avoid a transform
+        if not all(spatial_tests + [in_sr.IsSame(domain_sr)]):
+            # Transform the input dataset
+            file_source = self.transform_ds(file_source)
+
+            # Make a convenient printout
+            print('Warning: the input raster has been transformed to match the model domain:\n'
+                  '    Spatial Reference: {} {} --> {} {}\n'
+                  '    Cell Size (x):     {:.2f} --> {:.2f}\n'
+                  '    Cell Size (y):     {:.2f} --> {:.2f}\n'
+                  '    Top:               {:.2f} --> {:.2f}\n'
+                  '    Left:              {:.2f} --> {:.2f}'.format(
+                in_sr.GetAttrValue('datum').replace('_', ' '), in_sr.GetAttrValue('projcs').replace('_', ' '),
+                domain_sr.GetAttrValue('datum').replace('_', ' '), domain_sr.GetAttrValue('projcs').replace('_', ' '),
+                csx, self.csx, csy, self.csy, top, self.top, left, self.left
+            ))
+
+        # Collect the raster data
+        band = file_source.GetRasterBand(1)
+        a = band.ReadAsArray()
+        no_data = band.GetNoDataValue()
+
+        # Destroy the swig
+        file_source = None
+
+        # Return a masked array
+        return np.ma.masked_equal(a, no_data)
+
+    def transform_ds(self, gdal_raster):
+        """
+        Transform a raster using nearest neighbour interpolation
+        :param gdal_raster: Open gdal raster dataset
+        :return: Open transformed gdal raster dataset
+        """
+        # Create an in-memory raster using the specs of the domain
+        driver = gdal.GetDriverByName('MEM')
+        outds = driver.Create('None', self.shape[1], self.shape[0], 1, gdal.GetDataTypeByName('Float32'))
+        outds.SetGeoTransform((self.left, self.csx, 0, self.top, 0, self.csy * -1))
+        outds.SetProjection(self.projection)
+
+        # Load spatial references
+        insrs = gdal_raster.GetProjectionRef()
+        outsrs = self.projection
+
+        # Check if spatial references are the same
+        _insrs = osr.SpatialReference()
+        _outsrs = osr.SpatialReference()
+        _insrs.ImportFromWkt(insrs)
+        _outsrs.ImportFromWkt(outsrs)
+        if _insrs.IsSame(_outsrs):
+            insrs, outsrs = None, None
+
+        gdal.ReprojectImage(gdal_raster, outds, insrs, outsrs)
+
+        # Return new in-memory raster
+        return outds
 
     @staticmethod
     def create_file(path):
@@ -87,7 +243,7 @@ class domain(object):
         try:
             with h5py.File(path, mode='w', libver='latest') as f:
                 assert f  # Make sure all is well
-                print "Popdyn domain %s created" % (path)
+                print("Popdyn domain %s created" % (path))
         except Exception as e:
             raise PopdynError('Unable to create the file {} because:\n{}'.format(path, e))
         return path
@@ -95,7 +251,7 @@ class domain(object):
     def dump_attrs(self):
         """Dump all of the domain attributes to the file for future loading"""
         with self.file as f:
-            f.attrs.update({key: (val if isinstance(val, numpy.ndarray) else str(val))
+            f.attrs.update({key: (val if isinstance(val, np.ndarray) else str(val))
                             for key, val in self.__dict__.iteritems()})
 
     def update_from_file(self):
@@ -108,7 +264,9 @@ class domain(object):
                     except ValueError:
                         self.__dict__[str(key)] = val
                 else:
-                    self.__dict__[str(key)] = numpy.squeeze(val)
+                    self.__dict__[str(key)] = np.squeeze(val)
+
+        print("Domain successfully populated from the file {}".format(self.path))
 
     @property
     @contextmanager
@@ -118,17 +276,9 @@ class domain(object):
         yield ds
         ds.close()
 
-    #============== TODO: Remove AO-Specific Django DB calls
-    # def log_item(self, message, period):
-    #     message = (message[:250] + '...') if len(message) > 250 else message #truncate really long messages
-    #     ScenarioLog.objects.create(
-    #         scenario_run=self.scenario_run,
-    #         message = message,
-    #         period = period)
-
     def _create_dataset(self, key, data, overwrite='replace'):
         """
-        Internal method for writing to the disk. Overwirte behaviour supports some simple math.
+        Internal method for writing to the disk. Overwrite behaviour supports some simple math.
         :param key: dataset key
         :param data: data to be written
         :param overwrite: Method to replace data.  Use one of ['replace', 'add', 'subtract', 'add_no_neg']
@@ -174,11 +324,11 @@ class domain(object):
             try:
                 return f[key][:]
             except KeyError:
-                return f.create_dataset(key, data=numpy.zeros(shape=self.shape, dtype='float32'))[:]
+                return f.create_dataset(key, data=np.zeros(shape=self.shape, dtype='float32'))[:]
 
     def add_group(self, key, attrs={}):
         """
-        Add or update a group in the model
+        Internal method to manage addition of groups in the .popdyn file
         :param key: key for group
         :param attrs: Attributes to append to the group
         :return:
@@ -211,91 +361,58 @@ class domain(object):
             all will not be capable of reproduction, unless a fecundity dataset is provided.
         :return: None
         """
+        if sex is None:
+            sex = 'hermaphrodite'
+
         # Limit species names to 25 chars
         if len(name) > 25:
             raise PopdynError('Species names must not exceed 25 characters.  Use something simple, like "Moose".')
         if '/' in name:
             raise PopdynError('The character "/" may not be in the species name. Use something simple, like "Moose".')
 
-        attrs = {}
-
         if not hasattr(age_ranges[0], '__iter__'):
-            attrs['age_ranges'] = [map(float, age_ranges)]
+            self.group_ages[name][sex] = [map(float, age_ranges)]
         else:
-            attrs['age_ranges'] = [map(float, age) for age in age_ranges]
+            self.group_ages[name][sex] = [map(float, age) for age in age_ranges]
 
         if not hasattr(groups, '__iter__'):
-            attrs['groups'] = [str(groups)]
+            self.groups[name][sex] = [str(groups)]
         else:
-            attrs['categories'] = list(map(float, age_ranges))
+            self.groups[name][sex] = list(map(float, age_ranges))
 
-        if len(attrs['categories']) != len(attrs['age_ranges']):
+        if len(self.groups[name][sex]) != len(self.group_ages[name][sex]):
             raise PopdynError('The number of age ranges ({}) does not match the number of groups ({})'
-                              ''.format(len(attrs['age_ranges']), len(attrs['categories'])))
+                              ''.format(len(self.group_ages[name][sex]), len(self.groups[name][sex])))
 
-        if sex is None:
-            sex = 'hermaphrodite'
         if reproduces is None:
-            reproduces = [False for _ in range(len(attrs['categories']))]
+            reproduces = [False for _ in range(len(self.groups[name][sex]))]
 
         if not hasattr(reproduces, '__iter__'):
-            attrs['reproduces'] = [bool(reproduces)]
+            self.group_reproduction[name][sex] = [bool(reproduces)]
         else:
-            attrs['reproduces'] = list(map(bool, reproduces))
+            self.group_reproduction[name][sex] = list(map(bool, reproduces))
 
-        key = '%s/%s' % (name, sex)
-        self.add_group(key, attrs)
-
-    def get_age_ranges(self, species, sex):
+    @property
+    def species(self):
         """
-        Retrieve a list of age ranges for the given species and sex
-        :param species:
-        :param sex:
-        :return:
+        Collect a list of species in the model
+        :return list: Species names
         """
-        with self.file as f:
-            try:
-                return f['%s/%s' % (species, sex)].attrs['age_ranges']
-            except KeyError:
-                raise PopdynError('The specified species ({}) and/or sex ({}) '
-                                  'has not been introduced into the domain'.format(species, sex))
-
-    def get_age_groups(self, species, sex):
-        """
-        Retrieve a list of age group names for the given species and sex
-        :param species:
-        :param sex:
-        :return:
-        """
-        with self.file as f:
-            try:
-                return f['%s/%s' % (species, sex)].attrs['groups']
-            except KeyError:
-                raise PopdynError('The specified species ({}) and/or sex ({}) '
-                                  'has not been introduced into the domain'.format(species, sex))
-
-    def get_age_reproduction(self, species, sex):
-        """
-        Retrieve a list of reproduction booleans for the given species and sex
-        :param species:
-        :param sex:
-        :return:
-        """
-        with self.file as f:
-            try:
-                return f['%s/%s' % (species, sex)].attrs['reproduces']
-            except KeyError:
-                raise PopdynError('The specified species ({}) and/or sex ({}) '
-                                  'has not been introduced into the domain'.format(species, sex))
+        ret = self.groups.keys()
+        if len(ret) == 0:
+            print("No species in the model domain")
+            return []
+        else:
+            return ret
 
     def reproduces(self, species, sex, age_gp):
         """Assert whether an age group reproduces"""
-        gps = self.get_age_groups(species, sex)
-        reproduction = self.get_age_reproduction(species, sex)
-        for i, gp in enumerate(gps):
-            if gp == age_gp:
-                return reproduction[i]
-        raise PopdynError('The age group does not exist in the model domain for {} {}'.format(species, sex))
+        try:
+            index = [i for i, gp in enumerate(self.groups[species][sex]) if gp == age_gp][0]
+        except (IndexError, KeyError):
+            raise PopdynError('Cannot find the species, sex, or age group using {}-{}-{}'.format(species, sex, age_gp))
+        return self.group_reproduction[species][sex][index]
+
 
     def get_population_keys(self, species, sex, age_group, time):
         """Return a list of population keys associated with an age group"""
@@ -333,7 +450,7 @@ class domain(object):
                     k = f[key][:]
                 habitat_mask = k > 0
                 total_habitat = k.sum()
-                if type(population) == numpy.ndarray:
+                if type(population) == np.ndarray:
                     total_input_population = population[habitat_mask].sum()
                 else:
                     total_input_population = population * habitat_mask.sum()
@@ -343,13 +460,13 @@ class domain(object):
 
         # Check inputs
         try:
-            population = numpy.broadcast_to(population, self.shape)
+            population = np.broadcast_to(population, self.shape)
         except:
             raise PopdynError('The input population of shape %s does not match'
                               ' that of the domain: %s' % (population.shape,
                                                            self.shape))
 
-        if not numpy.all(population == 0):
+        if not np.all(population == 0):
             sex = sex.lower()
             if sex not in ['male', 'female', 'hermaphrodite']:
                 raise PopdynError('Sex must be male, female, or hermaphrodite, not %s' % sex)
@@ -389,7 +506,7 @@ class domain(object):
         # Generate a key to store the fecundity data at the specified time step
         key = '%s/%s/%s/%s/fecundity' % (species, 'female', time, age_gp)
         try:
-            fecundity = numpy.broadcast_to(numpy.float32(fecundity), self.shape)
+            fecundity = np.broadcast_to(np.float32(fecundity), self.shape)
         except:
             raise PopdynError('Unable to broadcast the fecundity data to the domain shape.')
 
@@ -423,30 +540,10 @@ class domain(object):
         # Add new mortality as index
         key = '%s/%s/%s/%s/mortality/%s' % (species, sex, time, age_gp, name)
         try:
-            mortality = numpy.broadcast_to(numpy.float32(mortality), self.shape)
+            mortality = np.broadcast_to(np.float32(mortality), self.shape)
         except:
             raise PopdynError('Unable to broadcast the mortality data to the domain shape.')
-        self._create_dataset(key, numpy.float32(mortality))
-
-    # Need to re-incorporate all of this stuff!
-
-    self.mortality_names = {}
-    self.log = kwargs.get('log', False)
-    self.scenario_run = kwargs.get('scenario_run')
-    # Create a formal log
-    self.formalLog = {'Parameterization': {'Domain size': str(self.shape),
-                                           'Cell size (x)': self.csx,
-                                           'Cell size (y)': self.csy,
-                                           'Start time': self.start_time,
-                                           'Time step': self.time_step,
-                                           'Age groups': str(zip(self.ages, self.durations))},
-                      'Habitat': {},
-                      'Population': {},
-                      'Natality': {},
-                      'Mortality': {},
-                      'Time': [],
-                      'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')]}
-
+        self._create_dataset(key, np.float32(mortality))
 
     def add_lookup(self, key, x, y):
         """
@@ -454,7 +551,7 @@ class domain(object):
         Currently only supported by fecundity in solve
         """
         with self.file as f:
-            f[key].attrs['lookup'] = numpy.vstack([x, y])
+            f[key].attrs['lookup'] = np.vstack([x, y])
 
     def add_carry_capacity(self, species, carry_capacity, time=None):
         """
@@ -468,13 +565,12 @@ class domain(object):
         key = '%s/%s/k' % (species, time)
 
         # Convert density to population per cell
-        carry_capacity = numpy.array(carry_capacity).astype('float32') * (self.csx * self.csy)
+        carry_capacity = np.array(carry_capacity).astype('float32') * (self.csx * self.csy)
         if self.log is not False:
             message = 'add_carry_capacity,Adding k with a total capacity of %s at time %s\n' % (carry_capacity.sum(), time)
             self.log_item(message, time)
             with open(self.log, 'a') as logfile:
                 logfile.write(message)
-
 
         self._create_dataset(key, carry_capacity)
 
@@ -484,14 +580,14 @@ class domain(object):
         """
         with self.file as f:
             # Get all times with k
-            ts = numpy.array(
+            ts = np.array(
                 [float(t) for t in f['%s/%s' % (species, sex)].keys()
                  if 'k' in f['%s/%s/%s' % (species, sex, t)].keys()]
             )
             if ts.size == 0:
                 return ''  # Allow a return and handle exceptions elsewhere
 
-            t = ts[numpy.argmin(numpy.abs(ts - float(time)))]
+            t = ts[np.argmin(np.abs(ts - float(time)))]
             return '%s/%s/%s/k' % (species, sex, t)
 
     def check_time_slice(self, species, group, s_time, file_instance=None):
@@ -512,7 +608,7 @@ class domain(object):
                 fec = '%s/%s/%s' % (species, s_time, group)
             else:
                 # Use previous
-                _time = numpy.sort(
+                _time = np.sort(
                     [int(t) for t in range(self.start_time,
                                            s_time + self.time_step,
                                            self.time_step)
@@ -523,7 +619,7 @@ class domain(object):
                 male_mrt = '%s/%s/%s/%s' % (species, s_time, 'male', group)
             else:
                 # Use previous
-                _time = numpy.sort(
+                _time = np.sort(
                     [int(t) for t in range(self.start_time,
                                            s_time + self.time_step,
                                            self.time_step)
@@ -534,7 +630,7 @@ class domain(object):
                 female_mrt = '%s/%s/%s/%s' % (species, s_time, 'female', group)
             else:
                 # Use previous
-                _time = numpy.sort(
+                _time = np.sort(
                     [int(t) for t in range(self.start_time,
                                            s_time + self.time_step,
                                            self.time_step)
@@ -551,21 +647,6 @@ class domain(object):
 
         return fec, male_mrt, female_mrt
 
-    def collect_from_lookup(self, key, a, file_instance=None):
-        """
-        Return a modified array based on lookup tables from a GID
-        """
-
-        def lookup(f):
-            x, y = f[key].attrs['lookup'][0, :], f[key].attrs['lookup'][1, :]
-            return numpy.pad(y, 1, 'edge')[1:][numpy.digitize(a, x)]
-
-        if file_instance is not None:
-            return lookup(file_instance)
-        else:
-            with self.file as f:
-                return lookup(f)
-
     def get_ages(self, species, t, file_instance=None):
         """
         Get all existing ages at current time step
@@ -579,10 +660,30 @@ class domain(object):
                         ages.append(int(key))
                     except ValueError:
                         continue
-            return numpy.unique(ages)
+            return np.unique(ages)
 
         if file_instance is not None:
             return _get_ages(file_instance)
         else:
             with self.file as f:
                 return _get_ages(f)
+
+# Species [1]
+#    |
+#    sex [2]
+#      |
+#      if female: (fecundity,
+#      |
+#      age group [gp, n]
+#          |
+#          mortality [n]
+#          |
+#          dispersal [n]
+#          |
+#          population [range(gp.min(), gp.max() + 1)]
+#          |
+#          reproduces [1]
+class Species(object):
+
+    def __init__(self, name):
+        pass

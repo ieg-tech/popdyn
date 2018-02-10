@@ -4,8 +4,12 @@ Population dynamics numerical solvers
 ALCES 2018
 """
 
+def version_two_solver():
+    """"""
+    pass
 
-def explicit(self, duration, **kwargs):
+
+def version_one_solver(duration, **kwargs):
     """
     Compute populations from start_time over a duration using the inherent
     time step.
