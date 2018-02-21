@@ -7,12 +7,11 @@ Devin Cairns, 2018
 from __future__ import print_function
 import os
 from contextlib import contextmanager
-from ast import literal_eval
 import time as profile_time
-from collections import defaultdict
+import pickle
 import numpy as np
-import numexpr as ne
 import h5py
+from tempfile import _get_candidate_names as uid
 from osgeo import gdal, osr
 
 
@@ -22,7 +21,9 @@ class PopdynError(Exception):
 
 class Domain(object):
     """
-    Population dynamics simulation domain.
+    Population dynamics simulation domain. A domain has all of the physical and temporal characteristics of an
+    ecological system. Conceptualizing and creating a domain is the first step when making a popdyn model, and is
+    required before any species may be created (the domain instance is a required input for species).
 
     Each domain instance is accompanied by a .popdyn file that is used to store 2-D data in HDF5 format.
 
@@ -92,6 +93,31 @@ class Domain(object):
     >>> my_model.
     """
 
+    def time_this(func):
+        """Decorator for profiling methods"""
+        def inner(*args, **kwargs):
+            self = args[0]
+            start = profile_time.time()
+            execution = func(*args, **kwargs)
+            try:
+                self.profiler[func.__name__] += profile_time.time() - start
+            except KeyError:
+                self.profiler[func.__name__] = profile_time.time() - start
+            return execution
+        return inner
+
+    def save(func):
+        """Decorator for saving attributes to the popdyn file"""
+        def inner(*args, **kwargs):
+            self = args[0]
+            execution = func(*args, **kwargs)
+
+            self.dump()
+
+            return execution
+        return inner
+
+    @save
     def __init__(self, popdyn_path, domain_raster=None, time_step=None):
         """
         PopDyn domain constructor.
@@ -109,7 +135,7 @@ class Domain(object):
         # If the path exists, parameterize the model based on the previous run
         if os.path.isfile(popdyn_path):
             self.path = popdyn_path  # Files are accessed through the file property
-            self.update_from_file()
+            self.load()
         else:
             # The rest can't be None
             if any([domain_raster is None, time_step is None]):
@@ -120,27 +146,30 @@ class Domain(object):
 
             # Read the specifications of the spatial domain using the input raster
             spatial_params = self.data_from_raster(domain_raster)
-            self.csx, self.csy,  self.shape, self.top, self.left, self.projection = spatial_params
+            self.csx, self.csy,  self.shape, self.top, self.left, self.projection, self.mask = spatial_params
 
-        # Create some other attributes
-        self.profiler = {}  # Used for profiling function times
-        self.time_step = float(time_step)
-        self.groups = defaultdict(dict)
-        self.group_ages = defaultdict(dict)
-        self.group_reproduction = defaultdict(dict)
+            # Create some other attributes
+            self.profiler = {}  # Used for profiling function times
+            self.species = {}
 
-    def time_this(func):
-        """Decorator for profiling methods"""
-        def inner(*args, **kwargs):
-            self = args[0]
-            start = profile_time.time()
-            execution = func(*args, **kwargs)
-            try:
-                self.profiler[func.__name__] += profile_time.time() - start
-            except KeyError:
-                self.profiler[func.__name__] = profile_time.time() - start
-            return execution
-        return inner
+    @staticmethod
+    def raster_as_array(raster):
+        """Collect the underlying array from a raster data source"""
+        # Open the file
+        file_source = gdal.Open(raster)
+        if file_source is None:
+            raise PopdynError('Unable to read the source raster {}'.format(raster))
+
+        # Collect the raster data
+        band = file_source.GetRasterBand(1)
+        a = band.ReadAsArray()
+        no_data = band.GetNoDataValue()
+
+        # Destroy the swig
+        file_source = None
+
+        # Return a masked array
+        return np.ma.masked_equal(a, no_data)
 
     def data_from_raster(self, raster):
         """
@@ -163,8 +192,9 @@ class Domain(object):
         projection = file_source.GetProjectionRef()
 
         if not hasattr(self, 'shape'):
-            # This is the first call, during construction, only collect raster specifications
-            return csx, csy, shape, top, left, projection
+            # This is the first call, during construction, only collect raster specifications and a mask
+            mask = ~self.raster_as_array(raster).mask
+            return csx, csy, shape, top, left, projection, mask
 
         # Collecting data...see if a transform is required
         # Spatial References
@@ -195,16 +225,7 @@ class Domain(object):
                 csx, self.csx, csy, self.csy, top, self.top, left, self.left
             ))
 
-        # Collect the raster data
-        band = file_source.GetRasterBand(1)
-        a = band.ReadAsArray()
-        no_data = band.GetNoDataValue()
-
-        # Destroy the swig
-        file_source = None
-
-        # Return a masked array
-        return np.ma.masked_equal(a, no_data)
+        return self.raster_as_array(file_source)
 
     def transform_ds(self, gdal_raster):
         """
@@ -237,7 +258,7 @@ class Domain(object):
 
     @staticmethod
     def create_file(path):
-        """Create the domain HDF5 file.  The extension .popdyn is added if it isn't already."""
+        """Create the domain HDF5 file.  The extension .popdyn is appended if it isn't already"""
         if path.split('.')[-1] != 'popdyn':
             path = path + '.popdyn'
         try:
@@ -248,23 +269,15 @@ class Domain(object):
             raise PopdynError('Unable to create the file {} because:\n{}'.format(path, e))
         return path
 
-    def dump_attrs(self):
-        """Dump all of the domain attributes to the file for future loading"""
+    def dump(self):
+        """Dump all of the domain instance to the file"""
         with self.file as f:
-            f.attrs.update({key: (val if isinstance(val, np.ndarray) else str(val))
-                            for key, val in self.__dict__.iteritems()})
+            f.attrs['instance'] = pickle.dumps(self.__dict__)
 
-    def update_from_file(self):
+    def load(self):
         """Get the model parameters from an existing popdyn file"""
         with self.file as f:
-            for key, val in f.attrs.iteritems():
-                if isinstance(val, basestring):
-                    try:
-                        self.__dict__[str(key)] = literal_eval(val)
-                    except ValueError:
-                        self.__dict__[str(key)] = val
-                else:
-                    self.__dict__[str(key)] = np.squeeze(val)
+            self.__dict__.update(pickle.loads(f.attrs['instance']))
 
         print("Domain successfully populated from the file {}".format(self.path))
 
@@ -313,25 +326,31 @@ class Domain(object):
             except KeyError:
                 _ = f.create_dataset(key, data=data, compression='lzf')
 
-    def get_dataset(self, key):
+    def get_dataset(self, key, fill_if_missing=False, fill_value=0):
         """
-        Get a dataset from a key, or create an empty one if it does not exist
-        :param key: Dataset key
-        :param file_instance:
-        :return: array loaded into memory
+        Get a dataset from a key, and create an empty one if it does not exist
+        :param str key: Dataset key
+        :param bool fill_if_missing: Create a new dataset if the query doesn't exist
+        :param float fill_value: Value to fill the new dataset if it is created
+        :return: A view into the on-disk array
         """
         with self.file as f:
             try:
-                return f[key][:]
+                return f[key]
             except KeyError:
-                return f.create_dataset(key, data=np.zeros(shape=self.shape, dtype='float32'))[:]
+                if fill_if_missing:
+                    ds = f.create_dataset(key, shape=self.shape, dtype='float32')
+                    ds[:] = fill_value
+                    return ds
+                else:
+                    raise PopdynError('The dataset "{}" does not exist'.format(key))
 
-    def add_group(self, key, attrs={}):
+    def add_directory(self, key):
         """
-        Internal method to manage addition of groups in the .popdyn file
-        :param key: key for group
-        :param attrs: Attributes to append to the group
-        :return:
+        Internal method to manage addition of HDF5 groups in the .popdyn file
+        Groups are added recursively in order to add the entire directory tree
+        :param str key: key for group
+        :return: None
         """
 
         def add_group(k, f):
@@ -343,87 +362,22 @@ class Domain(object):
                 add_group('/'.join(k.split('/')[:-1]), f)
                 f[sk].create_group(fk)
 
+
         with self.file as f:
             add_group(key, f)
 
-        f[key].attrs.update(attrs)
-
-    def add_species(self, name, age_ranges, groups=None, sex=None, reproduces=None):
+    @save
+    def add_species(self, species):
         """
-        Add a species to the model domain
-        :param name: Name of the species. Example "Moose".
-        :param age_ranges: A tuple of age tuples (min, max) in a group of length corresponding to categories.
-            Example ((0, 1), (2, 2), (3, 4), (5, 15)).
-        :param groups: A tuple of age category names that matches the length of age_ranges. This may be left empty
-            if the age_ranges is a single number, and it will be called "lifetime". Otherwise, it must be specified.
-        :param sex: The sex of the species that is being added.  If not specified, hermaphrodite will be used.
-        :param reproduces: A boolean tuple indicating with of the categories are able to reproduce. If not specified,
-            all will not be capable of reproduction, unless a fecundity dataset is provided.
+        DO NOT USE: This method is intended to be called within the Species constructor.
+        :param popdyn.Species species: An instance of the Species class
         :return: None
         """
-        if sex is None:
-            sex = 'hermaphrodite'
+        # Create a unique id to refer to this species, as multiple species with the same name may be added
+        id = next(uid())
 
-        # Limit species names to 25 chars
-        if len(name) > 25:
-            raise PopdynError('Species names must not exceed 25 characters.  Use something simple, like "Moose".')
-        if '/' in name:
-            raise PopdynError('The character "/" may not be in the species name. Use something simple, like "Moose".')
-
-        if not hasattr(age_ranges[0], '__iter__'):
-            self.group_ages[name][sex] = [map(float, age_ranges)]
-        else:
-            self.group_ages[name][sex] = [map(float, age) for age in age_ranges]
-
-        if not hasattr(groups, '__iter__'):
-            self.groups[name][sex] = [str(groups)]
-        else:
-            self.groups[name][sex] = list(map(float, age_ranges))
-
-        if len(self.groups[name][sex]) != len(self.group_ages[name][sex]):
-            raise PopdynError('The number of age ranges ({}) does not match the number of groups ({})'
-                              ''.format(len(self.group_ages[name][sex]), len(self.groups[name][sex])))
-
-        if reproduces is None:
-            reproduces = [False for _ in range(len(self.groups[name][sex]))]
-
-        if not hasattr(reproduces, '__iter__'):
-            self.group_reproduction[name][sex] = [bool(reproduces)]
-        else:
-            self.group_reproduction[name][sex] = list(map(bool, reproduces))
-
-    @property
-    def species(self):
-        """
-        Collect a list of species in the model
-        :return list: Species names
-        """
-        ret = self.groups.keys()
-        if len(ret) == 0:
-            print("No species in the model domain")
-            return []
-        else:
-            return ret
-
-    def reproduces(self, species, sex, age_gp):
-        """Assert whether an age group reproduces"""
-        try:
-            index = [i for i, gp in enumerate(self.groups[species][sex]) if gp == age_gp][0]
-        except (IndexError, KeyError):
-            raise PopdynError('Cannot find the species, sex, or age group using {}-{}-{}'.format(species, sex, age_gp))
-        return self.group_reproduction[species][sex][index]
-
-
-    def get_population_keys(self, species, sex, age_group, time):
-        """Return a list of population keys associated with an age group"""
-        gps = self.get_age_groups(species, sex)
-        keys = []
-        for age, i in enumerate(self.get_age_ranges(species, sex)):
-            if age_group == gps[i]:
-                for _age in range(age[0], age[1] + 1):
-                    keys.append('%s/%s/%s/%s' % (species, sex, time, _age))
-                break
-        return keys
+        # Add the species to the model
+        self.species[id] = species
 
     def add_population(self, species, sex, age_or_gp, population, time, distribute=True):
         """
@@ -687,3 +641,80 @@ class Species(object):
 
     def __init__(self, name):
         pass
+
+    def add_species(self, name, age_ranges, groups=None, sex=None, reproduces=None):
+        """
+        Add a species to the model domain
+        :param name: Name of the species. Example "Moose".
+        :param age_ranges: A tuple of age tuples (min, max) in a group of length corresponding to categories.
+            Example ((0, 1), (2, 2), (3, 4), (5, 15)).
+        :param groups: A tuple of age category names that matches the length of age_ranges. This may be left empty
+            if the age_ranges is a single number, and it will be called "lifetime". Otherwise, it must be specified.
+        :param sex: The sex of the species that is being added.  If not specified, hermaphrodite will be used.
+        :param reproduces: A boolean tuple indicating with of the categories are able to reproduce. If not specified,
+            all will not be capable of reproduction, unless a fecundity dataset is provided.
+        :return: None
+        """
+        if sex is None:
+            sex = 'hermaphrodite'
+
+        # Limit species names to 25 chars
+        if len(name) > 25:
+            raise PopdynError('Species names must not exceed 25 characters.  Use something simple, like "Moose".')
+        if '/' in name:
+            raise PopdynError('The character "/" may not be in the species name. Use something simple, like "Moose".')
+
+        if not hasattr(age_ranges[0], '__iter__'):
+            self.group_ages[name][sex] = [map(float, age_ranges)]
+        else:
+            self.group_ages[name][sex] = [map(float, age) for age in age_ranges]
+
+        if not hasattr(groups, '__iter__'):
+            self.groups[name][sex] = [str(groups)]
+        else:
+            self.groups[name][sex] = list(map(float, age_ranges))
+
+        if len(self.groups[name][sex]) != len(self.group_ages[name][sex]):
+            raise PopdynError('The number of age ranges ({}) does not match the number of groups ({})'
+                              ''.format(len(self.group_ages[name][sex]), len(self.groups[name][sex])))
+
+        if reproduces is None:
+            reproduces = [False for _ in range(len(self.groups[name][sex]))]
+
+        if not hasattr(reproduces, '__iter__'):
+            self.group_reproduction[name][sex] = [bool(reproduces)]
+        else:
+            self.group_reproduction[name][sex] = list(map(bool, reproduces))
+
+    def reproduces(self, species, sex, age_gp):
+        """Assert whether an age group reproduces"""
+        try:
+            index = [i for i, gp in enumerate(self.groups[species][sex]) if gp == age_gp][0]
+        except (IndexError, KeyError):
+            raise PopdynError('Cannot find the species, sex, or age group using {}-{}-{}'.format(species, sex, age_gp))
+        return self.group_reproduction[species][sex][index]
+
+
+class Sex(Species):
+
+    def __init__(self, type):
+
+        self.sex = type
+
+
+class AgeGroup(Sex):
+
+    def __init__(self, ages):
+
+        self.ages = ages
+
+    def get_population_keys(self, species, sex, age_group, time):
+        """Return a list of population keys associated with an age group"""
+        gps = self.get_age_groups(species, sex)
+        keys = []
+        for age, i in enumerate(self.get_age_ranges(species, sex)):
+            if age_group == gps[i]:
+                for _age in range(age[0], age[1] + 1):
+                    keys.append('%s/%s/%s/%s' % (species, sex, time, _age))
+                break
+        return keys
