@@ -9,10 +9,12 @@ import os
 from contextlib import contextmanager
 import time as profile_time
 import pickle
+from string import punctuation
 import numpy as np
 import h5py
 from tempfile import _get_candidate_names as uid
 from osgeo import gdal, osr
+import dispersal
 
 
 class PopdynError(Exception):
@@ -32,65 +34,6 @@ class Domain(object):
         -A specific temporal resolution for discrete model time steps
 
     Add data to the model using the built in class methods.
-
-    Examples:
-    -----------
-    >>> import popdyn
-
-    Create an instance of the model domain, with a file path, and a raster to inform the study area
-
-    >>> my_model = popdyn.Domain('~/usr/pd_prj/peregrine_falcon_v23.popdyn', '~/usr/pd_proj/sahtu.tif', 1)
-    Popdyn domain ~/usr/pd_prj/peregrine_falcon_v23.popdyn created
-
-    Check the resulting specs
-
-    >>> my_model.csx  # Cell size in the x-direction
-    1000.0
-    >>> my_model.csy  # Cell size in the y-direction
-    1000.0
-    >>> my_model.shape  # Shape of the model domain (rows, cols)
-    (1426, 5269)
-
-    Add a male species to the model domain with three stage classes called 'Fledgling', 'Young', and 'Adult'.
-    'Young' and 'Adult' may reproduce, but Fledgling cannot reproduce.
-    Note that the age groups (years in the example) must match the units of the input time_step when
-    instantiating the class. I.e. this model is solved annually.
-
-    >>> my_model.add_species('Peregrine Falcon', ((0, 1), (2, 3), (4, 16)), ('Fledgling', 'Young', 'Adult'), 'male',
-                             (False, True, True))
-
-    Add a female species to the model domain with the same stage classes and reproduction parameters
-
-    >>> my_model.add_species('Peregrine Falcon', ((0, 1), (2, 3), (4, 16)), ('Fledgling', 'Young', 'Adult'), 'female',
-                             (False, True, True))
-
-    Add a habitat raster to the domain. Habitat is functionally the spatially-distributed carrying capacity (k)
-    of the species at a given time step.
-    Alternatively, a np.ndarray may be added in the place of the k dataset, but it must be
-    broadcastable to the domain.  For example. a scalar of 4 may be used, or an ndarray of shape (1426, 5269),
-    which was specified when creating this model domain.
-    When a raster is used, it will be transformed to match the model domain if it does not match. Where gaps, or
-    raster no data values exist, the resulting k will be zero.
-
-    >>> my_model.add_carry_capacity('Peregrine Falcon', '~/usr/pd_prj/peregrine_falcon_k_2018.tif', 2018)
-
-    Add another habitat at a different time step to account for some change
-
-    >>> my_model.add_carry_capacity('Peregrine Falcon', '~/usr/pd_prj/peregrine_falcon_k_2025.tif', 2025)
-    Warning: the input raster has been transformed to match the model domain:
-        Spatial Reference: NAD 1983 --> NAD 1983 NWT Lambert
-        Cell Size (x):     0.0000659 --> 1000.0
-        Cell Size (y):     0.0000742 --> 1000.0
-        Top:               65.85 --> 8834724.40
-        Left:              -124.95 --> -585644.0
-
-    Add fecundity
-
-    >>> my_model.
-
-    Add two mortality types
-
-    >>> my_model.
     """
 
     def time_this(func):
@@ -117,8 +60,7 @@ class Domain(object):
             return execution
         return inner
 
-    @save
-    def __init__(self, popdyn_path, domain_raster=None, time_step=None):
+    def __init__(self, popdyn_path, domain_raster=None, **kwargs):
         """
         PopDyn domain constructor.
 
@@ -137,20 +79,44 @@ class Domain(object):
             self.path = popdyn_path  # Files are accessed through the file property
             self.load()
         else:
-            # The rest can't be None
-            if any([domain_raster is None, time_step is None]):
-                raise PopdynError('If an input popdyn file is not specified, a domain raster and time step must be.')
+            self.build_new(domain_raster, kwargs)
 
-            # Make sure the name suits the specifications
-            self.path = self.create_file(popdyn_path)
+    @save
+    def build_new(self, domain_raster, **kwargs):
+        """Used in the constructor to build the domain using input arguments"""
+        # Make sure the name suits the specifications
+        self.path = self.create_file(popdyn_path)
 
+        if domain_raster is None:
+            # Try and build the domain using keyword arguments
+            self.__dict__.update(kwargs)
+
+            try:
+                if not hasattr(self, 'mask'):
+                    self.mask = np.ones(self.shape)
+                if not hasattr(self, 'projection'):
+                    self.projection = ''
+                else:
+                    # Projection must be a SRID
+                    sr = osr.SpatialReference()
+                    try:
+                        sr.ImportFromEPSG(self.projection)
+                    except TypeError:
+                        raise PopdynError('Only a SRID is an accepted input projection argument')
+                    self.projection = sr.ExportToWkt()
+            except AttributeError:
+                raise PopdynError('If an input popdyn file and domain raster are not specified, '
+                                  'the following keyword args must be included (at a minimum):\n'
+                                  'csx, csy, shape, top, left')
+
+        else:
             # Read the specifications of the spatial domain using the input raster
             spatial_params = self.data_from_raster(domain_raster)
-            self.csx, self.csy,  self.shape, self.top, self.left, self.projection, self.mask = spatial_params
+            self.csx, self.csy, self.shape, self.top, self.left, self.projection, self.mask = spatial_params
 
-            # Create some other attributes
-            self.profiler = {}  # Used for profiling function times
-            self.species = {}
+        # Create some other attributes
+        self.profiler = {}  # Used for profiling function times
+        self.species = {}
 
     @staticmethod
     def raster_as_array(raster):
@@ -197,19 +163,24 @@ class Domain(object):
             return csx, csy, shape, top, left, projection, mask
 
         # Collecting data...see if a transform is required
-        # Spatial References
-        in_sr = osr.SpatialReference()
-        domain_sr = osr.SpatialReference()
-        in_sr.ImportFromWkt(projection)
-        domain_sr.ImportFromWkt(projection)
-
         # Extent and position
         spatial_tests = zip([top, left, csx, csy, shape],
                             [self.top, self.left, self.csx, self.csy, self.shape])
         spatial_tests = [np.isclose(d_in, d_d) for d_in, d_d in spatial_tests]
 
+        # Spatial References
+        if self.projection == '':
+            # Cannot change the spatial reference if it is not known
+            spatial_tests += [True]
+        else:
+            in_sr = osr.SpatialReference()
+            domain_sr = osr.SpatialReference()
+            in_sr.ImportFromWkt(projection)
+            domain_sr.ImportFromWkt(self.projection)
+            spatial_tests += [in_sr.IsSame(domain_sr)]
+
         # They all must be true to avoid a transform
-        if not all(spatial_tests + [in_sr.IsSame(domain_sr)]):
+        if not all(spatial_tests):
             # Transform the input dataset
             file_source = self.transform_ds(file_source)
 
@@ -248,7 +219,7 @@ class Domain(object):
         _outsrs = osr.SpatialReference()
         _insrs.ImportFromWkt(insrs)
         _outsrs.ImportFromWkt(outsrs)
-        if _insrs.IsSame(_outsrs):
+        if self.projection == '' or _insrs.IsSame(_outsrs):
             insrs, outsrs = None, None
 
         gdal.ReprojectImage(gdal_raster, outds, insrs, outsrs)
@@ -367,27 +338,18 @@ class Domain(object):
             add_group(key, f)
 
     @save
-    def add_species(self, species):
+    def add_population(self, species, data, time, **kwargs):
         """
-        DO NOT USE: This method is intended to be called within the Species constructor.
-        :param popdyn.Species species: An instance of the Species class
-        :return: None
-        """
-        # Create a unique id to refer to this species, as multiple species with the same name may be added
-        id = next(uid())
+        Add population data for a given species at a specific time slice in the domain
+        :param Species species: A Species instance
+        :param type data: Population data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
+        :param time: The time slice to insert the population data into
 
-        # Add the species to the model
-        self.species[id] = species
+        :param dict kwargs:
+            :distribute: Divide the input population data evenly among the domain elements
+            :distribute_by_habitat: Divide the input population among domain elements using
+                carrying capacity as a covariate
 
-    def add_population(self, species, sex, age_or_gp, population, time, distribute=True):
-        """
-        Add an array of population/cell for a given species
-        :param species: Species to add the population to
-        :param sex: Sex of the population
-        :param age_or_gp: Age of the population, or age group (to split evenly over)
-        :param population: Population data (ndarray)
-        :param time: The time to insert the population into
-        :param distribute: (optional) Distribute the population evenly, or using habitat if it exists in the model
         :return: None
         """
         def _distribute():
@@ -622,99 +584,51 @@ class Domain(object):
             with self.file as f:
                 return _get_ages(f)
 
-# Species [1]
-#    |
-#    sex [2]
-#      |
-#      if female: (fecundity,
-#      |
-#      age group [gp, n]
-#          |
-#          mortality [n]
-#          |
-#          dispersal [n]
-#          |
-#          population [range(gp.min(), gp.max() + 1)]
-#          |
-#          reproduces [1]
+
 class Species(object):
 
     def __init__(self, name):
-        pass
-
-    def add_species(self, name, age_ranges, groups=None, sex=None, reproduces=None):
         """
-        Add a species to the model domain
-        :param name: Name of the species. Example "Moose".
-        :param age_ranges: A tuple of age tuples (min, max) in a group of length corresponding to categories.
-            Example ((0, 1), (2, 2), (3, 4), (5, 15)).
-        :param groups: A tuple of age category names that matches the length of age_ranges. This may be left empty
-            if the age_ranges is a single number, and it will be called "lifetime". Otherwise, it must be specified.
-        :param sex: The sex of the species that is being added.  If not specified, hermaphrodite will be used.
-        :param reproduces: A boolean tuple indicating with of the categories are able to reproduce. If not specified,
-            all will not be capable of reproduction, unless a fecundity dataset is provided.
-        :return: None
-        """
-        if sex is None:
-            sex = 'hermaphrodite'
 
+        :param str name: Name of the species. Example "Moose"
+        """
         # Limit species names to 25 chars
         if len(name) > 25:
-            raise PopdynError('Species names must not exceed 25 characters.  Use something simple, like "Moose".')
-        if '/' in name:
-            raise PopdynError('The character "/" may not be in the species name. Use something simple, like "Moose".')
+            raise PopdynError('Species names must not exceed 25 characters. '
+                              'Use something simple, like "Moose".')
 
-        if not hasattr(age_ranges[0], '__iter__'):
-            self.group_ages[name][sex] = [map(float, age_ranges)]
-        else:
-            self.group_ages[name][sex] = [map(float, age) for age in age_ranges]
+        self.name = name
+        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
 
-        if not hasattr(groups, '__iter__'):
-            self.groups[name][sex] = [str(groups)]
-        else:
-            self.groups[name][sex] = list(map(float, age_ranges))
+        # No dispersal by default
+        self.dispersal = {}
 
-        if len(self.groups[name][sex]) != len(self.group_ages[name][sex]):
-            raise PopdynError('The number of age ranges ({}) does not match the number of groups ({})'
-                              ''.format(len(self.group_ages[name][sex]), len(self.groups[name][sex])))
+        # Reproduces by default
+        self.reproduces = True
 
-        if reproduces is None:
-            reproduces = [False for _ in range(len(self.groups[name][sex]))]
+    def add_dispersal(self, dispersal_type, args):
+        if dispersal_type not in dispersal.METHODS.keys():
+            raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
 
-        if not hasattr(reproduces, '__iter__'):
-            self.group_reproduction[name][sex] = [bool(reproduces)]
-        else:
-            self.group_reproduction[name][sex] = list(map(bool, reproduces))
-
-    def reproduces(self, species, sex, age_gp):
-        """Assert whether an age group reproduces"""
-        try:
-            index = [i for i, gp in enumerate(self.groups[species][sex]) if gp == age_gp][0]
-        except (IndexError, KeyError):
-            raise PopdynError('Cannot find the species, sex, or age group using {}-{}-{}'.format(species, sex, age_gp))
-        return self.group_reproduction[species][sex][index]
+        self.dispersal[dispersal_type] = args
 
 
 class Sex(Species):
 
-    def __init__(self, type):
+    def __init__(self, name, sex):
 
-        self.sex = type
+        self.sex = sex
+
+        super(Sex, self).__init__(name)
 
 
 class AgeGroup(Sex):
 
-    def __init__(self, ages):
+    def __init__(self, species_name, group_name, sex, min_age, max_age):
 
-        self.ages = ages
+        self.group_name = group_name
 
-    def get_population_keys(self, species, sex, age_group, time):
-        """Return a list of population keys associated with an age group"""
-        gps = self.get_age_groups(species, sex)
-        keys = []
-        for age, i in enumerate(self.get_age_ranges(species, sex)):
-            if age_group == gps[i]:
-                for _age in range(age[0], age[1] + 1):
-                    keys.append('%s/%s/%s/%s' % (species, sex, time, _age))
-                break
-        return keys
+        # Make the ages a range array
+        self.ages = np.arange(min_age, max_age + 1)
+
+        super(AgeGroup, self).__init__(species_name, sex)
