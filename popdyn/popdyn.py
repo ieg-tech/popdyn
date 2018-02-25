@@ -228,6 +228,43 @@ class Domain(object):
         return outds
 
     @staticmethod
+    def get_time_input(time):
+        """Make sure an input time is an integer"""
+        try:
+            _time = int(time)
+        except:
+            raise PopdynError("Unable to parse the input time of type {}".format(type(time).__name__))
+
+        if not np.isclose(_time, time):
+            raise PopdynError('Input time may only be an integer (whole number)')
+
+        return _time
+
+    def get_data_type(self, data):
+        """Parse a data argument to retrieve a domain-shaped matrix"""
+        # First, try for a file
+        if isinstance(data, basestring) and os.path.isfile(data):
+            return self.data_from_raster(data)
+
+        # Try and construct a matrix from data
+        else:
+            try:
+                data = np.array(data)
+            except:
+                raise PopdynError('Unable to parse the input data of type {} into the domain'
+                                  ''.format(type(data).__name__))
+
+            try:
+                if data.shape[0] == self.shape[0]:
+                    return np.broadcast_to(data[:, None], self.shape)
+                else:
+                    return np.broadcast_to(data, self.shape)
+            except:
+                raise PopdynError('Unable broadcast the input data of shape {} into the domain shpae ({})'
+                                  ''.format(data.shape, self.shape))
+
+
+    @staticmethod
     def create_file(path):
         """Create the domain HDF5 file.  The extension .popdyn is appended if it isn't already"""
         if path.split('.')[-1] != 'popdyn':
@@ -319,7 +356,7 @@ class Domain(object):
     def add_directory(self, key):
         """
         Internal method to manage addition of HDF5 groups in the .popdyn file
-        Groups are added recursively in order to add the entire directory tree
+        Groups are added recursively to create the entire directory tree
         :param str key: key for group
         :return: None
         """
@@ -347,8 +384,8 @@ class Domain(object):
 
         :param dict kwargs:
             :distribute: Divide the input population data evenly among the domain elements
-            :distribute_by_habitat: Divide the input population among domain elements using
-                carrying capacity as a covariate
+            :distribute_by_habitat: Divide the input population linearly among domain elements using
+                the covariate carrying capacity
 
         :return: None
         """
@@ -374,34 +411,27 @@ class Domain(object):
 
             return _pop
 
-        # Check inputs
-        try:
-            population = np.broadcast_to(population, self.shape)
-        except:
-            raise PopdynError('The input population of shape %s does not match'
-                              ' that of the domain: %s' % (population.shape,
-                                                           self.shape))
+        # Gather input data
+        data = self.get_data_type(data)
+        time = self.get_time_input(time)
 
-        if not np.all(population == 0):
-            sex = sex.lower()
-            if sex not in ['male', 'female', 'hermaphrodite']:
-                raise PopdynError('Sex must be male, female, or hermaphrodite, not %s' % sex)
+        '{0}/{1}/{2}'
 
-            # Collect the key to the population dataset
-            keys = self.get_population_keys(species, sex, age_or_gp, time)
-            if len(keys) == 0:
-                # Absolute age
-                keys = ['%s/%s/%s/%s' % (species, sex, time, age_or_gp)]
+        # Collect the key to the population dataset
+        keys = self.get_population_keys(species, sex, age_or_gp, time)
+        if len(keys) == 0:
+            # Absolute age
+            keys = ['%s/%s/%s/%s' % (species, sex, time, age_or_gp)]
 
-            # Split population by number of ages in the group
-            population /= len(keys)
+        # Split population by number of ages in the group
+        population /= len(keys)
 
-            for key in keys:
-                if distribute:
-                    # Apply population selectively using k at the start time
-                    self._create_dataset(key, _distribute())
-                else:
-                    self._create_dataset(key, population)
+        for key in keys:
+            if distribute:
+                # Apply population selectively using k at the start time
+                self._create_dataset(key, _distribute())
+            else:
+                self._create_dataset(key, population)
 
     def add_fecundity(self, species, age_gp, fecundity, time):
         """
