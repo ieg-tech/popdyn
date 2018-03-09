@@ -3,12 +3,31 @@ Manipulate datasets used in the popdyn simulations using random, lookup selectio
 
 ALCES 2018
 """
-import numpy
+import numpy as np
 from util import file_or_array
 
 
-RANDOM_METHODS = {'normal': numpy.random.normal,
-                  'uniform': numpy.random.uniform}
+RANDOM_METHODS = {'normal': np.random.normal,
+                  'uniform': np.random.uniform}
+
+
+class DynamicError(Exception):
+    pass
+
+
+def collect_lookup(input_table):
+    """
+    Parse an input lookup dictionary.
+    :param iterable input_table: Lookup table in the form: [(x1, y1), (x2, y2)...(xn, yn)]
+    :return: 
+    """
+    try:
+        return np.asarray(input_table).T
+    except:
+        raise DynamicError('The input lookup table of type "{}" cannot be read in its current format'.format(
+            type(input_table).__name__)
+        )
+
 
 def random_array(array, method, **kwargs):
     """
@@ -36,9 +55,9 @@ def return_dynamic(f):
         # Collect random value using normal distribution
         loc, scale = (f[key + '/normalloc'][:].ravel(),
                       f[key + '/normalscale'][:].ravel())
-        if numpy.any(scale > 0):
+        if np.any(scale > 0):
             _mean = loc.mean()
-            _rnd = numpy.random.normal(_mean, scale)  # Use a single mean to get random value as a delta
+            _rnd = np.random.normal(_mean, scale)  # Use a single mean to get random value as a delta
             a = (loc + _rnd - _mean).reshape(self.shape)
         else:
             a = loc.reshape(self.shape)
@@ -47,7 +66,7 @@ def return_dynamic(f):
         # Random selection within uniform range
         low, high = (f[key + '/uniformlower'][:].ravel(),
                      f[key + '/uniformupper'][:].ravel())
-        a = numpy.random.uniform(low, high).reshape(self.shape)
+        a = np.random.uniform(low, high).reshape(self.shape)
     else:
         raise PopdynError('Unknown data collection method')
     return a
@@ -65,7 +84,7 @@ def collect_from_lookup(self, key, a, file_instance=None):
 
     def lookup(f):
         x, y = f[key].attrs['lookup'][0, :], f[key].attrs['lookup'][1, :]
-        return numpy.pad(y, 1, 'edge')[1:][numpy.digitize(a, x)]
+        return np.pad(y, 1, 'edge')[1:][np.digitize(a, x)]
 
     if file_instance is not None:
         return lookup(file_instance)

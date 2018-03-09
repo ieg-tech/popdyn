@@ -3,13 +3,48 @@ Population dynamics numerical solvers
 
 ALCES 2018
 """
+from popdyn import *
 
-def version_two_solver():
+
+def error_check(domain):
+    """Make sure there are no conflicts within a domain"""
+    # Check age ranges within groups of each species
+    def collect_ages(sex_d):
+        ages = []
+        for age_group in sex_d.keys():
+            if age_group is None:
+                continue
+            instance = sex_d[age_group]['instance']
+            if any([isinstance(instance, obj) for obj in [Species, Sex, AgeGroup]]):
+                ages += range(instance.min_age, instance.max_age + 1)
+
+    # Iterate species
+    for species_key in domain.species.keys():
+        # Iterate sexes
+        for sex in domain.species[species_key].keys():
+            # Collect the ages associated with this sex if possible
+            if sex is None:
+                continue
+            ages = collect_ages(domain.species[species_key][sex])
+
+            # Ensure there are no overlapping age groups
+            if np.any(np.diff(np.sort(ages)) == 0):
+                raise PopdynError(
+                    'The species (key) {} {}s have group age ranges that overlap'.format(
+                        species_key, sex)
+                )
+
+
+    # Check that species with relationships are both included
+
+
+
+def discrete_explicit():
     """"""
     pass
 
 
-def version_one_solver(duration, **kwargs):
+def retired(duration, **kwargs):
     """
     Compute populations from start_time over a duration using the inherent
     time step.

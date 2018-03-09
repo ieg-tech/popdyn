@@ -279,4 +279,4 @@ def window_local_dict(views, prefix='a'):
 METHODS = {'density-based dispersion': density_flux,
            'distance propagation': distance_propagation,
            'density-based network': density_network,
-           'fixed network', fixed_network}
+           'fixed network': fixed_network}
