@@ -4,44 +4,130 @@ Population dynamics numerical solvers
 ALCES 2018
 """
 from popdyn import *
+import dask.array as da
+from dask import delayed
+
+
+class SolverError(Exception):
+    pass
 
 
 def error_check(domain):
-    """Make sure there are no conflicts within a domain"""
-    # Check age ranges within groups of each species
-    def collect_ages(sex_d):
+    """
+    Make sure there are no conflicts within a domain.
+
+    :param Domain domain: Domain instance
+    :return:
+    """
+    def test(sex_d):
+        """Collect all discrete ages from a sex"""
         ages = []
         for age_group in sex_d.keys():
             if age_group is None:
                 continue
-            instance = sex_d[age_group]['instance']
+
+            instance = sex_d[age_group]
             if any([isinstance(instance, obj) for obj in [Species, Sex, AgeGroup]]):
                 ages += range(instance.min_age, instance.max_age + 1)
 
-    # Iterate species
-    for species_key in domain.species.keys():
+        if np.any(np.diff(np.sort(ages)) == 0):
+            raise SolverError(
+                'The species (key) {} {}s have group age ranges that overlap'.format(
+                    species_key, sex)
+            )
+
+    # Make sure at least one species exists in the domain
+    species_keys = domain.species.keys()
+    if len(species_keys) == 0:
+        raise SolverError('At least one species must be placed into the domain')
+
+    # Iterate species and ensure there are no overlapping age groups
+    for species_key in species_keys:
         # Iterate sexes
         for sex in domain.species[species_key].keys():
             # Collect the ages associated with this sex if possible
             if sex is None:
                 continue
-            ages = collect_ages(domain.species[species_key][sex])
-
-            # Ensure there are no overlapping age groups
-            if np.any(np.diff(np.sort(ages)) == 0):
-                raise PopdynError(
-                    'The species (key) {} {}s have group age ranges that overlap'.format(
-                        species_key, sex)
-                )
-
+            test(domain.species[species_key][sex])
 
     # Check that species with relationships are both included
+    def get_species(d):
+        for key, val in d.items():
+            if isinstance(val, dict):
+                get_species(val)
+            elif isinstance(val, tuple):
+                if val[0].species is not None:
+                    species.append(val[0].species.name_key)
+
+    for ds_type in ['carrying_capacity', 'mortality']:
+        species = []
+        get_species(getattr(domain, ds_type))
+        if not np.all(np.in1d(np.unique(species), species_keys)):
+            # Flesh out the species the hard way for a convenient traceback
+            for sp in species:
+                if sp not in species_keys:
+                    raise SolverError(
+                        'The domain requires the species (key) {} to calculate {}'.format(
+                            sp, ds_type.replace('_', ' '))
+                    )
 
 
+# def cascade_population(domain, start_time, end_time):
+#     """
+#     Divide population among children of species if they exist
+#     :param domain:
+#     :param start_time:
+#     :return:
+#     """
+#     # Get all species
+#     species_keys = domain.species.keys()
+#     for species in species_keys:
+#         sex_keys = domain[species].keys()
+#         # If there are no sexes move on
+#         if all([sex is None for sex in sex_keys]):
+#             continue
+#
+#         # Distribute to sexes
+#         for sex in sex_keys:
+#             age_keys = domain[species][sex].keys()
+#
+#             for time in range(start_time, end_time + 1):
+#                 # Collect all toplevel populations
+#                 species_level = domain.get_population(species, None, None, time)
+#                 # Collect all sex-level populations and distribute species to these
+#                 sex_level = domain.get_population(species, sex, None, time)
+#                 distribute(species_level, sex_level)
+#
+#                 if all([age is not None for age in age_keys]):
+#                     continue
+#
+#                 # Collect sex level again
+#                 sex_level = domain.get_population(species, sex, None, time)
+#                 # Collect age group level
+#                 age_level = domain.get_population(species, sex, ag)
+#                 distribute(sex_leve, age_level)
 
-def discrete_explicit():
-    """"""
-    pass
+
+def discrete_explicit(domain, start_time, end_time):
+    """
+
+    :param domain: Domain instance populated with at least one species
+    :param start_time: Start time of the simulation
+    :param end_time: End time of the simulation
+    :return: None
+    """
+    # Domain preparation
+    error_check(domain)
+
+    # Prepare time
+    start_time = Domain.get_time_input(start_time)
+    end_time = Domain.get_time_input(end_time)
+
+    cascade_population(domain, start_time, end_time)
+
+    # Iterate time
+    for time in range(start_time, end_time + 1):
+
 
 
 def retired(duration, **kwargs):

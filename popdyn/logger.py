@@ -7,6 +7,49 @@ ALCES 2018
 from datetime import datetime
 from dateutil.tz import tzlocal
 
+
+class LoggerError(Exception):
+    pass
+
+
+def visualize(domain, output_file, time=None):
+    """Visualize this domain tree"""
+    try:
+        import graphviz as gv
+    except ImportError:
+        raise LoggerError('Cannot visualize the domain because graphviz is not installed')
+
+    def build_key(one_up, key):
+        if one_up == 'Domain':
+            return key
+        else:
+            return '{}\n{}'.format(one_up, key)
+
+    def new_node(d, one_up):
+        for key, val in d.items():
+            if isinstance(val, dict):
+                node_key = build_key(one_up, key)
+                new_node(val, node_key)
+            else:
+                key = val.group_key
+            if key is None:
+                continue
+            node_key = build_key(one_up, key)
+            graph.node(node_key)
+            graph.edge(one_up, node_key)
+
+    graph = gv.Graph(format='png')
+    new_node(domain.species, 'Domain')
+
+    # Add mortality, carrying capacity and population if time is specified
+    if time is not None:
+        raise NotImplementedError('Have yet to complete this visualization tool')
+
+    # Save the output graph
+    if output_file.split('.')[-1].lower() == 'png':
+        output_file = output_file[:-4]
+    graph.render(filename=output_file)
+
 # Pasted from simulation:
 # self.formalLog = {'Parameterization': {'Domain size': str(self.shape),
 #                                            'Cell size (x)': self.csx,

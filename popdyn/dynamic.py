@@ -1,5 +1,7 @@
 """
-Manipulate datasets used in the popdyn simulations using random, lookup selections or other
+Manipulate datasets used in the popdyn simulation domain. Implemented types are:
+ -Lookup tables, which modify values based on bivariate relationships
+ -Random number generators using various sampling distributions
 
 ALCES 2018
 """
@@ -8,7 +10,9 @@ from util import file_or_array
 
 
 RANDOM_METHODS = {'normal': np.random.normal,
-                  'uniform': np.random.uniform}
+                  'uniform': np.random.uniform,
+                  'chi-square': np.random.chisquare,
+                  'weibull': np.random.weibull}
 
 
 class DynamicError(Exception):
@@ -22,11 +26,16 @@ def collect_lookup(input_table):
     :return: 
     """
     try:
-        return np.asarray(input_table).T
+        a = np.asarray(input_table).T
     except:
         raise DynamicError('The input lookup table of type "{}" cannot be read in its current format'.format(
             type(input_table).__name__)
         )
+
+    # Calculate linear regression parameters for each segment of the lookup
+    X = zip(a[0, :-1], a[0, 1:])
+    Y = zip(a[1, :-1], a[1, 1:])
+    return [np.linalg.solve([[x[0], 1.], [x[1], 1.]], [y[0], y[1]]) for x, y in zip(X, Y)]
 
 
 def random_array(array, method, **kwargs):
