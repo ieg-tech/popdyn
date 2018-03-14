@@ -36,7 +36,8 @@ class Domain(object):
         -Prepare and save spatially-distributed data
         -Relate spatially-distributed data to species instances (Species, Sex, AgeGroup)
         -Call code to solve the population over time
-    Species are added to a model domain through use of any of the these methods:
+    Species are added to a model domain through use of any of the these methods,
+    which coincide with the respective datasets.
         add_population
         add_mortality
         add_carrying_capacity
@@ -151,6 +152,14 @@ class Domain(object):
 
     def __getitem__(self, item):
         return self.file[item]
+
+    def __setitem__(self, key, data):
+        try:
+            del self.file[key]
+        except KeyError:
+            pass
+        _ = self.file.create_dataset(key, data=np.broadcast_to(data, self.shape),
+                                     compression='lzf', chunks=self.chunks)
 
     def __repr__(self):
         return 'Popdyn model domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
@@ -384,17 +393,19 @@ class Domain(object):
         discrete_age = kwargs.get('discrete_age', None)
 
 
-        try:
-            ages = np.arange(species.min_age, species.max_age + 1)
-            if discrete_age is not None:
-                if discrete_age not in ages:
-                    raise PopdynError('The inpute discrete age {} does not exist for the species {} {}s of {}'.format(
-                        discrete_age, species.name, species.sex, species.group_name
-                    ))
-                ages = [discrete_age]
-        except AttributeError:
+        ages = species.age_range
+        if ages is None:
             # No ages are used, this is simply a population tied to a species or sex
             ages = [None]
+
+        if discrete_age is not None:
+            if discrete_age not in ages:
+                raise PopdynError('The input discrete age {} does not exist for the'
+                                  ' species {} {}s of (key) {}'.format(
+                    discrete_age, species.name, species.sex, species.group_key
+                ))
+            ages = [discrete_age]
+
 
         distribute_by_habitat = kwargs.get('distribute_by_habitat', False)
         if distribute_by_habitat:
@@ -562,7 +573,7 @@ class Domain(object):
                 if isinstance(val, dict):
                     is_age(val)
                 elif any([isinstance(val, obj) for obj in [Species, Sex, AgeGroup]]):
-                    ages.append(range(val.min_age, val.max_age + 1))
+                    ages.append(val.age_range)
 
         ages = []
         is_age(self.species[species_name][sex])
@@ -635,16 +646,12 @@ class Domain(object):
         try:
             ds = self[key]
         except KeyError:
-            # Simply create a new one if it does not exist and exit function
-            _ = self.file.create_dataset(key, data=np.broadcast_to(data, self.shape),
-                                         compression='lzf', chunks=self.chunks)
+            self[key] = data
             return
 
         # Activate a replacement method because the dataset exists
         if overwrite == 'replace':
-            del self.file[key]
-            ds = self.file.create_dataset(key, data=np.broadcast_to(data, self.shape),
-                                          compression='lzf', chunks=self.chunks)
+            self[key] = data
         elif overwrite == 'add':
             ds[:] = np.add(ds, data)
         elif overwrite == 'subtract':
@@ -680,7 +687,6 @@ class Domain(object):
     def get_carrying_capacity(self, species_key, sex, group_key, time, snap_to_time=True, avoid_inheritance=False):
         """
         Collect the carrying capacity instance - key pairs
-        :param str ds_type: One of 'mortality', 'population' or 'carrying_capacity'
         :param str species_key:
         :param str sex:
         :param str group_key:
@@ -723,9 +729,27 @@ class Domain(object):
 
         return datasets.values()
 
-    def get_population(self, species_key, sex, group_key, time, age):
+    def get_population(self, species_key, time, sex=None, group_key=None, age=None):
         """
-        Collect the population keys of a species at a given time. All keys for a given query are returned.
+        Collect the population key of a species/sex/group at a given time if it exists
+        :param species_key:
+        :param time:
+        :param sex:
+        :param group_key:
+        :param age:
+        :return: key or None
+        """
+        time = self.get_time_input(time)
+
+        key = self.population[species_key][sex][group_key][time][age]
+        if len(key) > 0:
+            return key
+        else:
+            return None
+
+    def all_population_keys(self, species_key, time, sex=None, group_key=None):
+        """
+        Collect the population keys of a species at a given time. All children keys are returned.
         :param species_key:
         :param time:
         :param sex:
@@ -742,19 +766,18 @@ class Domain(object):
         groups = [group_key]
         if group_key is None:
             for _sex in sexes:
-                groups += self.population[species_key][_sex].keys()
+                groups += [key for key in self.population[species_key][_sex].keys() if key is not None]
 
         keys = []
         for _sex in sexes:
             for group in groups:
-                if age is None:
-                    keys += self.population[species_key][_sex][group][time].values()
-                else:
+                age_keys = self.population[species_key][_sex][group][time].keys()
+                for age in age_keys:
                     val = self.population[species_key][_sex][group][time][age]
                     if len(val) > 0:  # Could be a defaultdict, or string
                         keys.append(val)
 
-        return keys
+        return np.unique(keys)
 
 
 # Species classes
@@ -796,6 +819,13 @@ class Species(object):
             raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
 
         self.dispersal[dispersal_type] = args
+
+    @property
+    def age_range(self):
+        try:
+            return range(self.min_age, self.max_age + 1)
+        except AttributeError:
+            return None
 
 
 class Sex(Species):

@@ -3,7 +3,7 @@ Manipulate datasets used in the popdyn simulation domain. Implemented types are:
  -Lookup tables, which modify values based on bivariate relationships
  -Random number generators using various sampling distributions
 
-ALCES 2018
+Devin Cairns 2018
 """
 import numpy as np
 from util import file_or_array

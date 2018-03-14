@@ -1,7 +1,7 @@
 """
 Populations dynamics logging tools
 
-ALCES 2018
+Devin Cairns 2018
 """
 
 from datetime import datetime
