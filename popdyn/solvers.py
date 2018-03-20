@@ -5,7 +5,6 @@ Devin Cairns, 2018
 """
 from popdyn import *
 import dask.array as da
-from dask import delayed
 
 
 class SolverError(Exception):
@@ -72,26 +71,40 @@ def error_check(domain):
                     )
 
 
-def cascade_population(domain, start_time, end_time):
+def inherit(domain, start_time, end_time):
     """
-    Divide population among children of species if they exist
+    Divide population and carrying capacity among children of species if they exist
     :param domain:
-    :param start_time:
+    :param int start_time:
+    :param int end_time:
     :return:
     """
     # Iterate all species and times in the domain
     for species in domain.species.keys():
         sex_keys = [key for key in domain.species[species].keys() if key is not None]
         for time in range(start_time, end_time + 1):
-
-            # Collect the toplevel species dataset if it exists, and distribute it among the sexes
-            ds = None
+            # Collect the toplevel species datasets if they exist, and distribute them among the sexes
+            population_ds = cc_ds = None
             species_population_key = domain.get_population(species, time)
+            # Multiple carrying capacity datasets may exist
+            carrying_capacity = domain.get_carrying_capacity(species, time, snap_to_time=False)
+
+            # Population
             if species_population_key is not None and len(sex_keys) > 0:
                 # Read the species-level population data and remove from the domain
-                ds = domain[species_population_key][:] / len(sex_keys)
-                del domain.population[species][None][None][time][None]  # Group, sex and age are None
-                del domain.file[species_population_key]
+                population_ds = domain[species_population_key][:] / len(sex_keys)
+                domain.remove_dataset('population', species, None, None, time, None)  # Group, sex and age are None
+            # Carrying capacity
+            if len(carrying_capacity) > 0 is not None and len(sex_keys) > 0:
+                # Read the species-level carrying capacity data and remove from the domain
+                cc_ds = []
+                for cc in carrying_capacity:
+                    if cc[1] is not None:
+                        cc_ds.append((cc[0], cc[1][:] / len(sex_keys)))
+                    else:
+                        cc_ds.append((cc[0], None))
+                    # Remove each dataset under the name key
+                    domain.remove_dataset('carrying_capacity', species, None, None, time, cc[0].name_key)
 
             # Iterate any sexes in the domain
             for sex in sex_keys:
@@ -99,42 +112,81 @@ def cascade_population(domain, start_time, end_time):
                 group_keys = [key for key in domain.species[species][sex].keys() if key is not None]
                 if len(group_keys) == 0:
                     # Apply any species-level data to the sex dataset
-                    if ds is not None:
+                    if population_ds is not None:
                         instance = domain.species[species][sex][None]
                         print("Cascading population {} --> {}".format(species, sex))
-                        domain.add_population(instance, ds, time,
+                        domain.add_population(instance, population_ds, time,
                                               distribute=False, overwrite='add')
+                    if cc_ds is not None:
+                        instance = domain.species[species][sex][None]
+                        for cc in cc_ds:
+                            print("Cascading carrying capacity {} {} --> {}".format(cc[0].name, species, sex))
+                            if cc[1] is not None:
+                                domain.add_carrying_capacity(instance, cc[0], time, cc[1],
+                                                             distribute=False, overwrite='add')
+                            else:
+                                domain.add_carrying_capacity(instance, cc[0], time, distribute=False, overwrite='add')
                 else:
-                    # Combine the species-level and sex-level datasets
+                    # Combine the species-level and sex-level datasets for population
+                    # ---------------------------------------------------------------
                     sex_population_key = domain.get_population(species, time, sex)
                     if sex_population_key is None:
-                        if ds is None:
+                        if population_ds is None:
                             # No populations at species or sex level
                             continue
                         else:
                             # Use only the species-level key divided among groups
                             sp_sex_prefix = '{} --> [{}] --> '.format(species, sex)
-                            next_ds = ds / len(group_keys)
+                            next_ds = population_ds / len(group_keys)
                     else:
-                        # Collect the sex-level data and remove it from the Domain
+                        # Collect the sex-level data and remove them from the Domain
                         next_ds = domain[sex_population_key][:]
-                        del domain.population[species][sex][None][time][None]  # Group and age are None
-                        del domain.file[sex_population_key]
+                        domain.remove_dataset('population', species, sex, None, time, None)  # Group and age are None
 
                         # Add the species-level data if necessary and divide among groups
-                        if ds is not None:
+                        if population_ds is not None:
                             sp_sex_prefix = '{} --> {} --> '.format(species, sex)
-                            next_ds += ds
+                            next_ds += population_ds
                         else:
                             sp_sex_prefix = '[{}] --> {} --> '.format(species, sex)
                         next_ds /= len(group_keys)
 
-                    # Apple populations to groups
+                    # Combine the species-level and sex-level datasets for carrying capacity
+                    # ----------------------------------------------------------------------
+                    # All carrying capacity datasets are appended, and not added together
+                    next_cc_ds = []
+                    if cc_ds is not None:
+                        # Use only the species-level keys divided among groups
+                        for cc in cc_ds:
+                            if cc[1] is None:
+                                next_cc_ds.append(cc)
+                            else:
+                                next_cc_ds.append((cc[0], cc[1] / len(group_keys)))
+
+                    sex_carrying_capacity = domain.get_carrying_capacity(species, time, sex, snap_to_time=False)
+                    # Collect the sex-level data, append them to groups, and remove them from the Domain
+                    for cc in sex_carrying_capacity:
+                        if cc[1] is None:
+                            next_cc_ds.append(cc)
+                        else:
+                            next_cc_ds.append((cc[0], cc[1][:] / len(group_keys)))
+                        # Remove each dataset under the name key
+                        domain.remove_dataset('carrying_capacity', species, sex, None, time, cc[0].name_key)
+
+                    # Apply populations and carrying capacity to groups
                     for group in group_keys:
                         instance = domain.species[species][sex][group]
                         print("Cascading population {}{}".format(sp_sex_prefix, group))
                         domain.add_population(instance, next_ds, time,
                                               distribute=False, overwrite='add')
+                        for cc in next_cc_ds:
+                            print("Cascading carrying capacity {} -- > {}".format(cc[0].name, group))
+                            if cc[1] is None:
+                                domain.add_carrying_capacity(instance, cc[0], time,
+                                                             distribute=False, overwrite='add')
+                            else:
+                                domain.add_carrying_capacity(instance, cc[0], time, cc[1],
+                                                             distribute=False, overwrite='add')
 
 
 class discrete_explicit(object):
@@ -175,7 +227,7 @@ class discrete_explicit(object):
         error_check(domain)
 
         # Distribute population to lowest possible levels
-        cascade_population(domain, start_time, end_time)
+        inherit(domain, start_time, end_time)
 
         self.D = domain
 
@@ -183,14 +235,129 @@ class discrete_explicit(object):
         """Run the simulation"""
         # Iterate time. The first time step cannot be solved and serves to provide initial parameters
         for time in self.simulation_range:
-            # base time is the previous time step, which is used to collect baseline data
-            base_time = time - 1
-            # Iterate species and solve each independently, deriving relationships from the baseline data
-            for species in self.D.species.keys():
-                # Collect the baseline populations and delay calculations of derived parameters
+            # Record dask pointers to HDF5 population datasets to avoid redundant IO
+            population = {}
+
+            # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
+            # Each are solved independently, deriving relationships from baseline data
+            [self.propagate(species, sex, group, time, population)
+             # Species
+             for species in self.D.species.keys()
+             # Sex - may not exist
+             for sex in self.D.species[species].keys()
+             # Group - may not exist
+             for group in self.D.species[species][sex].keys()]
+
+    @time_this
+    def propagate(self, species, sex, group, time, population):
+        """INTERNAL factory for propagating solved populations and recording data on the way"""
+        # Collect parameters from the current time step.
+        # All dynamic modifications are also applied in this step
+        # =============================================
+        params = self.calculate_parameters(species, sex, group, time, population)
+
+        # If ages are present, iterate
+        ages = self.D.species[species][sex][group].age_range
+        if ages is None:
+            ages = [None]
+
+        for age in ages:
+            # If all baseline populations are zero, fill output with zeros and propagate
+            if da.all(params['population'] == 0): pass  # this computes!
+
+
+    @time_this
+    def calculate_parameters(self, species, sex, group, time, population):
+        """INTERNAL Collect all required parameters at a time step"""
+        def apply_from_species(species):
+            """Collect keyword args for dynamic data collection from a species"""
+            # Collect the total species population from the previous time step
+            ds = self.D.all_population(species.name_key, time - 1, species.sex, species.group_key)
+            a = da.dstack([da.from_array(d, d.chunks) for d in ds]).sum(axis=-1)
+            kwargs = {'lookup_data': a, 'lookup_table': species.species_table}
+
+            # Include random parameters
+            if hasattr(species, 'random'):
+                kwargs.update({'random_method': species.random, 'random_args': species.random_args})
+
+            return kwargs
+
+        parameters = {}
+
+        # Mortality
+        # ---------------------
+        # Collect Mortality instances and/or data from the domain at the current time step
+        mortality = self.D.get_mortality(species, time, sex, group)
+        if len(mortality) == 0:
+            # Defaults to 0
+            parameters['Mortality'] = da.from_array(np.broadcast_to(0, self.D.shape), self.D.chunks)
+        else:
+            for instance, data in mortality:
+                if data is None:
+                    # Derived from a species and not data
+                    kwargs = apply_from_species(instance.species)
+                else:
+                    kwargs = {}
+                    data = da.from_array(data, data.chunks)
+
+                # Mortality types remain separated by name in order to track numbers associated with types,
+                # and cannot be less than 0
+                collected_mortality = dynamic.collect(data, **kwargs)
+                parameters[instance.name] = da.where(collected_mortality < 0, 0, collected_mortality)
+
+        # Carrying Capacity
+        # ---------------------
+        # Collect CarryingCapacity instances and/or data from the domain at the current time step
+        carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
+        if len(carrying_capacity) == 0:
+            # It must default to 0
+            parameters['Carrying Capacity'] = da.from_array(np.broadcast_to(0, self.D.shape), self.D.chunks)
+        else:
+            cc_sum = []
+            for instance, data, in carrying_capacity:
+                if data is None:
+                    # Derived from a species and not data
+                    kwargs = apply_from_species(instance.species)
+                else:
+                    kwargs = {}
+                    data = da.from_array(data, data.chunks)
+                cc_sum.append(dynamic.collect(data, **kwargs))
+
+            # Carrying capacity is the sum of all contributing data, but cannot be less than 0
+            cc_sum = da.dstack(cc_sum).sum(axis=-1)
+            parameters['Carrying Capacity'] = da.where(cc_sum < 0, 0, cc_sum)
+
+        # Total Population from previous time step
+        # ---------------------
+        total_population = self.D.all_population(species, time - 1, sex, group)
+        parameters['population'] = da.dstack(
+            [da.from_array(tp, self.D.chunks) for tp in  total_population]
+        ).sum(axis=-1)  # Direct from datasets
+
+        # Density, derived from total population and carrying capacity
+        # ---------------------
+        # Density affects fecundity and dispersal
+
+
+        instance = self.D.species[species][sex][group]
+        fecundity = {}
+
+        # Collect all fecundity-related parameters
+
+        if hasattr(instance, 'fecundity'):
+            # First calculate a rate based on a lookup
+            if instance.fecundity_lookup is not None:
                 pass
 
-            # If all baseline populations are zero, fill output with zeros and propagate
+        if hasattr(instance, 'random'):
+            # TODO: Can fecunidty be random?
+            data = data.map_blocks(apply_random, random_method, random_args, dtype='float32')
+
+        else:
+            # Species-level with no sex identified
+            fecundity = {}
+
+        return parameters
 
 
 class retired(object):
@@ -223,8 +390,8 @@ class retired(object):
         minimum_viable_pop = kwargs.get('minimum_viable_pop', 0.)  # As a total population (n)
         minimum_viable_area = kwargs.get('minimum_viable_area', 1E6)  # In metres squared
 
-        self.reproducingFemales = numpy.unique(self.reproducingFemales)
-        self.reproducingMales = numpy.unique(self.reproducingMales)
+        self.reproducingFemales = np.unique(self.reproducingFemales)
+        self.reproducingMales = np.unique(self.reproducingMales)
 
         self.formalLog['Parameterization'].update({
             'Birth sex allocation': mf_ratio,
@@ -335,7 +502,7 @@ class retired(object):
                     now = profile_time.time()
                     k = f[self.get_carry_capacity_key(species, time_step,
                                                       file_instance=f)]
-                    self.formalLog['Habitat'][species].append(numpy.sum(k))
+                    self.formalLog['Habitat'][species].append(np.sum(k))
 
                     get_carry_capacity_time += profile_time.time() - now
 
@@ -344,7 +511,7 @@ class retired(object):
 
                     def contributing_total(inclusion_males, inclusion_females, migrated=False):
                         if inclusion_males is not None:
-                            males = numpy.zeros(shape=self.shape, dtype='float32')
+                            males = np.zeros(shape=self.shape, dtype='float32')
                             for pop_gp in inclusion_males:
                                 males += self.total_population(species, time_step, age_gp=pop_gp,
                                                                sex='male', migrated=migrated, file_instance=f)
@@ -352,7 +519,7 @@ class retired(object):
                             males = self.total_population(species, time_step, sex='male', migrated=migrated,
                                                           file_instance=f)
                         if inclusion_females is not None:
-                            females = numpy.zeros(shape=self.shape, dtype='float32')
+                            females = np.zeros(shape=self.shape, dtype='float32')
                             for pop_gp in inclusion_females:
                                 females += self.total_population(species, time_step, age_gp=pop_gp,
                                                                  sex='female', migrated=migrated, file_instance=f)
@@ -365,35 +532,35 @@ class retired(object):
                     tot_pop = contMales + contFemales
 
                     try:
-                        self.formalLog['Population'][species]['NA']['Contributing Males'].append(numpy.sum(contMales))
+                        self.formalLog['Population'][species]['NA']['Contributing Males'].append(np.sum(contMales))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Contributing Males'] = [numpy.sum(contMales)]
+                        self.formalLog['Population'][species]['NA']['Contributing Males'] = [np.sum(contMales)]
                     try:
-                        self.formalLog['Population'][species]['NA']['Contributing Females'].append(numpy.sum(contFemales))
+                        self.formalLog['Population'][species]['NA']['Contributing Females'].append(np.sum(contFemales))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Contributing Females'] = [numpy.sum(contFemales)]
+                        self.formalLog['Population'][species]['NA']['Contributing Females'] = [np.sum(contFemales)]
                     try:
-                        self.formalLog['Population'][species]['NA']['Total Population'].append(numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Population'].append(np.sum(
                             self.total_population(species, time_step)
                         ))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Total Population'] = [numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Population'] = [np.sum(
                             self.total_population(species, time_step)
                         )]
                     try:
-                        self.formalLog['Population'][species]['NA']['Total Males'].append(numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Males'].append(np.sum(
                             self.total_population(species, time_step, sex='male')
                         ))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Total Males'] = [numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Males'] = [np.sum(
                             self.total_population(species, time_step, sex='male')
                         )]
                     try:
-                        self.formalLog['Population'][species]['NA']['Total Females'].append(numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Females'].append(np.sum(
                             self.total_population(species, time_step, sex='female')
                         ))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Total Females'] = [numpy.sum(
+                        self.formalLog['Population'][species]['NA']['Total Females'] = [np.sum(
                             self.total_population(species, time_step, sex='female')
                         )]
                     # Average ages
@@ -454,14 +621,14 @@ class retired(object):
                                                                               self.reproducingFemales, population_moved)
 
                     try:
-                        self.formalLog['Population'][species]['NA']['Reproducing Males'].append(numpy.sum(reproducingMales))
+                        self.formalLog['Population'][species]['NA']['Reproducing Males'].append(np.sum(reproducingMales))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Reproducing Males'] = [numpy.sum(reproducingMales)]
+                        self.formalLog['Population'][species]['NA']['Reproducing Males'] = [np.sum(reproducingMales)]
                     try:
                         self.formalLog['Population'][species]['NA']['Reproducing Females'].append(
-                            numpy.sum(reproducingFemales))
+                            np.sum(reproducingFemales))
                     except KeyError:
-                        self.formalLog['Population'][species]['NA']['Reproducing Females'] = [numpy.sum(reproducingFemales)]
+                        self.formalLog['Population'][species]['NA']['Reproducing Females'] = [np.sum(reproducingFemales)]
                     total_age_gnd_gp_time += profile_time.time() - now
 
                     # Create arrays for tracking births
@@ -477,15 +644,15 @@ class retired(object):
                         fecundity_prop = ne.evaluate('where(D>=fecundity_upper_density,1-fecundity_proportion,1)')
                     else:
                         fecundity_prop = 1.
-                    zero_males = numpy.zeros(shape=self.shape,
+                    zero_males = np.zeros(shape=self.shape,
                                              dtype='float32')
-                    zero_females = numpy.zeros(shape=self.shape,
+                    zero_females = np.zeros(shape=self.shape,
                                                dtype='float32')
 
                     birth_calc_time += profile_time.time() - now
 
                     # Iterate age groups
-                    density_dependent_sum = numpy.zeros(shape=self.shape, dtype='float32')
+                    density_dependent_sum = np.zeros(shape=self.shape, dtype='float32')
                     new_keys = []
                     sumBirths, sumDeaths, sumMaleDeaths, sumFemaleDeaths = 0., 0., 0., 0.
                     sumGpDeaths, sumGpFemaleDeaths, sumGpMaleDeaths = {}, {}, {}
@@ -527,17 +694,17 @@ class retired(object):
                             fec *= fecundity_prop
 
                         try:
-                            self.formalLog['Natality'][species][gp]['Minimum fecundity'].append(numpy.min(fec))
+                            self.formalLog['Natality'][species][gp]['Minimum fecundity'].append(np.min(fec))
                         except KeyError:
-                            self.formalLog['Natality'][species][gp]['Minimum fecundity'] = [numpy.min(fec)]
+                            self.formalLog['Natality'][species][gp]['Minimum fecundity'] = [np.min(fec)]
                         try:
-                            self.formalLog['Natality'][species][gp]['Maximum fecundity'].append(numpy.max(fec))
+                            self.formalLog['Natality'][species][gp]['Maximum fecundity'].append(np.max(fec))
                         except KeyError:
-                            self.formalLog['Natality'][species][gp]['Maximum fecundity'] = [numpy.max(fec)]
+                            self.formalLog['Natality'][species][gp]['Maximum fecundity'] = [np.max(fec)]
                         try:
-                            self.formalLog['Natality'][species][gp]['Mean fecundity'].append(numpy.mean(fec))
+                            self.formalLog['Natality'][species][gp]['Mean fecundity'].append(np.mean(fec))
                         except KeyError:
-                            self.formalLog['Natality'][species][gp]['Mean fecundity'] = [numpy.mean(fec)]
+                            self.formalLog['Natality'][species][gp]['Mean fecundity'] = [np.mean(fec)]
 
                         fec_from_lookup_time += profile_time.time() - now
 
@@ -557,7 +724,7 @@ class retired(object):
 
                         sumBirths += births.sum()
 
-                        sumFemales, sumMales = numpy.sum(total_females), numpy.sum(total_males)
+                        sumFemales, sumMales = np.sum(total_females), np.sum(total_males)
 
                         try:
                             self.formalLog['Population'][species][gp]['Males'].append(sumMales)
@@ -575,7 +742,7 @@ class retired(object):
                         # Distribute births among males/females depending on
                         #   relationship
                         if mf_ratio == 'random':
-                            birth_proportion = numpy.random.random(self.shape)
+                            birth_proportion = np.random.random(self.shape)
                             male_births = ne.evaluate(
                                 'births*birth_proportion'
                             )
@@ -590,7 +757,7 @@ class retired(object):
                         zero_males += male_births
                         zero_females += female_births
 
-                        sumFemaleBirths, sumMaleBirths = numpy.sum(female_births), numpy.sum(male_births)
+                        sumFemaleBirths, sumMaleBirths = np.sum(female_births), np.sum(male_births)
                         try:
                             self.formalLog['Natality'][species][gp]['Male offspring'].append(sumMaleBirths)
                         except KeyError:
@@ -632,36 +799,36 @@ class retired(object):
                                 try:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} minimum'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.min(mortality_rates[mortality_name])
+                                        timeIndex] = np.min(mortality_rates[mortality_name])
                                 except KeyError:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} minimum'.format(sex, self.mortality_names[mortality_name])] = \
-                                        numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                        np.zeros(shape=len(simulationRange), dtype='float32')
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} minimum'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.min(mortality_rates[mortality_name])
+                                        timeIndex] = np.min(mortality_rates[mortality_name])
                                 try:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} maximum'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.max(mortality_rates[mortality_name])
+                                        timeIndex] = np.max(mortality_rates[mortality_name])
                                 except KeyError:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} maximum'.format(sex, self.mortality_names[mortality_name])] = \
-                                        numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                        np.zeros(shape=len(simulationRange), dtype='float32')
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} maximum'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.max(mortality_rates[mortality_name])
+                                        timeIndex] = np.max(mortality_rates[mortality_name])
                                 try:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} mean'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.mean(mortality_rates[mortality_name])
+                                        timeIndex] = np.mean(mortality_rates[mortality_name])
                                 except KeyError:
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} mean'.format(sex, self.mortality_names[mortality_name])] = \
-                                        numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                        np.zeros(shape=len(simulationRange), dtype='float32')
                                     self.formalLog['Mortality'][species][gp][
                                         '{} {} mean'.format(sex, self.mortality_names[mortality_name])][
-                                        timeIndex] = numpy.mean(mortality_rates[mortality_name])
+                                        timeIndex] = np.mean(mortality_rates[mortality_name])
 
                                 collect_dynamic_time += profile_time.time() - now
                             # Iterate ages, apply mortality, and propagate
@@ -704,7 +871,7 @@ class retired(object):
                                         maxAgeMort = True
                                         self._create_dataset('%s/%s/%s/mortality/%s/Old Age' %
                                                              (species, time_step, sex, age), _pop, f)
-                                        maxAgeDeaths = numpy.sum(_pop)
+                                        maxAgeDeaths = np.sum(_pop)
                                     else:
                                         maxAgeDeaths = 0
                                     sumDeaths += maxAgeDeaths
@@ -733,7 +900,7 @@ class retired(object):
                                     except KeyError:
                                         self.formalLog['Mortality'][species][gp][
                                             '{} old age deaths'.format(sex)] = \
-                                            numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                            np.zeros(shape=len(simulationRange), dtype='float32')
                                         self.formalLog['Mortality'][species][gp][
                                             '{} old age deaths'.format(sex)][timeIndex] = maxAgeDeaths
                                     if maxAgeMort:
@@ -749,7 +916,7 @@ class retired(object):
                                     self._create_dataset('%s/%s/%s/mortality/%s/%s' %
                                                          (species, time_step, sex, age, mortality_name), _deaths, f)
 
-                                    mortDeaths = numpy.sum(_deaths)
+                                    mortDeaths = np.sum(_deaths)
 
                                     sumDeaths += mortDeaths
                                     if sex == 'male':
@@ -771,7 +938,7 @@ class retired(object):
                                         self.formalLog['Mortality'][species][gp][
                                             '{} age {} {} deaths'.format(
                                                 sex, age, self.mortality_names[mortality_name])] = \
-                                            numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                            np.zeros(shape=len(simulationRange), dtype='float32')
                                     self.formalLog['Mortality'][species][gp][
                                         '{} age {} {} deaths'.format(
                                             sex, age, self.mortality_names[mortality_name])][timeIndex] = mortDeaths
@@ -795,7 +962,7 @@ class retired(object):
                         zero_key = '%s/%s/%s/%s' % (species, time_step +
                                                     self.time_step, sex, 0)
                         # Add population in time slot if it exists (immigration/emigration)
-                        if numpy.sum(births) > 0:
+                        if np.sum(births) > 0:
                             new_keys.append(zero_key)
                             self._create_dataset(zero_key, births, 'add_no_neg',
                                                  file_instance=f)
@@ -841,7 +1008,7 @@ class retired(object):
                             self._create_dataset('%s/%s/%s/mortality/%s/Density Dependent Mortality' %
                                                  (species, time_step, _sex,
                                                   _age), death, f)
-                            dDdeath = numpy.sum(death)
+                            dDdeath = np.sum(death)
                             sumDeaths += dDdeath
                             if _sex == 'male':
                                 sumGpMaleDeaths[gp] += dDdeath
@@ -870,7 +1037,7 @@ class retired(object):
                             except KeyError:
                                 self.formalLog['Mortality'][species][gp][
                                     '{} density dependent mortality deaths'.format(printSex)] = \
-                                    numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                    np.zeros(shape=len(simulationRange), dtype='float32')
                                 self.formalLog['Mortality'][species][gp][
                                     '{} density dependent mortality deaths'.format(printSex)][timeIndex] = dDdeath
 
@@ -894,7 +1061,7 @@ class retired(object):
                                 timeIndex] = modeDeaths[mortMode]
                         except KeyError:
                             self.formalLog['Mortality'][species]['NA']['Total deaths from {}'.format(mortMode)] = \
-                                numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                np.zeros(shape=len(simulationRange), dtype='float32')
                             self.formalLog['Mortality'][species]['NA']['Total deaths from {}'.format(mortMode)][
                                 timeIndex] = modeDeaths[mortMode]
                         try:
@@ -902,7 +1069,7 @@ class retired(object):
                                 timeIndex] = modeMaleDeaths[mortMode]
                         except KeyError:
                             self.formalLog['Mortality'][species]['NA']['Male deaths from {}'.format(mortMode)] = \
-                                numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                np.zeros(shape=len(simulationRange), dtype='float32')
                             self.formalLog['Mortality'][species]['NA']['Male deaths from {}'.format(mortMode)][
                                 timeIndex] = modeMaleDeaths[mortMode]
                         try:
@@ -910,7 +1077,7 @@ class retired(object):
                                 timeIndex] = modeFemaleDeaths[mortMode]
                         except KeyError:
                             self.formalLog['Mortality'][species]['NA']['Female deaths from {}'.format(mortMode)] = \
-                                numpy.zeros(shape=len(simulationRange), dtype='float32')
+                                np.zeros(shape=len(simulationRange), dtype='float32')
                             self.formalLog['Mortality'][species]['NA']['Female deaths from {}'.format(mortMode)][
                                 timeIndex] = modeFemaleDeaths[mortMode]
                     for gp in self.ages:

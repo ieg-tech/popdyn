@@ -6,7 +6,8 @@ Manipulate datasets used in the popdyn simulation domain. Implemented types are:
 Devin Cairns 2018
 """
 import numpy as np
-from util import file_or_array
+import dask.array as da
+from numba import jit
 
 
 RANDOM_METHODS = {'normal': np.random.normal,
@@ -19,11 +20,40 @@ class DynamicError(Exception):
     pass
 
 
+@jit(nopython=True, nogil=True)
+def derive_from_lookup(a, lookup):
+    """Perform linear interpolation on the input array using the lookup parameters"""
+    shape = a.shape
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            e = a[i, j]
+            for row in range(lookup.shape[0]):
+                if lookup[row, 0] <= e < lookup[row, 1]:
+                    a[i, j] = (e * lookup[row, 2]) + lookup[row, 3]
+                    break
+    return a
+
+
+def apply_random(a, method, *args):
+    """
+    Generate random values for each domain element using the existing values
+    and a random number generator distribution
+    :param a: Input array
+    :param method: random method chosen from globally implemented methods
+    :param args: arguments for the random function
+    :return: randomly generated values
+    """
+    # Array should implicitly come from dask
+    args = (a,) + args
+
+    return RANDOM_METHODS[method](*args)
+
+
 def collect_lookup(input_table):
     """
     Parse an input lookup dictionary.
     :param iterable input_table: Lookup table in the form: [(x1, y1), (x2, y2)...(xn, yn)]
-    :return: 
+    :return:
     """
     try:
         a = np.asarray(input_table).T
@@ -35,68 +65,42 @@ def collect_lookup(input_table):
     # Calculate linear regression parameters for each segment of the lookup
     X = zip(a[0, :-1], a[0, 1:])
     Y = zip(a[1, :-1], a[1, 1:])
-    return [np.linalg.solve([[x[0], 1.], [x[1], 1.]], [y[0], y[1]]) for x, y in zip(X, Y)]
+    return np.array(
+        [np.concatenate([x, np.linalg.solve([[x[0], 1.], [x[1], 1.]], [y[0], y[1]])]) for x, y in zip(X, Y)]
+    )
 
 
-def random_array(array, method, **kwargs):
+def collect(data, **kwargs):
     """
-    Collect a dataset that requires dynamic values (i.e. random or
-    selected based on distribution)
+    Route input data through appropriate methods to dynamically derive parameters
+    :param data: data for dynamic allocation
+    :param kwargs:
+        random_method: a random distribution to pick from the globally defined methods
+        random_args: arguments to accompany the random method
+        lookup_data: array to be filtered through a lookup table
+        lookup_table: input lookup table
+    :return: dask array object
     """
-    method = method.lower()
-    if method not in RANDOM_METHODS.keys():
-        raise ValueError('Unsupported method "{}". '
-                         'Choose from one of:\n{}'.format(RANDOM_METHODS, '\n'.join(RANDOM_METHODS.keys())))
+    if data is None:
+        # There must be lookup data
+        try:
+            lookup_data, lookup_table = kwargs['lookup_data'], kwargs['lookup_table']
+        except KeyError:
+            raise DynamicError('The kwargs lookup_data and lookup_table are required if no data are provided')
 
-    a = file_or_array(array)
-
-    return RANDOM_METHODS[method](a, **kwargs)
-
-def snap_time(f):
-    pass
-
-def return_dynamic(f):
-    # If key points directly to a dataset, send it back
-    if isinstance(f[key], h5py.Dataset):
-        return f[key][:]
-    keys = f[key].keys()
-    if all(['normalloc' in keys, 'normalscale' in keys]):
-        # Collect random value using normal distribution
-        loc, scale = (f[key + '/normalloc'][:].ravel(),
-                      f[key + '/normalscale'][:].ravel())
-        if np.any(scale > 0):
-            _mean = loc.mean()
-            _rnd = np.random.normal(_mean, scale)  # Use a single mean to get random value as a delta
-            a = (loc + _rnd - _mean).reshape(self.shape)
-        else:
-            a = loc.reshape(self.shape)
-        a[a < 0] = 0
-    elif all(['uniformupper' in keys, 'uniformlower' in keys]):
-        # Random selection within uniform range
-        low, high = (f[key + '/uniformlower'][:].ravel(),
-                     f[key + '/uniformupper'][:].ravel())
-        a = np.random.uniform(low, high).reshape(self.shape)
+        data = lookup_data.map_blocks(derive_from_lookup, lookup_table, dtype='float32')
     else:
-        raise PopdynError('Unknown data collection method')
-    return a
+        if not isinstance(data, da.Array):
+            raise DynamicError('Input data must be a dask array')
 
-# if file_instance is not None:
-#     return return_dynamic(file_instance)
-#
-# with self.file as f:
-#     return return_dynamic(f)
+    # TODO: Question: Does randomness still apply when mortality or carrying capacity are derived from another species?
 
-def collect_from_lookup(self, key, a, file_instance=None):
-    """
-    Return a modified array based on lookup tables from a GID
-    """
+    # Perturb using random values generated from the input distribution
+    random_method = kwargs.get('random_method', None)
+    random_args = kwargs.get('random_args', None)
+    if random_method is not None:
+        if random_args is None:
+            raise DynamicError('If a random method is supplied, random arguments may not be NoneType')
+        data = data.map_blocks(apply_random, random_method, random_args, dtype='float32')
 
-    def lookup(f):
-        x, y = f[key].attrs['lookup'][0, :], f[key].attrs['lookup'][1, :]
-        return np.pad(y, 1, 'edge')[1:][np.digitize(a, x)]
-
-    if file_instance is not None:
-        return lookup(file_instance)
-    else:
-        with self.file as f:
-            return lookup(f)
+    return data

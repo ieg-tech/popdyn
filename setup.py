@@ -19,13 +19,13 @@ def is_installed(name):
         return False
 
 
-requires = ['numpy', 'h5py', 'numexpr']
+requires = ['h5py', 'dask', 'numba']
 
 setup(name='popdyn',
       version=version,
       description='popdyn is a population dynamics simulator that fits nicely in the python ecosystem',
       url='https://bitbucket.org/alceslanduse/popdyn',
-      author='ALCES Landscape and Land Use',
+      author='Devin Cairns',
       install_requires=requires,
       author_email='dcairns@alces.ca',
       license='Copyright, ALCES',

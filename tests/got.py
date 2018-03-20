@@ -134,7 +134,7 @@ def incorrect_species():
 
 def single_species():
     with popdyn.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=720, left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, stark_k_data, 0, distribute=False)
+        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         solvers.discrete_explicit(domain, 0, 10).execute()
 
@@ -153,7 +153,7 @@ def test_simulation():
     shape = (720, 1280)
     with popdyn.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=720, left=0) as domain:
         # Add starks
-        domain.add_carrying_capacity(starks, stark_k, stark_k_data, 0, distribute=False)
+        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
 
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
 
@@ -171,7 +171,7 @@ def test_simulation():
         # domain.add_mortality()
 
         # Add lannisters
-        domain.add_carrying_capacity(lannister, lannister_k, lannister_k_data, 0, distribute=False)
+        domain.add_carrying_capacity(lannister, lannister_k, 0, lannister_k_data, distribute=False)
 
         domain.add_population(lannister_male_infant, 10000, 0, distribute_by_habitat=True)
         domain.add_population(lannister_female_infant, 10000, 0, distribute_by_habitat=True)
@@ -183,88 +183,85 @@ def test_simulation():
         domain.add_population(lannister_female_elder, 10000, 0, distribute_by_habitat=True)
 
         # Add white walkers
-        domain.add_carrying_capacity(white_walker, stark_k, stark_k_data, 0, distribute=False)
+        domain.add_carrying_capacity(white_walker, stark_k, 0, stark_k_data, distribute=False)
 
         white_walker_pop0 = np.random.normal(100, 1000, shape)
         white_walker_pop0[white_walker_pop0 < 0] = 0
         white_walker_pop0[80:, :] = 0
 
         domain.add_population(white_walker, white_walker_pop0, 0)
-        solvers.discrete_explicit(domain, 0, 1).execute()
+        solvers.discrete_explicit(domain, 0, 1)
+        # solvers.discrete_explicit(domain, 0, 1).execute()
 
-        import dask.array as da
-
-        # return domain.all_population_keys('stark', 0)
-
-        return da.dstack([da.from_array(domain[ds], chunks=domain[ds].chunks) for ds in domain.all_population_keys('stark', 0)]).sum().compute()
+        return domain.profiler
 
 
 if __name__ == '__main__':
     # Test error checking
     # ============================================================================
-    try:
-        no_species()
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-              "Incorrect species addition test: FAIL:\nNo Exception raised\n"
-              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    except Exception as e:
-        if isinstance(e, solvers.SolverError):
-            print("--------------------------------------\n"
-                  "Incorrect species addition test: PASS\n"
-                  "--------------------------------------")
-        else:
-            print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                  "Incorrect species addition test: FAIL:\n{}\n"
-                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
-    print("")
-    os.remove('seven_kingdoms.popdyn')
-
-    try:
-        incorrect_ages()
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-              "Incorrect age group test: FAIL:\nNo Exception raised\n"
-              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    except Exception as e:
-        if isinstance(e, solvers.SolverError):
-            print("--------------------------------------\n"
-                  "Incorrect age group test: PASS\n"
-                  "--------------------------------------")
-        else:
-            print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                  "Incorrect age group test: FAIL:\n{}\n"
-                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
-    print("")
-    os.remove('seven_kingdoms.popdyn')
-
-    try:
-        incorrect_species()
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-              "Incorrect species available test: FAIL:\nNo Exception raised\n"
-              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    except Exception as e:
-        if isinstance(e, solvers.SolverError):
-            print("--------------------------------------\n"
-                  "Incorrect species available test: PASS\n"
-                  "--------------------------------------")
-        else:
-            print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                  "Incorrect species available test: FAIL:\n{}\n"
-                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
-    print("")
-    os.remove('seven_kingdoms.popdyn')
-
-    # Test a single species without any sex, age groups, dispersion, or randomness
-    # ============================================================================
-    try:
-        single_species()
-        print("--------------------------------------\n"
-              "Single species test: PASS\n"
-              "--------------------------------------")
-    except Exception as e:
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-              "Single species test: FAIL:\n{}\n"
-              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
-    os.remove('seven_kingdoms.popdyn')
+    # try:
+    #     no_species()
+    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #           "Incorrect species addition test: FAIL:\nNo Exception raised\n"
+    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    # except Exception as e:
+    #     if isinstance(e, solvers.SolverError):
+    #         print("--------------------------------------\n"
+    #               "Incorrect species addition test: PASS\n"
+    #               "--------------------------------------")
+    #     else:
+    #         print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #               "Incorrect species addition test: FAIL:\n{}\n"
+    #               "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    # print("")
+    # os.remove('seven_kingdoms.popdyn')
+    #
+    # try:
+    #     incorrect_ages()
+    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #           "Incorrect age group test: FAIL:\nNo Exception raised\n"
+    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    # except Exception as e:
+    #     if isinstance(e, solvers.SolverError):
+    #         print("--------------------------------------\n"
+    #               "Incorrect age group test: PASS\n"
+    #               "--------------------------------------")
+    #     else:
+    #         print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #               "Incorrect age group test: FAIL:\n{}\n"
+    #               "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    # print("")
+    # os.remove('seven_kingdoms.popdyn')
+    #
+    # try:
+    #     incorrect_species()
+    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #           "Incorrect species available test: FAIL:\nNo Exception raised\n"
+    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    # except Exception as e:
+    #     if isinstance(e, solvers.SolverError):
+    #         print("--------------------------------------\n"
+    #               "Incorrect species available test: PASS\n"
+    #               "--------------------------------------")
+    #     else:
+    #         print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #               "Incorrect species available test: FAIL:\n{}\n"
+    #               "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    # print("")
+    # os.remove('seven_kingdoms.popdyn')
+    #
+    # # Test a single species without any sex, age groups, dispersion, or randomness
+    # # ============================================================================
+    # try:
+    #     single_species()
+    #     print("--------------------------------------\n"
+    #           "Single species test: PASS\n"
+    #           "--------------------------------------")
+    # except Exception as e:
+    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #           "Single species test: FAIL:\n{}\n"
+    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    # os.remove('seven_kingdoms.popdyn')
 
     # #   ...add randomness
     # # ============================================================================
@@ -315,3 +312,5 @@ if __name__ == '__main__':
     #           "Single species test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
+
+    ds = test_simulation()
