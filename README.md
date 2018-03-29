@@ -6,7 +6,7 @@ extensible platform that should be comfortable for those versed in Python.
 ## Installation
 #### For Python versions 2.7 only (3.X support coming soon)
 
-From the project root, use setup.py:
+From the project root, use install the module using setup.py:
 
 ```bash
 pip install .
@@ -14,7 +14,7 @@ pip install .
 
 **_or_**
 
-using requirements.txt:
+Install only the library dependencies using requirements.txt:
 
 ```bash
 pip install -r requirements.txt
@@ -101,7 +101,7 @@ For example, multiple species objects may be created for the same species:
 moose = pd.Species('Moose')
 
 # Subclass males so they may have their own mortality types
-moose_males = pd.Sex('Moose', 'male')
+moose_males = pd.Sex('Moose', 'male')  # The name of the sex is limited to 'male' and 'female'
 
 # Subclass age groups for females so they may have varying fecundity by age
 moose_female_yoy = pd.AgeGroup('Moose', 'female', 'Young of Year', fecundity=1.1)
@@ -189,7 +189,7 @@ tick_mortality.random('chi-square', args=(2,))
 Species, Mortality, Carrying Capacity, and population (which has not yet been covered) are added into any model domain
  instance using methods tailored to each one.
  
-Species are implicity added into the domain by calling any of:
+Species are implicitly added into the domain by calling any of:
 
 * `popdyn.Domain.add_carrying_capacity`
 * `popdyn.Domain.add_mortality`
@@ -215,6 +215,9 @@ if `1000` is the input, and there are `100` active cells in the domain, each one
 * Specific to Carrying Capacity:
     - `is_density` - Defines whether the input data are a density, or are a discrete number 
     of the population.
+* Specific to mortality:
+    - `distribute_by_co` - Divide the sum of the input data (or input scalar) among the domain using the values of a
+    covariate parameter. The relationship between mortality and the covariate is linear.
  
 Adding data is best demonstrated by extending the previous examples (time will be discussed in further detail later):
  

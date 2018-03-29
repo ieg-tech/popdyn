@@ -1,14 +1,76 @@
 """
 Relocate mass using a variety of dispersal algorithms
 
-ALCES 2018
+Devin Cairns, 2018
 """
+
 import numpy as np
+import dask.array as da
+from numba import jit
+from scipy import ndimage
 
 
-def density_flux(args):
+class DispersalError(Exception):
     pass
 
+
+def apply(a, method, args):
+    """Apply a dispersal method on the input dask array"""
+    if not isinstance(a, da.Array):
+        raise DispersalError('The input array must be a dask array')
+
+    if method not in METHODS:
+        raise DispersalError('The input method "{}" is mot supported'.format(method))
+
+    return METHODS[method](a, *args)
+
+
+def calculate_kernel(distance, csx, csy):
+    # Create a kernel using the distance and cell size
+    m = np.uint64(np.round(distance / csy))
+    n = np.uint64(np.round(distance / csx))
+    kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
+    kernel[m, n] = 0
+    return np.asarray(
+        np.where(ndimage.distance_transform_edt(kernel, (csy, csx)) <= distance)
+    ).T, m, n
+
+
+def density_flux(population, total_population, carrying_capacity, distance, csx, csy):
+    # Check the inputs
+    if not isinstance(a, da.Array):
+        raise DispersalError('The input must be a dask array')
+
+    # Calculate the kernel indices and shape
+    kernel, m, n = calculate_kernel(distance, csx, csy)
+
+    # Ghost the input arrays
+    population_ghost = da.ghost.ghost(
+        population, depth={0: m, 1: n}, boundary={0: 'any-constant', 1: 'any-constant'}
+    )
+
+
+    # Perform the dispersal
+    # args: population, total_population, carrying_capacity, kernel
+    output = ghost.map_blocks(density_flux_task, kernel)
+    return da.ghost.trim_internal(output, {0: kernel_m, 1: kernel_n})
+
+
+@jit(nopython=True, nogil=True)
+def density_flux_task(population, total_population, carrying_capacity, kernel, i_padding, j_padding):
+    m, n = a.shape
+    k = kernel.shape[0]
+    out = np.empty((m, n), np.float32)
+
+    for i in range(i_padding, m - i_padding):
+        for j in range(j_padding, n - j_padding):
+            # Calculate a mean density
+            kmean = modals = 0
+            for k_i in range(k):
+                if density[i, j] != 0:
+                    kmean += density[i, j]
+                    modals += 1
+            kmean /= modals
 
 def distance_propagation(args):
     pass

@@ -38,7 +38,7 @@ def apply_random(a, method, *args):
     """
     Generate random values for each domain element using the existing values
     and a random number generator distribution
-    :param a: Input array
+    :param a: Input arrays
     :param method: random method chosen from globally implemented methods
     :param args: arguments for the random function
     :return: randomly generated values
@@ -92,8 +92,6 @@ def collect(data, **kwargs):
     else:
         if not isinstance(data, da.Array):
             raise DynamicError('Input data must be a dask array')
-
-    # TODO: Question: Does randomness still apply when mortality or carrying capacity are derived from another species?
 
     # Perturb using random values generated from the input distribution
     random_method = kwargs.get('random_method', None)

@@ -186,7 +186,11 @@ class Domain(object):
                     # Projection must be a SRID
                     sr = osr.SpatialReference()
                     try:
-                        sr.ImportFromEPSG(self.projection)
+                        if isinstance(self.projection, basestring):
+                            sr.ImportFromWkt(self.projection)
+                        else:
+                            # Assume EPSG
+                            sr.ImportFromEPSG(self.projection)
                     except TypeError:
                         raise PopdynError('Only a SRID is an accepted input projection argument')
                     self.projection = sr.ExportToWkt()
@@ -352,6 +356,13 @@ class Domain(object):
         return _time
 
     @time_this
+    @save
+    def domain_compute(self, datasets):
+        """Compute dask graph and write to the domain"""
+        # Compute and dump the datasets
+        da.to_hdf5(self.path, datasets, compression='lzf')
+
+    @time_this
     def get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
         # First, try for a file
@@ -373,7 +384,7 @@ class Domain(object):
     @save
     def add_population(self, species, data, time, **kwargs):
         """
-        Add population data for a given species at a specific time slice in the domain
+        Add population data for a given species at a specific time slice in the domain.
         :param Species species: A Species instance
         :param data: Population data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
         :param time: The time slice to insert the population data into
@@ -382,7 +393,7 @@ class Domain(object):
             :distribute: Divide the input population data evenly among the domain elements (default is True)
             :distribute_by_habitat: Divide the input population linearly among domain elements using
                 the covariate carrying capacity (Default is False)
-            :overwrite: one of ['replace', 'add', 'subtract'] to send to self._add_data() (Default is replace)
+            :overwrite: one of ['replace', 'add', 'subtract'] to send to self.add_data() (Default is replace)
             :discrete_age: Apply the population to a single discrete age in the age group
         :return: None
         """
@@ -392,11 +403,7 @@ class Domain(object):
 
         discrete_age = kwargs.get('discrete_age', None)
 
-
         ages = species.age_range
-        if ages is None:
-            # No ages are used, this is simply a population tied to a species or sex
-            ages = [None]
 
         if discrete_age is not None:
             if discrete_age not in ages:
@@ -405,7 +412,6 @@ class Domain(object):
                     discrete_age, species.name, species.sex, species.group_key
                 ))
             ages = [discrete_age]
-
 
         distribute_by_habitat = kwargs.get('distribute_by_habitat', False)
         if distribute_by_habitat:
@@ -420,7 +426,7 @@ class Domain(object):
             key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, age)
             self.population[species.name_key][species.sex][species.group_key][time][age] = key
 
-            self._add_data(key, data,
+            self.add_data(key, data,
                 distribute=kwargs.get('distribute', True),
                 distribute_by_co=distribute_by_habitat,
                 overwrite=kwargs.get('overwrite', 'replace')
@@ -470,7 +476,7 @@ class Domain(object):
             key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, k_key)
 
             # Add the data to the file
-            self._add_data(key, data,
+            self.add_data(key, data,
                 distribute=kwargs.get('distribute', True),
                 overwrite=kwargs.get('overwrite', 'replace')
             )
@@ -519,9 +525,10 @@ class Domain(object):
             key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, m_key)
 
             # Add the data to the file
-            self._add_data(key, data,
+            self.add_data(key, data,
                 distribute=kwargs.get('distribute', True),
-                overwrite=kwargs.get('overwrite', 'replace')
+                overwrite=kwargs.get('overwrite', 'replace'),
+                distribute_by_co=kwargs.get('distribute_by_co', None)
             )
 
         self.mortality[species.name_key][species.sex][species.group_key][time][m_key] = (mortality, key)
@@ -590,7 +597,7 @@ class Domain(object):
         is_instance(self.species)
         return instances
 
-    def discrete_ages(self, species_name, sex):
+    def discrete_ages(self, species_key, sex):
         """Return all discrete ages for a species in the model domain"""
         def is_age(d):
             for key, val in d.items():
@@ -600,7 +607,7 @@ class Domain(object):
                     ages.append(val.age_range)
 
         ages = []
-        is_age(self.species[species_name][sex])
+        is_age(self.species[species_key][sex])
         age_ret = []
         for age in ages:
             age_ret += age
@@ -609,7 +616,21 @@ class Domain(object):
     @staticmethod
     def deconstruct_key(key):
         """Deconstruct a dataset key into hashes that will work with the Domain instance"""
-        return [val if isinstance(val, basestring) else literal_eval(val) for val in key.split('/')]
+        return [None if val == 'None' else val for val in key.split('/')]
+
+    def group_from_age(self, species, sex, age):
+        """Collect the group of a discrete age"""
+        groups = self.species[species][sex].keys()
+        for group in groups:
+            val = self.species[species][sex][group]  # Could be a dict or an instance
+            if isinstance(val, Species):
+                if any([age == val for val in val.age_range]):
+                    return group
+
+    def instance_from_key(self, key):
+        """Return a species instance associated with the input key"""
+        species_key, sex, group = self.deconstruct_key(key)[:3]
+        return self.D.species[species_key][sex][group]
 
     def introduce_species(self, species):
         """INTERNAL> Add a species to the model domain"""
@@ -620,7 +641,7 @@ class Domain(object):
         self.species[species.name_key][species.sex][species.group_key] = species
 
     @time_this
-    def _add_data(self, key, data, **kwargs):
+    def add_data(self, key, data, **kwargs):
         """
         INTERNAL method for writing to the disk.
         Overwrite behaviour supports some simple math.
@@ -652,9 +673,9 @@ class Domain(object):
             # Change the key into arguments that may be used to collect the covariate
             species_key, sex, group, time, ds_type = self.deconstruct_key(key)[:5]
             # The covariate is collected using a function call that is constructed using the data type name
-            co = getattr(self, 'get_{}'.format(distribute_by_co))(species_key, time, sex, group)
-            # More than one dataset may have been returned
-            co = [self[_co[1]] if isinstance(_co, tuple) else self[_co] for _co in co]
+            co = getattr(self, 'get_{}'.format(distribute_by_co))(species_key, time, sex, group, inherit=True)
+            # Only collect HDF5 data
+            co = [_co[1] for _co in co if _co[1] is not None]
 
             # Use dask to aggregate data because this could be memory-heavy
             if len(co) > 0:
@@ -687,7 +708,7 @@ class Domain(object):
         elif overwrite == 'subtract':
             ds[:] = np.subtract(ds, data)
 
-    def get_mortality(self, species_key, time, sex, group_key, avoid_inheritance=False):
+    def get_mortality(self, species_key, time, sex, group_key, inherit=True):
         """
         Collect the mortality instance - key pairs
         :param str species_key:
@@ -700,7 +721,7 @@ class Domain(object):
         time = self.get_time_input(time)
 
         # Collect the dataset keys using inheritance
-        if avoid_inheritance or self.avoid_inheritance:
+        if not inherit or self.avoid_inheritance:
             groups = [group_key]
             sexes = [sex]
         else:
@@ -715,7 +736,7 @@ class Domain(object):
         # If there are data in the domain, return the HDF5 dataset, else None
         return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
 
-    def get_carrying_capacity(self, species_key, time, sex=None, group_key=None, snap_to_time=True):
+    def get_carrying_capacity(self, species_key, time, sex=None, group_key=None, snap_to_time=True, inherit=False):
         """
         Collect the carrying capacity instance - key pairs
         :param str species_key:
@@ -723,34 +744,76 @@ class Domain(object):
         :param str group_key:
         :param int time:
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
+        :param bool inherit: Collect data from parent species if they do not exist for the input. Used primarily for distributing by a covariate,
+            and should not be used during simulations (the values may change during pre-solving inheritance)
         :return: list of instance - HDF5 dataset pairs
         """
         time = self.get_time_input(time)
 
-        if snap_to_time:
-            # Modify time to the location closest backwards in time with data
-            times = self.carrying_capacity[species_key][sex][group_key].keys()
+        def collect_ds(species_key, time, sex, group_key, snap_to_time):
+            """Factory so looping can occur if inherit is True"""
+            if snap_to_time:
+                # Modify time to the location closest backwards in time with data
+                times = self.carrying_capacity[species_key][sex][group_key].keys()
 
-            times = np.unique(times)
-            delta = time - times
-            backwards = delta >= 0
-            # If no times are available, time is not updated and an empty list will be returned
-            if backwards.sum() > 0:
-                times = times[backwards]
-                delta = delta[backwards]
-                i = np.argmin(delta)
-                time = times[i]
+                times = np.unique(times)
+                delta = time - times
+                backwards = delta >= 0
+                # If no times are available, time is not updated and an empty list will be returned
+                if backwards.sum() > 0:
+                    times = times[backwards]
+                    delta = delta[backwards]
+                    i = np.argmin(delta)
+                    time = times[i]
 
-        # Collect the instance - key pairs
-        datasets = self.carrying_capacity[species_key][sex][group_key][time].keys()
+            # Collect the instance - key pairs
+            datasets = self.carrying_capacity[species_key][sex][group_key][time].keys()
+            name_dict = self.carrying_capacity[species_key][sex][group_key][time]
 
-        # If there are data in the domain, return the HDF5 dataset, else None
-        return [(datasets[key][0], None)
-                if datasets[key][1] is None
-                else (datasets[key][0], self[datasets[key][1]])
-                for key in datasets]
+            # If there are data in the domain, return the HDF5 dataset, else None
+            return [(name_dict[key][0], None)
+                    if name_dict[key][1] is None
+                    else (name_dict[key][0], self[name_dict[key][1]])
+                    for key in datasets]
 
-    def get_population(self, species_key, time, sex=None, group_key=None, age=None):
+        if inherit:
+            for _sex in [sex, None]:
+                for gp in [group_key, None]:
+                    ds = collect_ds(species_key, time, _sex, gp, snap_to_time)
+                    if len(ds) > 0:
+                        return ds
+            return []
+        else:
+            return collect_ds(species_key, time, sex, group_key, snap_to_time)
+
+    def all_carrying_capacity(self, species_key, time, sex=None, group_key=None, snap_to_time=True):
+        """
+        Collect all carrying capacity for all children in the given query
+        :param species_key:
+        :param time:
+        :param sex:
+        :param group_key:
+        :return:
+        """
+        time = self.get_time_input(time)
+
+        # sex, group and age may be None, which enables return of all keys
+        sexes = [sex]
+        if sex is None:
+            sexes += ['male', 'female']
+        groups = [group_key]
+        if group_key is None:
+            for _sex in sexes:
+                groups += [key for key in self.carrying_capacity[species_key][_sex].keys() if key is not None]
+
+        cc = []
+        for _sex in sexes:
+            for group in groups:
+                cc += self.get_carrying_capacity(species_key, time, _sex, group, snap_to_time)
+
+        return cc
+
+    def get_population(self, species_key, time, sex=None, group_key=None, age=None, inherit=False):
         """
         Collect the population key of a species/sex/group at a given time if it exists
         :param species_key:
@@ -762,11 +825,23 @@ class Domain(object):
         """
         time = self.get_time_input(time)
 
-        key = self.population[species_key][sex][group_key][time][age]
-        if len(key) > 0:
-            return key
-        else:
+        def collect(species_key, time, sex, group_key, age):
+            key = self.population[species_key][sex][group_key][time][age]
+            if len(key) > 0:
+                return key
+            else:
+                return None
+
+        if inherit:
+            for _sex in [sex, None]:
+                for gp in [group_key, None]:
+                    for _age in [age, None]:
+                        key = collect(species_key, time, _sex, gp, _age)
+                        if key is not None:
+                            return key
             return None
+        else:
+            return collect(species_key, time, sex, group_key, age)
 
     def all_population(self, species_key, time, sex=None, group_key=None):
         """
@@ -776,7 +851,7 @@ class Domain(object):
         :param sex:
         :param group_key:
         :param age:
-        :return: list of HDF5 datasets
+        :return: dict of key - HDF5 dataset pairs
         """
         time = self.get_time_input(time)
 
@@ -798,7 +873,7 @@ class Domain(object):
                     if len(val) > 0:  # Could be a defaultdict, or string
                         keys.append(val)
 
-        return [self[key] for key in np.unique(keys)]
+        return {key: self[key] for key in np.unique(keys)}
 
 
 # Species classes
@@ -829,7 +904,11 @@ class Species(object):
         self.name = name
         self.name_key = name.strip().translate(None, punctuation + ' ').lower()
 
+        # Does this species get included in species-wide density calculations?
         self.contributes_to_density = kwargs.get('contributes_to_density', True)
+
+        # Does this species live past the maximum specified age (if it is an age group)?
+        self.live_past_max = kwargs.get('live_past_max', False)
 
         # No dispersal by default
         self.dispersal = {}
@@ -848,7 +927,7 @@ class Species(object):
         try:
             return range(self.min_age, self.max_age + 1)
         except AttributeError:
-            return None
+            return [None]
 
 
 class Sex(Species):
@@ -874,7 +953,7 @@ class Sex(Species):
         self.sex = sex.lower()
 
         self.fecundity = kwargs.get('fecundity', 0)
-        self.birth_ratio = kwargs.get('birth_ratio', 0.5)
+        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
         self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 0)
 
         self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None))\
@@ -882,36 +961,20 @@ class Sex(Species):
 
         self.__dict__.update(kwargs)
 
-    def random_fecundity(self, **kwargs):
+    def random_fecundity(self, method, **kwargs):
         """
         Apply a type of random variability to fecundity
         :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
         :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
         :return: None
         """
-        if type not in dynamic.RANDOM_METHODS.keys():
+        if method not in dynamic.RANDOM_METHODS.keys():
             raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
+                method, '\n'.join(dynamic.RANDOM_METHODS.keys()))
             )
 
-        self.fecundity_random = type
+        self.fecundity_random = method
         self.fecundity_random_args = kwargs.get('args', None)
-
-    def random_birth_ratio(self, **kwargs):
-        """
-        Apply a type of random variability to the birth ratio
-        :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
-        :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
-        :return: None
-        """
-        if type not in dynamic.RANDOM_METHODS.keys():
-            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
-            )
-
-        self.birth_random = type
-        self.birth_random_args = kwargs.get('args', None)
-
 
 class AgeGroup(Sex):
 
