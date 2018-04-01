@@ -26,51 +26,95 @@ def apply(a, method, args):
 
 
 def calculate_kernel(distance, csx, csy):
-    # Create a kernel using the distance and cell size
+    """Calculate kernel index offsets using the distance and cell size"""
+    # Calculate the kernel matrix size
     m = np.uint64(np.round(distance / csy))
     n = np.uint64(np.round(distance / csx))
+
+    # Use a distance transform to select the active grid locations
     kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
     kernel[m, n] = 0
-    return np.asarray(
-        np.where(ndimage.distance_transform_edt(kernel, (csy, csx)) <= distance)
-    ).T, m, n
+    kernel = ndimage.distance_transform_edt(kernel, (csy, csx)) <= distance
+
+    # Create an offset matrix
+    i, j = np.asarray(np.where(kernel))
+    i -= m
+    j -= n
+
+    return np.asarray([i, j]).T, m, n
 
 
 def density_flux(population, total_population, carrying_capacity, distance, csx, csy):
     # Check the inputs
-    if not isinstance(a, da.Array):
-        raise DispersalError('The input must be a dask array')
+    if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
+        raise DispersalError('Inputs must be a dask arrays')
 
     # Calculate the kernel indices and shape
     kernel, m, n = calculate_kernel(distance, csx, csy)
+    depth = {0: m, 1: n}  # Padding
+    boundary = {0: 0, 1: 0}  # Constant padding value
 
-    # Ghost the input arrays
-    population_ghost = da.ghost.ghost(
-        population, depth={0: m, 1: n}, boundary={0: 'any-constant', 1: 'any-constant'}
+    # Dstack and ghost the input arrays for the jitted function
+    a = da.ghost.ghost(
+        da.dstack([population, total_population, carrying_capacity]),
+        depth, boundary
     )
-
+    chunks = tuple(c[0] if c else 0 for c in a.chunks)
+    a.rechunk((chunks[:2] + (3,)))  # Need all of the last dimension passed at once
 
     # Perform the dispersal
     # args: population, total_population, carrying_capacity, kernel
-    output = ghost.map_blocks(density_flux_task, kernel)
-    return da.ghost.trim_internal(output, {0: kernel_m, 1: kernel_n})
+    output = a.map_blocks(density_flux_task, kernel, m, n)
+    return da.ghost.trim_internal(output, {0: m, 1: n})
 
 
 @jit(nopython=True, nogil=True)
-def density_flux_task(population, total_population, carrying_capacity, kernel, i_padding, j_padding):
-    m, n = a.shape
+def density_flux_task(a, kernel, i_pad, j_pad):
+    """
+    Reallocate mass based on density gradients over the kernel
+    :param a: 3d array with the following expected dimensionality
+        axis (2, 0): mass to be redistributed (a subset of total mass)
+        axis (2, 1): total mass
+        axis (2, 2): total capacity (calculations are masked where capacity is 0)
+    :param kernel: Kernel index offset in the shape (m, n)
+    :param i_pad: padding in the y-direction
+    :param j_pad: padding in the x-direction
+    :return: ndarray of redistributed mass
+    """
+    m, n, _ = a.shape
     k = kernel.shape[0]
     out = np.empty((m, n), np.float32)
 
-    for i in range(i_padding, m - i_padding):
-        for j in range(j_padding, n - j_padding):
+    for i in range(i_pad, m - i_pad):
+        for j in range(j_pad, n - j_pad):
+            if a[i, j, 2] == 0:
+                continue
+
             # Calculate a mean density
-            kmean = modals = 0
+            _mean = modals = 0
             for k_i in range(k):
-                if density[i, j] != 0:
-                    kmean += density[i, j]
+                if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
+                    _mean += a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
+                             a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2]
                     modals += 1
-            kmean /= modals
+            _mean /= modals
+
+            # Evaluate gradient and skip if it is negative
+            loss = a[i, j, 0] * (a[i, j, 0] / (a[i, j, 1] * (a[i, j, 1] / a[i, j, 2] - _mean)))
+            if loss <= 0:
+                continue
+
+            # Find candidate locations based on their gradient
+            _sum = 0
+            for k_i in range(k):
+                if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
+                    grad = (a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
+                            a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] - _mean)
+                    if grad < 0:
+                        grad
+
+    return out
+
 
 def distance_propagation(args):
     pass
@@ -82,7 +126,6 @@ def density_network(args):
 
 def fixed_network(args):
     pass
-
 
 
 def dispersive_flux(self, species, t, population, k, distance, file_instance,

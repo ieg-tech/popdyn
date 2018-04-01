@@ -31,6 +31,13 @@ def derive_from_lookup(a, lookup):
                 if lookup[row, 0] <= e < lookup[row, 1]:
                     a[i, j] = (e * lookup[row, 2]) + lookup[row, 3]
                     break
+                # Upper and lower boundaries
+                elif e < lookup[0, 0]:
+                    a[i, j] = (lookup[0, 0] * lookup[0, 2]) + lookup[0, 3]
+                    break
+                elif e >= lookup[-1, 1]:
+                    a[i, j] = (lookup[-1, 1] * lookup[-1, 2]) + lookup[-1, 3]
+                    break
     return a
 
 

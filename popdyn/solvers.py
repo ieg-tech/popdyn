@@ -366,6 +366,8 @@ class discrete_explicit(object):
                 except KeyError:
                     output[key] = population
 
+        # TODO: Deal with populations that already exist in the domain at a given time
+
         # Add carrying capacity and zero populations to writeable datasets
         output['{}/carrying capacity/{}'.format(key_prefix, 'Carrying Capacity')] = params['Carrying Capacity']
         output.update(self.age_zero_population)
