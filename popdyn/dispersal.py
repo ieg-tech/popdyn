@@ -51,21 +51,26 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
 
     # Calculate the kernel indices and shape
     kernel, m, n = calculate_kernel(distance, csx, csy)
-    depth = {0: m, 1: n}  # Padding
-    boundary = {0: 0, 1: 0}  # Constant padding value
+    # Dask does not like numpy types in depth
+    m = int(m)
+    n = int(m)
+    depth = {0: m, 1: n, 2: 0}  # Padding
+    boundary = {0: 0, 1: 0, 2:0}  # Constant padding value
 
     # Dstack and ghost the input arrays for the jitted function
     a = da.ghost.ghost(
         da.dstack([population, total_population, carrying_capacity]),
         depth, boundary
     )
-    chunks = tuple(c[0] if c else 0 for c in a.chunks)
-    a.rechunk((chunks[:2] + (3,)))  # Need all of the last dimension passed at once
+    chunks = tuple(c[0] if c else 0 for c in a.chunks)[:2]
+    a = a.rechunk((chunks + (3,)))  # Need all of the last dimension passed at once
 
     # Perform the dispersal
     # args: population, total_population, carrying_capacity, kernel
-    output = a.map_blocks(density_flux_task, kernel, m, n)
-    return da.ghost.trim_internal(output, {0: m, 1: n})
+    output = a.map_blocks(density_flux_task, kernel, m, n, dtype='float32',
+                          chunks=(chunks + (1,)))
+    # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
+    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze()
 
 
 @jit(nopython=True, nogil=True)
@@ -83,11 +88,14 @@ def density_flux_task(a, kernel, i_pad, j_pad):
     """
     m, n, _ = a.shape
     k = kernel.shape[0]
-    out = np.empty((m, n), np.float32)
+    out = np.zeros((m, n, 1), np.float32)
 
     for i in range(i_pad, m - i_pad):
         for j in range(j_pad, n - j_pad):
-            if a[i, j, 2] == 0:
+            # Carry over mass to output
+            out[i, j] += a[i, j, 0]
+
+            if a[i, j, 2] == 0 or a[i, j, 0] == 0:
                 continue
 
             # Calculate a mean density
@@ -100,18 +108,35 @@ def density_flux_task(a, kernel, i_pad, j_pad):
             _mean /= modals
 
             # Evaluate gradient and skip if it is negative
-            loss = a[i, j, 0] * (a[i, j, 0] / (a[i, j, 1] * (a[i, j, 1] / a[i, j, 2] - _mean)))
-            if loss <= 0:
+            grad = a[i, j, 1] / a[i, j, 2] - _mean
+            if grad <= 0:
                 continue
+            loss = a[i, j, 0] * min(1., grad)
 
             # Find candidate locations based on their gradient
             _sum = 0
+            values = []
+            locations = []
             for k_i in range(k):
                 if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
-                    grad = (a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
+                    grad = (a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] /
                             a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] - _mean)
                     if grad < 0:
-                        grad
+                        locations.append(k_i)
+                        N = a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] * min(1., -grad)
+                        _sum += N
+                        values.append(N)
+
+            # Loss may not exceed candidates
+            loss = min(loss, _sum)
+
+            if len(locations) > 0 and _sum != 0:
+                # Disperse the source mass to candidate locations linearly
+                for l_i, k_i in enumerate(locations):
+                    # Amount may not exceed n
+                    N = min(values[l_i], loss * (values[l_i] / _sum))
+                    out[i + kernel[k_i, 0], j + kernel[k_i, 1]] += N
+                    out[i, j] -= N
 
     return out
 

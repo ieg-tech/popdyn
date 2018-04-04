@@ -6,7 +6,7 @@ extensible platform that should be comfortable for those versed in Python.
 ## Installation
 #### For Python versions 2.7 only (3.X support coming soon)
 
-From the project root, use install the module using setup.py:
+From the project root, install the module using setup.py:
 
 ```bash
 pip install .
@@ -35,7 +35,7 @@ minimum, a domain:
 * Defines the spatial extent (region) of a study area
 * Defines a spatial resolution (cell size)
 * Creates a `.popdyn` file in HDF5 format that acts as a pseudo-database to efficiently access gridded data
-* Keeps track of other spatial parameters, such as the spatial reference, and geotransform
+* Keeps track of other spatial parameters, such as the spatial reference, and geotransformations
 
 #### Defining a model domain
 A model domain is created by instantiating the `popdyn.Domain` class, which must be directed to a `.popdyn`
@@ -124,7 +124,7 @@ _k_ instances also serve to define stochastic perturbations, and inter-species r
 For example, randomness may be applied to the above _k_ instance:
 
 ```python
-# Use a random number generator with a noraml distribution and a standard deviation of 10
+# Use a random number generator with a normal distribution and a standard deviation of 10
 moose_k.random('normal', args=(10,))
 ```
 

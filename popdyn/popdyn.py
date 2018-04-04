@@ -630,7 +630,7 @@ class Domain(object):
     def instance_from_key(self, key):
         """Return a species instance associated with the input key"""
         species_key, sex, group = self.deconstruct_key(key)[:3]
-        return self.D.species[species_key][sex][group]
+        return self.species[species_key][sex][group]
 
     def introduce_species(self, species):
         """INTERNAL> Add a species to the model domain"""
@@ -755,6 +755,7 @@ class Domain(object):
             if snap_to_time:
                 # Modify time to the location closest backwards in time with data
                 times = self.carrying_capacity[species_key][sex][group_key].keys()
+                times = [t for t in times if len(self.carrying_capacity[species_key][sex][group_key][t]) > 0]
 
                 times = np.unique(times)
                 delta = time - times
@@ -1049,7 +1050,7 @@ class CarryingCapacity(object):
                 type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
             )
 
-        self.random = type
+        self.random_method = type
         self.random_args = kwargs.get('args', None)
 
 
@@ -1114,5 +1115,5 @@ class Mortality(object):
                 type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
             )
 
-        self.random = type
+        self.random_method = type
         self.random_args = kwargs.get('args', None)

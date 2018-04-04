@@ -266,6 +266,65 @@ class discrete_explicit(object):
                         self.propagate(species, sex, group, time)
 
     @time_this
+    def species_totals(self, species, time):
+        """
+        Collect all population and carrying capacity datasets, and calculate species totals if necessary
+        :param species:
+        :param time:
+        :return:
+        """
+        # Collect all population keys (from previous time step for baseline) to avoid repetitive IO
+        population_arrays = {key: da.from_array(ds, ds.chunks)
+                             for key, ds in self.D.all_population(species, time - 1).items()}
+        # Collect all carrying capacity keys to avoid repetitive IO and calculations
+        carrying_capacity_arrays = self.D.all_carrying_capacity(species, time)
+        carrying_capacity_arrays = {
+            cc[0]: self.collect_parameter(cc[0], cc[1], time)
+            for cc in carrying_capacity_arrays
+        }
+        if len(carrying_capacity_arrays) == 0:
+            carrying_capacity_arrays = {None: da.from_array(np.broadcast_to(0, self.D.shape), self.D.chunks)}
+
+        # Need to collect the total population for fecundity and density if not otherwise specified
+        if self.total_density:
+            # Population
+            ds = []
+            for key in population_arrays.keys():
+                if self.D.instance_from_key(key).contributes_to_density:
+                    ds.append(population_arrays[key])
+            population_arrays['total'] = da.dstack(ds).sum(axis=-1)
+
+            # Carrying Capacity
+            carrying_capacity_arrays['total'] = da.dstack(
+                [ds[1] for ds in carrying_capacity_arrays]
+            ).sum(axis=-1)
+            carrying_capacity_arrays['total'] = da.where(
+                carrying_capacity_arrays['total'] < 0, 0, carrying_capacity_arrays['total']
+            )
+
+        # Calculate species-wide male and female populations that reproduce
+        ds = []
+        for key in self.D.all_population(species, time - 1, 'male').keys():
+            if getattr(self.D.instance_from_key(key), 'fecundity', False):
+                ds.append(population_arrays[key])
+        population_arrays['Reproducing Males'] = da.dstack([ds]).sum(axis=-1)
+        ds = []
+        for key in self.D.all_population(species, time - 1, 'female').keys():
+            if getattr(self.D.instance_from_key(key), 'fecundity', False):
+                ds.append(population_arrays[key])
+        population_arrays['Reproducing Females'] = da.stack([ds]).sum(axis=-1)
+
+        # Calculate Density
+        population_arrays['Female to Male Ratio'] = da.where(
+            population_arrays['Reproducing Males'] > 0,
+            population_arrays['Reproducing Females'] / population_arrays['Reproducing Males'],
+            np.finfo('float32').max
+        )
+
+        self.population_arrays = population_arrays
+        self.carrying_capacity_arrays = carrying_capacity_arrays
+
+    @time_this
     def propagate(self, species, sex, group, time):
         """
         INTERNAL factory for propagating solved populations and recording intermediates
@@ -391,69 +450,10 @@ class discrete_explicit(object):
             data = da.from_array(data, data.chunks)
 
         # Include random parameters
-        if param.get('random', False):
-            kwargs.update({'random_method': param.random, 'random_args': param.random_args})
+        if getattr(param, 'random_method', False):
+            kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
 
         return dynamic.collect(data, **kwargs)  # A dask array
-
-    @time_this
-    def species_totals(self, species, time):
-        """
-        Collect all population and carrying capacity datasets, and calculate species totals if necessary
-        :param species:
-        :param time:
-        :return:
-        """
-        # Collect all population keys (from previous time step for baseline) to avoid repetitive IO
-        population_arrays = {key: da.from_array(ds, ds.chunks)
-                             for key, ds in self.D.all_population(species, time - 1).items()}
-        # Collect all carrying capacity keys to avoid repetitive IO and calculations
-        carrying_capacity_arrays = self.D.all_carrying_capacity(species, time)
-        carrying_capacity_arrays = {
-            cc[0]: self.collect_parameter(cc[0], cc[1], time)
-            for cc in carrying_capacity_arrays
-        }
-        if len(carrying_capacity_arrays) == 0:
-            carrying_capacity_arrays = {None: da.from_array(np.broadcast_to(0, self.D.shape), self.D.chunks)}
-
-        # Need to collect the total population for fecundity and density if not otherwise specified
-        if self.total_density:
-            # Population
-            ds = []
-            for key in population_arrays.keys():
-                if self.D.instance_from_key(key).contributes_to_density:
-                    ds.append(population_arrays[key])
-            population_arrays['total'] = da.dstack(ds).sum(axis=-1)
-
-            # Carrying Capacity
-            carrying_capacity_arrays['total'] = da.dstack(
-                [ds[1] for ds in carrying_capacity_arrays]
-            ).sum(axis=-1)
-            carrying_capacity_arrays['total'] = da.where(
-                carrying_capacity_arrays['total'] < 0, 0, carrying_capacity_arrays['total']
-            )
-
-        # Calculate species-wide male and female populations that reproduce
-        ds = []
-        for key in self.D.all_population(species, time - 1, 'male').keys():
-            if self.D.instance_from_key(key).get('fecundity', False):
-                ds.append(population_arrays[key])
-        population_arrays['Reproducing Males'] = da.dstack([ds]).sum(axis=-1)
-        ds = []
-        for key in self.D.all_population(species, time - 1, 'female').keys():
-            if self.D.instance_from_key(key).get('fecundity', False):
-                ds.append(population_arrays[key])
-        population_arrays['Reproducing Females'] = da.stack([ds]).sum(axis=-1)
-
-        # Calculate Density
-        population_arrays['Female to Male Ratio'] = da.where(
-            population_arrays['Reproducing Males'] > 0,
-            population_arrays['Reproducing Females'] / population_arrays['Reproducing Males'],
-            np.finfo('float32').max
-        )
-
-        self.population_arrays = population_arrays
-        self.carrying_capacity_arrays = carrying_capacity_arrays
 
     @time_this
     def calculate_parameters(self, species, sex, group, time):
@@ -524,7 +524,7 @@ class discrete_explicit(object):
             # Create a fecundity modifier array that includes some input parameters,
             # and is also used to broadcast the species fecundity value
             no_mod = True
-            if species.get('fecundity_lookup', None) is not None:
+            if getattr(species, 'fecundity_lookup', None) is not None:
                 no_mod = False
                 fec_mod = dynamic.collect(
                     None, lookup_data=self.population_arrays['Female to Male Ratio'],
@@ -538,9 +538,9 @@ class discrete_explicit(object):
             if no_mod:
                 fec_mod = da.from_array(np.ones(shape=self.D.shape, dtype='float32'), self.D.chunks)
 
-            parameters['Fecundity'] = fec_mod * species.get('fecundity', 0)
+            parameters['Fecundity'] = fec_mod * getattr(species, 'fecundity', 0)
 
-            if species.get('fecundity_random', False):
+            if getattr(species, 'fecundity_random', False):
                 parameters['Fecundity'] = dynamic.collect(
                     parameters['Fecundity'], random_method=species.fecundity_random,
                     random_args=species.fecundity_random_args
@@ -548,10 +548,10 @@ class discrete_explicit(object):
 
             parameters['Fecundity'] = da.where(parameters['Fecundity'] > 0, parameters['Fecundity'], 0)
 
-            if species.get('birth_random', None) == 'random':
+            if getattr(species, 'birth_random', None) == 'random':
                 parameters['Birth Ratio'] = np.random.random()
             else:
-                parameters['Birth Ratio'] = species.get('birth_ratio', None)
+                parameters['Birth Ratio'] = getattr(species, 'birth_ratio', None)
 
         return parameters
 
