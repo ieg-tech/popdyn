@@ -221,14 +221,13 @@ def species_as_carrying_capacity():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_carrying_capacity(lannister, lannister_k, 0, lannister_k_data, distribute=False)
-        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
+        domain.add_population(starks, stark_k_data * 0.3, 0)
         domain.add_population(lannister, 10000., 0, distribute_by_habitat=True)
 
-        domain.add_carrying_capacity(
-            lannister,
-            pd.CarryingCapacity('Starks').add_as_species(starks, [(0., 0.), (0.2, .2), (0.5, -0.1), (1., -0.9)]),
-            0, distribute=False
-        )
+        stark_as_k = pd.CarryingCapacity('Starks')
+        stark_as_k.add_as_species(starks, [(0., 0.), (0.2, .2), (0.5, -0.1), (1., -0.9)])
+
+        domain.add_carrying_capacity(lannister, stark_as_k, 0)
 
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 

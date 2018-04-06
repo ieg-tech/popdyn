@@ -299,77 +299,157 @@ class discrete_explicit(object):
     @time_this
     def totals(self, all_species, time):
         """
-        Collect all population and carrying capacity datasets, and calculate species totals if necessary
-        :param list all_species:
-        :param int time:
+        Collect all population and carrying capacity datasets, and calculate species totals if necessary.
+        Dynamic calculations of carrying capacity are made by calling collect_parameter, which may also
+        update the carrying_capacity or population array dicts.
+        :param list all_species: All species in the domain
+        :param int time: Time slice to collect totals
         :return: None
         """
-        self.population_arrays = {}
-        self.carrying_capacity_arrays = {}
+        self.population_arrays = {sp: {} for sp in all_species}
+        self.carrying_capacity_arrays = {sp: {} for sp in all_species}
 
         for species in all_species:
-            # Collect all population keys (from previous time step for baseline) to avoid repetitive IO
-            population_arrays = {key: da.from_array(ds, ds.chunks)
-                                 for key, ds in self.D.all_population(species, time - 1).items()}
-            # Collect all carrying capacity keys to avoid repetitive IO
-            cc = self.D.all_carrying_capacity(species, time)
-            carrying_capacity_arrays = {}
-            for c in cc:
-                try:
-                    # There is a chance this has been calculated in collect_parameter
-                    carrying_capacity_arrays[c[0]] = self.carrying_capacity_arrays[species][c[0]]
-                except KeyError:
-                    carrying_capacity_arrays[c[0]] = self.collect_parameter(c[0], c[1], time)
-
-            if len(carrying_capacity_arrays) == 0:
-                carrying_capacity_arrays = {None: da_zeros(self.D.shape, self.D.chunks)}
-
             # Need to collect the total population for fecundity and density if not otherwise specified
             if self.total_density:
                 # Population
-                ds = []
-                for key in population_arrays.keys():
-                    if self.D.instance_from_key(key).contributes_to_density:
-                        ds.append(population_arrays[key])
-                population_arrays['total'] = da.dstack(ds).sum(axis=-1)
+                population = self.D.all_population(species, time - 1)
+                self.population_arrays[species]['total'] = self.population_total(species, population)
 
                 # Carrying Capacity
-                carrying_capacity_arrays['total'] = da.dstack(carrying_capacity_arrays.values()).sum(axis=-1)
-                carrying_capacity_arrays['total'] = da.where(
-                    carrying_capacity_arrays['total'] < 0, 0, carrying_capacity_arrays['total']
-                )
+                # -----------------------------------
+                # Collect all carrying capacity keys.
+                # carrying_capacity_arrays will be updated when calling totals to avoid repetitive IO
+                cc = self.D.all_carrying_capacity(species, time)
+                self.carrying_capacity_arrays[species]['total'] =  self.carrying_capacity_total(species, cc, time)
 
             # Calculate species-wide male and female populations that reproduce
+            # Note: Species that do not contribute to density contribute to the reproduction totals
             # -----------------------------------------------------------------
             # Males
-            ds = []
-            for key in self.D.all_population(species, time - 1, 'male').keys():
-                if getattr(self.D.instance_from_key(key), 'fecundity', False):
-                    ds.append(population_arrays[key])
-            if len(ds) > 0:
-                population_arrays['Reproducing Males'] = da.dstack(ds).sum(axis=-1)
-            else:
-                population_arrays['Reproducing Males'] = da_zeros(self.D.shape, self.D.chunks)
+            self.population_arrays[species]['Reproducing Males'] = self.population_total(
+                species, self.D.all_population(species, time - 1, 'male'), False, True
+            )
 
             # Females
-            ds = []
-            for key in self.D.all_population(species, time - 1, 'female').keys():
-                if getattr(self.D.instance_from_key(key), 'fecundity', False):
-                    ds.append(population_arrays[key])
-            if len(ds) > 0:
-                population_arrays['Reproducing Females'] = da.dstack(ds).sum(axis=-1)
-            else:
-                population_arrays['Reproducing Females'] = da_zeros(self.D.shape, self.D.chunks)
+            self.population_arrays[species]['Reproducing Females'] = self.population_total(
+                species, self.D.all_population(species, time - 1, 'female'), False, True
+            )
 
             # Calculate Density
-            population_arrays['Female to Male Ratio'] = da.where(
-                population_arrays['Reproducing Males'] > 0,
-                population_arrays['Reproducing Females'] / population_arrays['Reproducing Males'],
+            self.population_arrays[species]['Female to Male Ratio'] = da.where(
+                self.population_arrays[species]['Reproducing Males'] > 0,
+                self.population_arrays[species]['Reproducing Females'] /
+                self.population_arrays[species]['Reproducing Males'],
                 np.inf
             )
 
-            self.population_arrays[species] = population_arrays
-            self.carrying_capacity_arrays[species] = carrying_capacity_arrays
+    @time_this
+    def collect_parameter(self, param, data, time):
+        """
+        Collect data associated with a carrying capacity or mortality instance. If a species is linked,
+        data will be None and density of the linked species will be calculated.
+        :param param: CarryingCapacity or Mortality instance
+        :param data: array data or None
+        :param int time: time slice
+        :return: A dask array with the collected data
+        """
+        # Collect the total species population from the previous time step
+        kwargs = {}
+        if data is None:  # There must be a species attached to the parameter instance if this is True
+            # Collect the total population of the species
+            population = self.D.all_population(param.species.name_key, time - 1,
+                                               param.species.sex, param.species.group_key)
+            a = self.population_total(param.species.name_key, population)
+
+            # Calculate carrying capacity for the individual species so density may be calculated
+            carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time,
+                                                             param.species.sex, param.species.group_key)
+            c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time)
+            a = da.where(c > 0, a / c, np.inf)
+
+            # Add to the kwargs for dynamic collection
+            kwargs = {'lookup_data': a, 'lookup_table': param.species_table}
+        else:
+            data = da.from_array(data, data.chunks)
+
+        # Include random parameters
+        if getattr(param, 'random_method', False):
+            kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
+
+        return dynamic.collect(data, **kwargs)  # A dask array
+
+    @time_this
+    def population_total(self, species, datasets, honor_density=True, honor_reproduction=False):
+        """
+        Calculate the total population for a species with the provided datasets, usually a result of a
+        Domain.all_population call. This updates self.population_arrays to avoid repetitive IO
+        :param species:
+        :param datasets:
+        :return:
+        """
+        pop_arrays = []
+
+        for key, d in datasets.items():
+            instance = self.D.instance_from_key(key)
+
+            if honor_density and not instance.contributes_to_density:
+                continue
+            if honor_reproduction and not getattr(instance, 'fecundity', False):
+                continue
+
+            try:
+                pop_arrays.append(self.population_arrays[species][key])
+            except KeyError:
+                da_array = da.from_array(d, d.chunks)
+                pop_arrays.append(da_array)
+                self.population_arrays[species][key] = da_array
+
+        if len(pop_arrays) > 0:
+            return da.dstack(pop_arrays).sum(axis=-1)
+        else:
+            return da_zeros(self.D.shape, self.D.chunks)
+
+    @time_this
+    def carrying_capacity_total(self, species, datasets, time):
+        """
+        Calculate the total carrying capacity for a species with the provided datasets, usually a result of a
+        Domain.get_carrying_capacity call. This updates self.carrying_capacity_arrays to avoid repetitive IO
+        :param datasets: list of tuples with instance - data pairs
+        :return: dask array of total carrying capacity
+        """
+        cc_coeff = []
+        cc_arrays = []
+        for cc in datasets:
+            # Check if this has already been computed
+            try:
+                if self.carrying_capacity_arrays[species][cc[0]][0]:
+                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]][1])
+                else:
+                    cc_arrays.append(self.carrying_capacity_arrays[species][cc[0]][1])
+            except KeyError:
+                # Recursive call to collect parameter if another species is used for carrying capacity
+                ds = self.collect_parameter(cc[0], cc[1], time)
+                if cc[1] is None:
+                    # This is a coefficient
+                    cc_coeff.append(ds)
+                    is_coeff = True
+                else:
+                    # This is a direct carrying capacity array
+                    is_coeff = False
+                    cc_arrays.append(ds)
+                # Update the datasets
+                self.carrying_capacity_arrays[species][cc[0]] = (is_coeff, ds)
+        if len(cc_coeff) > 0:
+            coeff = da.dstack(cc_coeff).sum(axis=-1)
+        else:
+            coeff = 1.
+        if len(cc_arrays) == 0:
+            arrays = da_zeros(self.D.shape, self.D.chunks)
+        else:
+            arrays = da.dstack(cc_arrays).sum(axis=-1)
+        array = arrays * coeff
+        return da.where(array > 0, array, 0)
 
     @time_this
     def propagate(self, species, sex, group, time):
@@ -438,8 +518,9 @@ class discrete_explicit(object):
 
         for age in ages:
             # Collect the population of the age from the previous time step
-            population = self.D[self.D.get_population(species, time - 1, sex, group, age)]
-            population = da.from_array(population, self.D.chunks)
+            population = self.D.get_population(species, time - 1, sex, group, age)
+            # Use population total to avoid re-read from disk
+            population = self.population_total(species, {population: self.D[population]}, False)
 
             # Mortaliy is applied on each age, as they need to be removed from the population
             for mort_type in mort_types:
@@ -496,57 +577,6 @@ class discrete_explicit(object):
         return output
 
     @time_this
-    def collect_parameter(self, param, data, time):
-        """
-        Collect keyword args for dynamic data collection from a species
-        :param param:
-        :param data:
-        :param time:
-        :return:
-        """
-        # Collect the total species population from the previous time step
-        kwargs = {}
-        if data is None:  # There must be a species attached to the parameter instance if this is True
-            # Collect the total population of the species
-            ds = self.D.all_population(param.species.name_key, time - 1, param.species.sex, param.species.group_key)
-            if len(ds) == 0:
-                a = da_zeros(self.D.shape, self.D.chunks)
-            else:
-                a = da.dstack([da.from_array(d, d.chunks) for _, d in ds.items()]).sum(axis=-1)
-
-            # Calculate density
-            carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time,
-                                                             param.species.sex, param.species.group_key)
-            if len(carrying_capacity) == 0:
-                # No carrying capacity
-                a = da.from_array(np.broadcast_to(np.inf, self.D.shape), self.D.chunks)
-            else:
-                cc = []
-                for c in carrying_capacity:
-                    # Check if this has already been computed
-                    try:
-                        cc.append(self.carrying_capacity_arrays[param.species.name_key][c[0]])
-                    except KeyError:
-                        # Compute and add it
-                        ds = self.collect_parameter(cc[0], cc[1], time)
-                        cc.append(ds)
-                        self.carrying_capacity_arrays[param.species.name_key][c[0]] = ds
-                c = da.dstack(cc).sum(axis=-1)
-                c = da.where(c >= 0, c, 0)
-                a = da.where(c > 0, a / c, np.inf)
-
-            # Add to the kwargs for dynamic collection
-            kwargs = {'lookup_data': a, 'lookup_table': param.species_table}
-        else:
-            data = da.from_array(data, data.chunks)
-
-        # Include random parameters
-        if getattr(param, 'random_method', False):
-            kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
-
-        return dynamic.collect(data, **kwargs)  # A dask array
-
-    @time_this
     def calculate_parameters(self, species, sex, group, time):
         """Collect all required parameters at a time step"""
         parameters = {}
@@ -570,33 +600,19 @@ class discrete_explicit(object):
         # Collect CarryingCapacity instances and/or data from the domain at the current time step
         if not self.total_density:
             carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
-            if len(carrying_capacity) == 0:
-                # It must default to 0
-                parameters['Carrying Capacity'] = da_zeros(self.D.shape, self.D.chunks)
-            else:
-                # Collect datasets from all carrying capacity data and calculate their sum
-                parameters['Carrying Capacity'] = da.dstack(
-                    [self.carrying_capacity_arrays[species][key] for key, _ in carrying_capacity]
-                ).sum(axis=-1)
-                parameters['Carrying Capacity'] = da.where(
-                    parameters['Carrying Capacity'] < 0, 0, parameters['Carrying Capacity']
-                )
+            parameters['Carrying Capacity'] = self.carrying_capacity_total(species, carrying_capacity, time)
 
         else:
             parameters['Carrying Capacity'] = self.carrying_capacity_arrays[species]['total']
 
         # Total Population from previous time step
         # ---------------------
-        population, total_population = [], []
-        for key in self.D.all_population(species, time - 1, sex, group).keys():
-            total_population.append(self.population_arrays[species][key])
-            if self.D.instance_from_key(key).contributes_to_density:
-                population.append(self.population_arrays[species][key])
-        parameters['Population'] = da.dstack(total_population).sum(axis=-1)
+        population = self.D.all_population(species, time - 1, sex, group)
+        parameters['Population'] = self.population_total(species, population, False)  # All, regardless
 
         # Density calculation only includes contributing species instances
         if not self.total_density:
-            population = da.dstack(population).sum(axis=-1)
+            population = self.population_total(species, population)
         else:
             population = self.population_arrays[species]['total']
 
