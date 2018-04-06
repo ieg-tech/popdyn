@@ -8,7 +8,6 @@ from __future__ import print_function
 import os
 import time as profile_time
 import pickle
-from ast import literal_eval
 from string import punctuation
 import numpy as np
 from collections import defaultdict
@@ -102,7 +101,7 @@ class Domain(object):
         try:
             with h5py.File(path, mode='w', libver='latest') as f:
                 assert f  # Make sure all is well
-                print("Popdyn domain %s created" % (path))
+                print("Popdyn domain %s created" % path)
         except Exception as e:
             raise PopdynError('Unable to create the file {} because:\n{}'.format(path, e))
         return path
@@ -183,7 +182,7 @@ class Domain(object):
                 if not hasattr(self, 'projection'):
                     self.projection = ''
                 else:
-                    # Projection must be a SRID
+                    # Projection must be a SRID or WKT
                     sr = osr.SpatialReference()
                     try:
                         if isinstance(self.projection, basestring):
@@ -192,7 +191,7 @@ class Domain(object):
                             # Assume EPSG
                             sr.ImportFromEPSG(self.projection)
                     except TypeError:
-                        raise PopdynError('Only a SRID is an accepted input projection argument')
+                        raise PopdynError('Only a SRID or WKT are accepted input projection arguments')
                     self.projection = sr.ExportToWkt()
             except AttributeError:
                 raise PopdynError('If an input popdyn file and domain raster are not specified, '
@@ -362,6 +361,12 @@ class Domain(object):
         # Compute and dump the datasets
         da.to_hdf5(self.path, datasets, compression='lzf')
 
+        # Add population keys to domain
+        for key in datasets.keys():
+            species, sex, group, time, age = self.deconstruct_key(key)[:5]
+            if age != 'params':  # Avoid offspring, carrying capacity, and mortality
+                self.population[species][sex][group][time][age] = key
+
     @time_this
     def get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
@@ -468,6 +473,10 @@ class Domain(object):
                     carrying_capacity.name
                 ))
 
+            # The species may not be itself (this would create an infinite loop)
+            if carrying_capacity.species.name_key == species.name_key:
+                raise PopdynError('A species may not dynamically change carrying capacity for itself.')
+
         k_key = carrying_capacity.name_key
 
         if data is None:
@@ -515,6 +524,10 @@ class Domain(object):
                 raise PopdynError('Mortality data must be provided with {}, as it is not attached to a species'.format(
                     mortality.name
                 ))
+
+            # The species may not be itself (this would create an infinite loop)
+            if mortality.species.name_key == species.name_key:
+                raise PopdynError('A species may not dynamically change mortality for itself.')
 
         m_key = mortality.name_key
 
@@ -616,7 +629,18 @@ class Domain(object):
     @staticmethod
     def deconstruct_key(key):
         """Deconstruct a dataset key into hashes that will work with the Domain instance"""
-        return [None if val == 'None' else val for val in key.split('/')]
+        values = []
+
+        for val in key.split('/'):
+            if val == 'None':
+                val = None
+            try:
+                val = int(val)  # Times or ages may be integers
+            except:
+                pass
+            values.append(val)
+
+        return values
 
     def group_from_age(self, species, sex, age):
         """Collect the group of a discrete age"""
@@ -912,16 +936,23 @@ class Species(object):
         self.live_past_max = kwargs.get('live_past_max', False)
 
         # No dispersal by default
-        self.dispersal = {}
+        self.dispersal = []
 
         # sex and age group are none
         self.sex = self.group_key = None
 
-    def add_dispersal(self, dispersal_type, args):
+    def add_dispersal(self, dispersal_type, args=()):
+        """
+        Sequentially add disperal methods to the species.
+        Dispersal will be applied in the order that it is added to the species.
+        :param dispersal_type: One of the dispersal.METHODS keywords
+        :param tuple args: Arguments (*args) to accompany the dispersal method
+        :return:
+        """
         if dispersal_type not in dispersal.METHODS.keys():
             raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
 
-        self.dispersal[dispersal_type] = args
+        self.dispersal.append((dispersal_type, args))
 
     @property
     def age_range(self):
@@ -957,8 +988,9 @@ class Sex(Species):
         self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
         self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 0)
 
+        # The default fecundity lookup is inf (no males): 0., less: 1.
         self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None))\
-            if kwargs.get('fecundity_lookup', None) is not None else None
+            if kwargs.get('fecundity_lookup', None) is not None else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
 
         self.__dict__.update(kwargs)
 
@@ -976,6 +1008,7 @@ class Sex(Species):
 
         self.fecundity_random = method
         self.fecundity_random_args = kwargs.get('args', None)
+
 
 class AgeGroup(Sex):
 

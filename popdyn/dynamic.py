@@ -37,6 +37,8 @@ def derive_from_lookup(a, lookup):
                     break
                 elif e >= lookup[-1, 1]:
                     a[i, j] = (lookup[-1, 1] * lookup[-1, 2]) + lookup[-1, 3]
+                    if np.isnan(a[i, j]):
+                        a[i, j] = 0
                     break
     return a
 

@@ -104,8 +104,8 @@ moose = pd.Species('Moose')
 moose_males = pd.Sex('Moose', 'male')  # The name of the sex is limited to 'male' and 'female'
 
 # Subclass age groups for females so they may have varying fecundity by age
-moose_female_yoy = pd.AgeGroup('Moose', 'female', 'Young of Year', fecundity=1.1)
-moose_female_adult = pd.AgeGroup('Moose', 'female', 'Adult', fecundity=2.5)
+moose_female_yoy = pd.AgeGroup('Moose', 'female', 'Young of Year', 0, 1, fecundity=1.1)
+moose_female_adult = pd.AgeGroup('Moose', 'female', 'Adult', 1, 12, fecundity=2.5)
 # etc...
 ```
 

@@ -14,7 +14,7 @@ class DispersalError(Exception):
     pass
 
 
-def apply(a, method, args):
+def apply(a, total, capacity, method, args):
     """Apply a dispersal method on the input dask array"""
     if not isinstance(a, da.Array):
         raise DispersalError('The input array must be a dask array')
@@ -22,7 +22,7 @@ def apply(a, method, args):
     if method not in METHODS:
         raise DispersalError('The input method "{}" is mot supported'.format(method))
 
-    return METHODS[method](a, *args)
+    return METHODS[method](a, total, capacity, *args)
 
 
 def calculate_kernel(distance, csx, csy):
@@ -137,7 +137,6 @@ def density_flux_task(a, kernel, i_pad, j_pad):
                     N = min(values[l_i], loss * (values[l_i] / _sum))
                     out[i + kernel[k_i, 0], j + kernel[k_i, 1]] += N
                     out[i, j] -= N
-
     return out
 
 
