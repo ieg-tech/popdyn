@@ -255,9 +255,12 @@ class discrete_explicit(object):
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
             # -------------------------------------------------------------------------------------------
-            # Collect totals for entire species-based calculations
-            # The self.population_arrays and self.carrying_capacity_arrays are updated
+            # Create dicts to store IO to avoid repetitive reads in the dask graph
             all_species = self.D.species.keys()
+            self.population_arrays = {sp: {} for sp in all_species}
+            self.carrying_capacity_arrays = {sp: {} for sp in all_species}
+
+            # Collect totals for entire species-based calculations, and dicts to store all output and offspring
             self.totals(all_species, time)
             self.age_zero_population = {}
             output = {}
@@ -306,9 +309,6 @@ class discrete_explicit(object):
         :param int time: Time slice to collect totals
         :return: None
         """
-        self.population_arrays = {sp: {} for sp in all_species}
-        self.carrying_capacity_arrays = {sp: {} for sp in all_species}
-
         for species in all_species:
             # Need to collect the total population for fecundity and density if not otherwise specified
             if self.total_density:
@@ -318,8 +318,7 @@ class discrete_explicit(object):
 
                 # Carrying Capacity
                 # -----------------------------------
-                # Collect all carrying capacity keys.
-                # carrying_capacity_arrays will be updated when calling totals to avoid repetitive IO
+                # Collect all carrying capacity keys
                 cc = self.D.all_carrying_capacity(species, time)
                 self.carrying_capacity_arrays[species]['total'] =  self.carrying_capacity_total(species, cc, time)
 
@@ -373,8 +372,8 @@ class discrete_explicit(object):
         else:
             data = da.from_array(data, data.chunks)
 
-        # Include random parameters
-        if getattr(param, 'random_method', False):
+        # Include random parameters (except not if carrying capacity is another species)
+        if getattr(param, 'random_method', False) and not (isinstance(param, CarryingCapacity) and data is None):
             kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
 
         return dynamic.collect(data, **kwargs)  # A dask array
@@ -448,8 +447,8 @@ class discrete_explicit(object):
             arrays = da_zeros(self.D.shape, self.D.chunks)
         else:
             arrays = da.dstack(cc_arrays).sum(axis=-1)
-        array = arrays * coeff
-        return da.where(array > 0, array, 0)
+        arrays *= coeff
+        return da.where(arrays > 0, arrays, 0)
 
     @time_this
     def propagate(self, species, sex, group, time):

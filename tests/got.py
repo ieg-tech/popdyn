@@ -221,7 +221,7 @@ def species_as_carrying_capacity():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_carrying_capacity(lannister, lannister_k, 0, lannister_k_data, distribute=False)
-        domain.add_population(starks, stark_k_data * 0.3, 0)
+        domain.add_population(starks, stark_k_data * 0.9, 0)
         domain.add_population(lannister, 10000., 0, distribute_by_habitat=True)
 
         stark_as_k = pd.CarryingCapacity('Starks')
@@ -347,22 +347,22 @@ if __name__ == '__main__':
     #           "Single species test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add randomness
-    # ============================================================================
-    # try:
-    #     single_species_random()
-    #     print("--------------------------------------\n"
-    #           "Single species, random k test: PASS\n"
-    #           "--------------------------------------")
-    # except Exception as e:
-    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-    #           "Single species, random k test: FAIL:\n{}\n"
-    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    #
+    # #   ...add randomness
+    # # ============================================================================
+    try:
+        single_species_random()
+        print("--------------------------------------\n"
+              "Single species, random k test: PASS\n"
+              "--------------------------------------")
+    except Exception as e:
+        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+              "Single species, random k test: FAIL:\n{}\n"
+              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add dispersion
-    # ============================================================================
+    #
+    # #   ...add dispersion
+    # # ============================================================================
     # try:
     #     single_species_dispersion()
     #     print("--------------------------------------\n"
@@ -373,10 +373,10 @@ if __name__ == '__main__':
     #           "Single species, dispersion test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
+    # #
     #
-
-    #   ...add males
-    # ============================================================================
+    # #   ...add males
+    # # ============================================================================
     # try:
     #     single_species_sex()
     #     print("--------------------------------------\n"
@@ -387,9 +387,9 @@ if __name__ == '__main__':
     #           "Single species, sex test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add fecundity
-    # ============================================================================
+    #
+    # #   ...add fecundity
+    # # ============================================================================
     # try:
     #     single_species_fecundity()
     #     print("--------------------------------------\n"
@@ -400,9 +400,9 @@ if __name__ == '__main__':
     #           "Single species, fecundity test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add age groups
-    # ============================================================================
+    #
+    # #   ...add age groups
+    # # ============================================================================
     # try:
     #     single_species_agegroups()
     #     print("--------------------------------------\n"
@@ -413,9 +413,9 @@ if __name__ == '__main__':
     #           "Single species, age groups test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add mortality
-    # ============================================================================
+    #
+    # #   ...add mortality
+    # # ============================================================================
     # try:
     #     single_species_mortality()
     #     print("--------------------------------------\n"
@@ -426,9 +426,9 @@ if __name__ == '__main__':
     #           "Single species, mortality test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add species as mortality
-    # ============================================================================
+    #
+    # #   ...add species as mortality
+    # # ============================================================================
     # try:
     #     species_as_mortality()
     #     print("--------------------------------------\n"
@@ -439,18 +439,18 @@ if __name__ == '__main__':
     #           "Single species, species as mortality test: FAIL:\n{}\n"
     #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
-
-    #   ...add species as carrying capacity
-    # ============================================================================
-    try:
-        species_as_carrying_capacity()
-        print("--------------------------------------\n"
-              "Single species, species as carrying capacity test: PASS\n"
-              "--------------------------------------")
-    except Exception as e:
-        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-              "Single species, species as carrying capacity test: FAIL:\n{}\n"
-              "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
+    #
+    # #   ...add species as carrying capacity
+    # # ============================================================================
+    # try:
+    #     species_as_carrying_capacity()
+    #     print("--------------------------------------\n"
+    #           "Single species, species as carrying capacity test: PASS\n"
+    #           "--------------------------------------")
+    # except Exception as e:
+    #     print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+    #           "Single species, species as carrying capacity test: FAIL:\n{}\n"
+    #           "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".format(e))
     # os.remove('seven_kingdoms.popdyn')
 
     # datasets = []

@@ -476,6 +476,11 @@ class Domain(object):
             # The species may not be itself (this would create an infinite loop)
             if carrying_capacity.species.name_key == species.name_key:
                 raise PopdynError('A species may not dynamically change carrying capacity for itself.')
+            # Similarly, this species may not be used for carrying capacity of the other
+            all_carrying_capacity = carrying_capacity.species.all_carrying_capacity(species.name_key, time)
+            for cc_ins, cc_data in all_carrying_capacity:
+                if getattr(cc_ins, 'species', '') == species.name_key:
+                    raise PopdynError('Two species may not modify habitat for each other')
 
         k_key = carrying_capacity.name_key
 
@@ -524,10 +529,6 @@ class Domain(object):
                 raise PopdynError('Mortality data must be provided with {}, as it is not attached to a species'.format(
                     mortality.name
                 ))
-
-            # The species may not be itself (this would create an infinite loop)
-            if mortality.species.name_key == species.name_key:
-                raise PopdynError('A species may not dynamically change mortality for itself.')
 
         m_key = mortality.name_key
 
