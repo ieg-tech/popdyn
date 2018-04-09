@@ -364,7 +364,7 @@ class Domain(object):
         # Add population keys to domain
         for key in datasets.keys():
             species, sex, group, time, age = self.deconstruct_key(key)[:5]
-            if age != 'params':  # Avoid offspring, carrying capacity, and mortality
+            if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
                 self.population[species][sex][group][time][age] = key
 
     @time_this
@@ -477,9 +477,10 @@ class Domain(object):
             if carrying_capacity.species.name_key == species.name_key:
                 raise PopdynError('A species may not dynamically change carrying capacity for itself.')
             # Similarly, this species may not be used for carrying capacity of the other
-            all_carrying_capacity = carrying_capacity.species.all_carrying_capacity(species.name_key, time)
+            all_carrying_capacity = self.all_carrying_capacity(carrying_capacity.species.name_key, time)
             for cc_ins, cc_data in all_carrying_capacity:
-                if getattr(cc_ins, 'species', '') == species.name_key:
+                cc_sp = getattr(cc_ins, 'species', False)
+                if cc_sp and cc_sp.name_key == species.name_key:
                     raise PopdynError('Two species may not modify habitat for each other')
 
         k_key = carrying_capacity.name_key
@@ -991,9 +992,7 @@ class Sex(Species):
 
         # The default fecundity lookup is inf (no males): 0., less: 1.
         self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None))\
-            if kwargs.get('fecundity_lookup', None) is not None else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
-
-        self.__dict__.update(kwargs)
+            if kwargs.get('fecundity_lookup', False) else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
 
     def random_fecundity(self, method, **kwargs):
         """

@@ -503,10 +503,6 @@ class discrete_explicit(object):
 
             # Add new offspring to males or females
             for _sex in self.age_zero_population[species].keys():
-                zero_group = self.D.group_from_age(species, _sex, 0)
-                if zero_group is None:
-                    # No ages would exist if there is no group
-                    _age = None
                 if _sex == 'female':
                     # Add female portion of births
                     self.age_zero_population[species][_sex] += female_births
@@ -630,14 +626,14 @@ class discrete_explicit(object):
             # Create a fecundity modifier array that includes some input parameters,
             # and is also used to broadcast the species fecundity value
             fec_mod = dynamic.collect(
-                None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
+                None, lookup_data=self.population_arrays[species.name_key]['Female to Male Ratio'],
                 lookup_table=species.fecundity_lookup
             )
+
             # TODO: Make these attributes, and complete the math here
             # if species.min_fecundity and species.max_fecundity:
             #     fec_mod = calc_stuff
             parameters['Fecundity'] = fec_mod * getattr(species, 'fecundity', 0)
-
             if getattr(species, 'fecundity_random', False):
                 parameters['Fecundity'] = dynamic.collect(
                     parameters['Fecundity'], random_method=species.fecundity_random,
