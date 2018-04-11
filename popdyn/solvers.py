@@ -361,10 +361,20 @@ class discrete_explicit(object):
                                                param.species.sex, param.species.group_key)
             a = self.population_total(param.species.name_key, population)
 
-            # Calculate carrying capacity for the individual species so density may be calculated
-            carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time,
-                                                             param.species.sex, param.species.group_key)
-            c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time)
+            # Calculate carrying capacity from the previous time step for the species
+            # First, try the domain file
+            try:
+                c = self.D.file['{}/{}/{}/{}/params/carrying capacity/Carrying Capacity'.format(
+                    param.species.name_key, param.species.sex, param.species.group_key, time - 1
+                )]
+            except KeyError:
+                # TODO: Could it be calculated before?
+                # ...try to collect it
+                carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time - 1,
+                                                                 param.species.sex, param.species.group_key)
+                c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time)
+
+            # Density
             a = da.where(c > 0, a / c, np.inf)
 
             # Add to the kwargs for dynamic collection
@@ -394,8 +404,11 @@ class discrete_explicit(object):
 
             if honor_density and not instance.contributes_to_density:
                 continue
-            if honor_reproduction and not getattr(instance, 'fecundity', False):
-                continue
+            if honor_reproduction:
+                # Collect fecundity to see if it is present
+                species_key, time, sex, group_key = self.D.deconstruct_key(key)[:4]
+                if len(self.D.get_fecundity(species_key, time, sex, group_key)) == 0:
+                    continue
 
             try:
                 pop_arrays.append(self.population_arrays[species][key])
@@ -492,8 +505,8 @@ class discrete_explicit(object):
         output = {'{}/mortality/{}'.format(flux_prefix, mort_type):
                   da_zeros(self.D.shape, self.D.chunks) for mort_type in mort_types}
 
-        # Calculate births using the effective fecundity if the group is female
-        if sex == 'female':
+        # Calculate births using the effective fecundity
+        if sex is not None:
             # The total population of this group is used, as fecundity will be 0
             # within groups that do not reproduce
             output['{}/fecundity/{}'.format(param_prefix, 'Fecundity')] = params['Fecundity']
@@ -618,34 +631,66 @@ class discrete_explicit(object):
                                          population / parameters['Carrying Capacity'],
                                          np.inf)
 
-        # Collect fecundity parameters if the sex is female
+        # Collect fecundity parameters
+        # These may be collected for any species, whether it be male or female. If fecundity exists for
+        # both males and females, the female rate will override the male rate.
         # ---------------------
-        if sex == 'female':
-            # Change species into the instance
-            species = self.D.species[species][sex][group]
-            # Create a fecundity modifier array that includes some input parameters,
-            # and is also used to broadcast the species fecundity value
-            fec_mod = dynamic.collect(
-                None, lookup_data=self.population_arrays[species.name_key]['Female to Male Ratio'],
-                lookup_table=species.fecundity_lookup
+        # Collect the fecundity instances - HDF5[or None] pairs
+        fecundity = self.D.get_fecundity(species, time, sex, group)
+
+        # Calculate the fecundity values
+        if len(fecundity) == 0:
+            # Defaults to 0
+            parameters['Fecundity'] = da_zeros(self.D.shape, self.D.chunks)
+        else:
+            # Fecundity is collected then aggregated
+            fec_arrays = []
+            for instance, data in fecundity:
+                # Filtered through its density lookup table
+                fec = self.collect_parameter(instance, data, time)
+                fec *= dynamic.collect(
+                    None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
+                    lookup_table=instance.fecundity_lookup
+                )
+                # Linearly adjusted based on threshold values
+                density_fecundity_threshold = getattr(instance, 'density_fecundity_threshold')
+                density_fecundity_max = getattr(instance, 'density_fecundity_max')
+                fecundity_reduction_rate = getattr(instance, 'fecundity_reduction_rate')
+                if density_fecundity_threshold < density_fecundity_max:
+                    fec_mod = da.where(
+                        parameters['Density'] > density_fecundity_threshold,
+                        (parameters['Density'] - density_fecundity_threshold) /
+                        (density_fecundity_max - density_fecundity_threshold),
+                        1.
+                    )
+                    fec_mod = da.where(
+                        fec_mod <= 1, 1 - (fec_mod * fecundity_reduction_rate), 1 - fecundity_reduction_rate
+                    )
+                elif density_fecundity_threshold == density_fecundity_max:
+                    fec_mod = da.where(
+                        parameters['Density'] >= density_fecundity_max, 1. - fecundity_reduction_rate, 1.
+                    )
+                else:
+                    fec_mod = 1.
+                fec *= fec_mod
+                # Add to stack
+                fec_arrays.append(fec)
+            parameters['Fecundity'] = da.dstack(fec_arrays).sum(axis=-1)
+
+        if getattr(species, 'fecundity_random', False):
+            parameters['Fecundity'] = dynamic.collect(
+                parameters['Fecundity'], random_method=species.fecundity_random,
+                random_args=species.fecundity_random_args
             )
 
-            # TODO: Make these attributes, and complete the math here
-            # if species.min_fecundity and species.max_fecundity:
-            #     fec_mod = calc_stuff
-            parameters['Fecundity'] = fec_mod * getattr(species, 'fecundity', 0)
-            if getattr(species, 'fecundity_random', False):
-                parameters['Fecundity'] = dynamic.collect(
-                    parameters['Fecundity'], random_method=species.fecundity_random,
-                    random_args=species.fecundity_random_args
-                )
+        parameters['Fecundity'] = da.where(parameters['Fecundity'] > 0, parameters['Fecundity'], 0)
 
-            parameters['Fecundity'] = da.where(parameters['Fecundity'] > 0, parameters['Fecundity'], 0)
+        birth_ratio = getattr(species, 'birth_ratio', 'random')
 
-            if getattr(species, 'birth_random', None) == 'random':
-                parameters['Birth Ratio'] = np.random.random()
-            else:
-                parameters['Birth Ratio'] = getattr(species, 'birth_ratio', None)
+        if birth_ratio == 'random':
+            parameters['Birth Ratio'] = np.random.random()
+        else:
+            parameters['Birth Ratio'] = birth_ratio
 
         return parameters
 

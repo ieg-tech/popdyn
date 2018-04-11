@@ -212,6 +212,7 @@ class Domain(object):
         self.species = rec_dd()
         self.population = rec_dd()
         self.mortality = rec_dd()
+        self.fecundity = rec_dd()
         self.carrying_capacity = rec_dd()
         # Inheritance may be turned off completely
         if not hasattr(self, 'avoid_inheritance'):
@@ -476,12 +477,6 @@ class Domain(object):
             # The species may not be itself (this would create an infinite loop)
             if carrying_capacity.species.name_key == species.name_key:
                 raise PopdynError('A species may not dynamically change carrying capacity for itself.')
-            # Similarly, this species may not be used for carrying capacity of the other
-            all_carrying_capacity = self.all_carrying_capacity(carrying_capacity.species.name_key, time)
-            for cc_ins, cc_data in all_carrying_capacity:
-                cc_sp = getattr(cc_ins, 'species', False)
-                if cc_sp and cc_sp.name_key == species.name_key:
-                    raise PopdynError('Two species may not modify habitat for each other')
 
         k_key = carrying_capacity.name_key
 
@@ -547,6 +542,54 @@ class Domain(object):
             )
 
         self.mortality[species.name_key][species.sex][species.group_key][time][m_key] = (mortality, key)
+
+    @save
+    def add_fecundity(self, species, fecundity, time, data=None, **kwargs):
+        """
+        Fecundity is added to the domain with species and Fecundity objects in tandem.
+        Multiple fecundity datasets may added to a single species,
+            as they are stacked in the domain for each species (or sex/age group).
+
+        :param Species species: Species instance
+        :param Fecundity fecundity: Fecundity instance.
+        :param data: Fecundity data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
+        :param time: The time slice to insert fecundity
+        :kwargs:
+            :distribute: Divide the input data evenly over the domain
+            :overwrite: Overwrite any existing data (Default 'replace')
+        """
+        # Species must be a Sex or AgeGroup to have fecundity
+        if not any([isinstance(species, o) for o in [Sex, AgeGroup]]):
+            raise PopdynError('Species with fecundity must have a sex')
+
+        if not isinstance(fecundity, Fecundity):
+            raise PopdynError('Expected a Fecundity instance, not "{}"'.format(type(fecundity).__name__))
+
+        self.introduce_species(species)  # Introduce the species
+        time = self.get_time_input(time)  # Gather time
+        if data is not None:
+            data = self.get_data_type(data)  # Parse input data
+        else:
+            # Fecundity must be tied to a species if there are no input data
+            if not hasattr(fecundity, 'species'):
+                raise PopdynError('Fecundity data must be provided if there are no attached species')
+
+        f_key = fecundity.name_key
+
+        # If fecundity is defined only by a lookup table, the key is None
+        if data is None:
+            key = None
+        else:
+            key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, f_key)
+
+            # Add the data to the file
+            self.add_data(key, data,
+                distribute=kwargs.get('distribute', True),
+                overwrite=kwargs.get('overwrite', 'replace'),
+                distribute_by_co=kwargs.get('distribute_by_co', None)
+            )
+
+        self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
 
     @save
     def remove_dataset(self, ds_type, species_key, sex, group, time, name):
@@ -762,6 +805,34 @@ class Domain(object):
         # If there are data in the domain, return the HDF5 dataset, else None
         return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
 
+    def get_fecundity(self, species_key, time, sex, group_key, inherit=True):
+        """
+        Collect the fecundity instance - key pairs
+        :param str species_key:
+        :param str sex:
+        :param str group_key:
+        :param int time:
+        :param avoid_inheritance: Do not inherit a dataset from the sex or species
+        :return: list of instance - HDF5 dataset pairs
+        """
+        time = self.get_time_input(time)
+
+        # Collect the dataset keys using inheritance
+        if not inherit or self.avoid_inheritance:
+            groups = [group_key]
+            sexes = [sex]
+        else:
+            groups = [None, group_key]
+            sexes = [None, sex]
+
+        datasets = {}
+        for group in groups:
+            for _sex in sexes:
+                datasets.update(self.fecundity[species_key][_sex][group][time])
+
+        # If there are data in the domain, return the HDF5 dataset, else None
+        return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
+
     def get_carrying_capacity(self, species_key, time, sex=None, group_key=None, snap_to_time=True, inherit=False):
         """
         Collect the carrying capacity instance - key pairs
@@ -968,15 +1039,9 @@ class Sex(Species):
 
     def __init__(self, name, sex, **kwargs):
         """
-        Species --> Sex constructor which adds reproductive attributes
+        Species --> Sex constructor
         :param str name: Name of the species. Example "Moose"
         :param sex: Name of sex, must be one of 'male', 'female'
-        :param kwargs: Attributes related to fecundity:
-            :param float fecundity: Rate of fecundity (default is 0)
-            :param float birth_ratio: Ratio of females to males born (default is 0.5)
-            :param float density_fecundity_threshold: Density at which fecundity becomes affected by density (default is 0)
-            :param iterable fecundity_lookup: Lookup iterable of x, y pairs to define a relationship between density
-                and fecundity. The x-values are density, and the y-values are a coefficient to modify fecundity.
         """
 
         super(Sex, self).__init__(name, **kwargs)
@@ -985,29 +1050,6 @@ class Sex(Species):
             raise PopdynError('Sex must be one of "male" or "female"')
 
         self.sex = sex.lower()
-
-        self.fecundity = kwargs.get('fecundity', 0)
-        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
-        self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 0)
-
-        # The default fecundity lookup is inf (no males): 0., less: 1.
-        self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None))\
-            if kwargs.get('fecundity_lookup', False) else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
-
-    def random_fecundity(self, method, **kwargs):
-        """
-        Apply a type of random variability to fecundity
-        :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
-        :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
-        :return: None
-        """
-        if method not in dynamic.RANDOM_METHODS.keys():
-            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                method, '\n'.join(dynamic.RANDOM_METHODS.keys()))
-            )
-
-        self.fecundity_random = method
-        self.fecundity_random_args = kwargs.get('args', None)
 
 
 class AgeGroup(Sex):
@@ -1087,6 +1129,55 @@ class CarryingCapacity(object):
         self.random_args = kwargs.get('args', None)
 
 
+class Fecundity(object):
+    """
+    Fecundity can be derived from a dataset or a species and a lookup table. It is added to a species and a domain
+    using the Domain.add_fecundity method, along with respective data if necessary.
+    """
+
+    def __init__(self, name, **kwargs):
+        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
+        self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 0)
+        self.fecundity_reduction_rate = kwargs.get('fecundity_reduction_rate', 1.)
+        self.density_fecundity_max = kwargs.get('density_fecundity_max', 1.)
+
+        self.name = name
+        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
+
+        # The default fecundity lookup is inf (no males): 0., less: 1.
+        self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None)) \
+            if kwargs.get('fecundity_lookup', False) else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
+
+    def add_as_species(self, species, lookup_table):
+        """
+        Add fecundity using another species. Inter-species relationships are specified using a lookup table.
+        :param Species species: Species instance
+        :param iterable lookup_table: A table to define the relationship between the input species density and fecundity.
+            The lookup table x-values define the density of the input species, and the y-values define a fecundity rate.
+        :return: None
+        """
+        if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
+            raise PopdynError('Input fecundity is not a species')
+
+        self.species = species
+        self.species_table = dynamic.collect_lookup(lookup_table)
+
+    def random(self, method, **kwargs):
+        """
+        Apply a type of random variability to fecundity
+        :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
+        :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
+        :return: None
+        """
+        if method not in dynamic.RANDOM_METHODS.keys():
+            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
+                method, '\n'.join(dynamic.RANDOM_METHODS.keys()))
+            )
+
+        self.random_method = method
+        self.random_args = kwargs.get('args', None)
+
+
 class Mortality(object):
     """
     Mortality drivers are templates that may be applied to any species in a model domain. Multiple mortality
@@ -1126,8 +1217,7 @@ class Mortality(object):
         Add mortality using another species. Inter-species relationships are specified using a lookup table.
         :param Species species: Species instance
         :param iterable lookup_table: A table to define the relationship between the input species density and mortality.
-            The lookup table x-values define the density of the input species, and the y-values define a mortality
-            rate that overrides the mortality data when added to another species in the domain.
+            The lookup table x-values define the density of the input species, and the y-values define a mortality rate.
         :return: None
         """
         if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):

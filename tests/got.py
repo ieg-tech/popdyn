@@ -8,6 +8,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
 import h5py
+import dask.array as da
 
 
 def some_random_k(shape, factor):
@@ -231,12 +232,8 @@ def single_species_fecundity():
 def single_species_agegroups():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        stark_male_infant.add_dispersal('density-based dispersion', (5,))
-        stark_female_infant.add_dispersal('density-based dispersion', (5,))
-        stark_male_adolescent.add_dispersal('density-based dispersion', (5,))
-        stark_female_adolescent.add_dispersal('density-based dispersion', (5,))
-        stark_male_adult.add_dispersal('density-based dispersion', (5,))
-        stark_female_adult.add_dispersal('density-based dispersion', (5,))
+        stark_female_adolescent.fecundity = 0.
+        stark_female_adult.fecundity = 0.
         domain.add_population(stark_male_infant, 250., 0, distribute_by_habitat=True)
         domain.add_population(stark_female_infant, 250., 0, distribute_by_habitat=True)
         domain.add_population(stark_male_adolescent, 600., 0, distribute_by_habitat=True)
@@ -244,6 +241,17 @@ def single_species_agegroups():
         domain.add_population(stark_male_adult, 3000., 0, distribute_by_habitat=True)
         domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        pop = da.stack(
+            [da.from_array(ds, domain.chunks) for ds in domain.all_population('stark', 0).values()]
+        ).sum().compute()
+        for i in range(1, 3):
+            _pop = da.stack(
+                [da.from_array(ds, domain.chunks) for ds in domain.all_population('stark', i).values()]
+            ).sum().compute()
+            print(_pop)
+            # if not np.isclose(pop, _pop):
+            #     raise Exception('Population not consistent')
 
 
 def single_species_mortality():
@@ -351,7 +359,7 @@ if __name__ == '__main__':
     #          single_species_fecundity, single_species_agegroups, single_species_mortality,
     #          species_as_mortality, species_as_carrying_capacity]
 
-    tests = [single_species_fecundity]
+    tests = [single_species_agegroups]
 
     error_check = 0
     # for test in antitests:
