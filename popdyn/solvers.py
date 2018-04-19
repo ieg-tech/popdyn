@@ -219,6 +219,14 @@ class discrete_explicit(object):
             return execution
         return inner
 
+    def safe_recursion(func):
+        def inner(*args, **kwargs):
+            instance = args[0]
+            instance.rec_depth = []
+            execution = func(*args, **kwargs)
+            return execution
+        return inner
+
     def __init__(self, domain, start_time, end_time, **kwargs):
         """
         :param domain: Domain instance populated with at least one species
@@ -299,6 +307,7 @@ class discrete_explicit(object):
             # Compute this time slice and write to the domain
             self.D.domain_compute(output)
 
+    @safe_recursion
     @time_this
     def totals(self, all_species, time):
         """
@@ -355,24 +364,23 @@ class discrete_explicit(object):
         """
         # Collect the total species population from the previous time step
         kwargs = {}
-        if data is None:  # There must be a species attached to the parameter instance if this is True
+        if data is None:
+            if param in self.rec_depth:  # This has become circular
+                print('Need to do something here')
+
+            self.rec_depth.append(param)
+
+            # There must be a species attached to the parameter instance if there are no data
             # Collect the total population of the species
             population = self.D.all_population(param.species.name_key, time - 1,
                                                param.species.sex, param.species.group_key)
             a = self.population_total(param.species.name_key, population)
 
-            # Calculate carrying capacity from the previous time step for the species
-            # First, try the domain file
-            try:
-                c = self.D.file['{}/{}/{}/{}/params/carrying capacity/Carrying Capacity'.format(
-                    param.species.name_key, param.species.sex, param.species.group_key, time - 1
-                )]
-            except KeyError:
-                # TODO: Could it be calculated before?
-                # ...try to collect it
-                carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time - 1,
-                                                                 param.species.sex, param.species.group_key)
-                c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time)
+            # Collect carrying capacity from the previous time step for the species. Density may not be used
+            #  directly because it may be for the entire species population.
+            carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time - 1,
+                                                             param.species.sex, param.species.group_key)
+            c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time - 1)
 
             # Density
             a = da.where(c > 0, a / c, np.inf)
@@ -584,6 +592,7 @@ class discrete_explicit(object):
         # Return output so that it may be included in the final compute call
         return output
 
+    @safe_recursion
     @time_this
     def calculate_parameters(self, species, sex, group, time):
         """Collect all required parameters at a time step"""

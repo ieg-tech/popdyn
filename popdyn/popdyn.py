@@ -641,6 +641,16 @@ class Domain(object):
         is_instance(self.species)
         return np.unique(names)
 
+    def group_keys(self, species_key):
+        attrs = ['population', 'mortality', 'carrying_capacity', 'fecundity']
+
+        groups = []
+        for attr in attrs:
+            groups += getattr(self, attr).keys()
+
+        return np.unique(groups)
+
+
     @property
     def species_instances(self):
         """Collect all species instances added to the model domain"""
@@ -695,6 +705,11 @@ class Domain(object):
             if isinstance(val, Species):
                 if any([age == val for val in val.age_range]):
                     return group
+
+    def age_from_group(self, species_key, sex, gp):
+        """Collect all ages from a group"""
+        instance = self.instance_from_key('{}/{}/{}'.format(species_key, sex, gp))
+        return instance.age_range
 
     def instance_from_key(self, key):
         """Return a species instance associated with the input key"""
