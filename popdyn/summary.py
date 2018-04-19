@@ -11,7 +11,8 @@ import dask.array as da
 def total_population(domain, species=None, time=None, sex=None, group=None, age=None):
     """
     Collect the sum of populations from a domain, filtering by sub-populations
-    :param str species: Species name
+    :param Domain domain: Domain object
+    :param str species: Species name - may be an iterable
     :param time: time slice: int or iterable
     :param sex: Sex (one of 'male' or 'female') - may be an iterable
     :param group: group name - may be an iterable
