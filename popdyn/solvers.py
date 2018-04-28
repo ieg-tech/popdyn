@@ -4,6 +4,7 @@ Population dynamics numerical solvers
 Devin Cairns, 2018
 """
 from popdyn import *
+from logger import time_this
 import dask.array as da
 
 
@@ -206,27 +207,6 @@ class discrete_explicit(object):
 
     To run the simulation, use .execute()
     """
-    def time_this(func):
-        """Decorator for profiling methods"""
-        def inner(*args, **kwargs):
-            instance = args[0]
-            start = profile_time.time()
-            execution = func(*args, **kwargs)
-            try:
-                instance.D.profiler['solver ' + func.__name__] += profile_time.time() - start
-            except KeyError:
-                instance.D.profiler['solver ' + func.__name__] = profile_time.time() - start
-            return execution
-        return inner
-
-    def safe_recursion(func):
-        def inner(*args, **kwargs):
-            instance = args[0]
-            instance.rec_depth = []
-            execution = func(*args, **kwargs)
-            return execution
-        return inner
-
     def __init__(self, domain, start_time, end_time, **kwargs):
         """
         :param domain: Domain instance populated with at least one species
@@ -260,6 +240,7 @@ class discrete_explicit(object):
         """Run the simulation"""
         # Iterate time. The first time step cannot be solved and serves to provide initial parameters
         for time in self.simulation_range:
+            self.current_time = time
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
             # -------------------------------------------------------------------------------------------
@@ -307,7 +288,6 @@ class discrete_explicit(object):
             # Compute this time slice and write to the domain
             self.D.domain_compute(output)
 
-    @safe_recursion
     @time_this
     def totals(self, all_species, time):
         """
@@ -329,7 +309,7 @@ class discrete_explicit(object):
                 # -----------------------------------
                 # Collect all carrying capacity keys
                 cc = self.D.all_carrying_capacity(species, time)
-                self.carrying_capacity_arrays[species]['total'] =  self.carrying_capacity_total(species, cc, time)
+                self.carrying_capacity_arrays[species]['total'] =  self.carrying_capacity_total(species, cc)
 
             # Calculate species-wide male and female populations that reproduce
             # Note: Species that do not contribute to density contribute to the reproduction totals
@@ -353,40 +333,21 @@ class discrete_explicit(object):
             )
 
     @time_this
-    def collect_parameter(self, param, data, time):
+    def collect_parameter(self, param, data):
         """
-        Collect data associated with a carrying capacity or mortality instance. If a species is linked,
+        Collect data associated with a Fecundity, CarryingCapacity, or Mortality instance. If a species is linked,
         data will be None and density of the linked species will be calculated.
-        :param param: CarryingCapacity or Mortality instance
+        :param param: CarryingCapacity, Fecundity, or Mortality instance
         :param data: array data or None
-        :param int time: time slice
         :return: A dask array with the collected data
         """
-        # Collect the total species population from the previous time step
         kwargs = {}
+
+        # Collect the total species population from the previous time step
         if data is None:
-            if param in self.rec_depth:  # This has become circular
-                print('Need to do something here')
-
-            self.rec_depth.append(param)
-
             # There must be a species attached to the parameter instance if there are no data
-            # Collect the total population of the species
-            population = self.D.all_population(param.species.name_key, time - 1,
-                                               param.species.sex, param.species.group_key)
-            a = self.population_total(param.species.name_key, population)
-
-            # Collect carrying capacity from the previous time step for the species. Density may not be used
-            #  directly because it may be for the entire species population.
-            carrying_capacity = self.D.get_carrying_capacity(param.species.name_key, time - 1,
-                                                             param.species.sex, param.species.group_key)
-            c = self.carrying_capacity_total(param.species.name_key, carrying_capacity, time - 1)
-
-            # Density
-            a = da.where(c > 0, a / c, np.inf)
-
-            # Add to the kwargs for dynamic collection
-            kwargs = {'lookup_data': a, 'lookup_table': param.species_table}
+            # Density derived from other species- directly applied to the lookup table kwargs
+            kwargs.update(self.interspecies_density(param))
         else:
             data = da.from_array(data, data.chunks)
 
@@ -395,6 +356,50 @@ class discrete_explicit(object):
             kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
 
         return dynamic.collect(data, **kwargs)  # A dask array
+
+    @time_this
+    def interspecies_density(self, param):
+        """
+        Returns the kwargs of density and lookup for a species-dependent parameter.
+        Because interspecies dependencies may be nested or circular, the carrying capacity of all connected
+        species is calculated herein and added to the self.carrying_capacity_arrays object. Future calls of any
+        of the connected species will have data available, avoiding redundant calculations.
+        :param species:
+        :param param:
+        :return: dict of lookup data and table to update kwargs in dynamic call
+        """
+
+        # Check for circular references
+        # ------------------------------------------------------
+        def next_cc(param):
+            tree.append(param.species.name_key)
+            cc = self.D.all_carrying_capacity(
+                param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+            )
+            for _cc in cc:
+                if _cc[0] is not None:
+                    if _cc[0].species.name_key in tree:
+                        raise SolverError('Britches must be held until circular references are allowed')
+                    next_cc(_cc[0])
+
+        tree = []
+        next_cc(param)
+        # ------------------------------------------------------
+
+        # Collect the population of the interdependent species
+        # Collect the total baseline (time - 1) population of the species
+        population = self.D.all_population(param.species.name_key, self.current_time - 1,
+                                           param.species.sex, param.species.group_key)
+        a = self.population_total(param.species.name_key, population)
+
+        carrying_capacity = self.D.all_carrying_capacity(
+            param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+        )
+
+        c = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
+
+        # the kwargs for the lookup table related to the original query are returned along with the density
+        return {'lookup_data': da.where(c > 0, a / c, np.inf), 'lookup_table': param.species_table}
 
     @time_this
     def population_total(self, species, datasets, honor_density=True, honor_reproduction=False):
@@ -431,35 +436,34 @@ class discrete_explicit(object):
             return da_zeros(self.D.shape, self.D.chunks)
 
     @time_this
-    def carrying_capacity_total(self, species, datasets, time):
+    def carrying_capacity_total(self, species, datasets):
         """
         Calculate the total carrying capacity for a species with the provided datasets, usually a result of a
         Domain.get_carrying_capacity call. This updates self.carrying_capacity_arrays to avoid repetitive IO
         :param datasets: list of tuples with instance - data pairs
+        :param list dependent: Tracks the species used in species-dependent carrying capacity calculations
         :return: dask array of total carrying capacity
         """
         cc_coeff = []
         cc_arrays = []
         for cc in datasets:
-            # Check if this has already been computed
+            # Check if this has already been computed. If any interspecies data are included, they will
+            #  all be computed at the first occurrence and added to the arrays.
             try:
-                if self.carrying_capacity_arrays[species][cc[0]][0]:
-                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]][1])
-                else:
-                    cc_arrays.append(self.carrying_capacity_arrays[species][cc[0]][1])
-            except KeyError:
-                # Recursive call to collect parameter if another species is used for carrying capacity
-                ds = self.collect_parameter(cc[0], cc[1], time)
                 if cc[1] is None:
-                    # This is a coefficient
-                    cc_coeff.append(ds)
-                    is_coeff = True
+                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]])
                 else:
-                    # This is a direct carrying capacity array
-                    is_coeff = False
+                    cc_arrays.append(self.carrying_capacity_arrays[species][cc[0]])
+            except KeyError:
+                # The dataset must be calculated or added to the arrays dict
+                ds = self.collect_parameter(cc[0], cc[1])
+                self.carrying_capacity_arrays[species][cc[0]] = ds
+
+                if cc[1] is None:
+                    cc_coeff.append(ds)
+                else:
                     cc_arrays.append(ds)
-                # Update the datasets
-                self.carrying_capacity_arrays[species][cc[0]] = (is_coeff, ds)
+
         if len(cc_coeff) > 0:
             coeff = da.dstack(cc_coeff).sum(axis=-1)
         else:
@@ -492,7 +496,7 @@ class discrete_explicit(object):
         ages = species_instance.age_range
         max_age = self.D.discrete_ages(species, sex)[-1]
         # Output datasets are stored in "flux" and "params" directories,
-        # which are for populations changes and model paramteres, respectively
+        # which are for populations changes and model parameters, respectively
         flux_prefix = '{}/{}/{}/{}/flux'.format(species, sex, group, time)
         param_prefix = '{}/{}/{}/{}/params'.format(species, sex, group, time)
 
@@ -592,7 +596,6 @@ class discrete_explicit(object):
         # Return output so that it may be included in the final compute call
         return output
 
-    @safe_recursion
     @time_this
     def calculate_parameters(self, species, sex, group, time):
         """Collect all required parameters at a time step"""
@@ -609,7 +612,7 @@ class discrete_explicit(object):
             for instance, data in mortality:
                 # Mortality types remain separated by name in order to track numbers associated with types,
                 # and cannot be less than 0
-                parameters[instance.name] = self.collect_parameter(instance, data, time)
+                parameters[instance.name] = self.collect_parameter(instance, data)
                 parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
 
         # Carrying Capacity -
@@ -617,7 +620,7 @@ class discrete_explicit(object):
         # Collect CarryingCapacity instances and/or data from the domain at the current time step
         if not self.total_density:
             carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
-            parameters['Carrying Capacity'] = self.carrying_capacity_total(species, carrying_capacity, time)
+            parameters['Carrying Capacity'] = self.carrying_capacity_total(species, carrying_capacity)
 
         else:
             parameters['Carrying Capacity'] = self.carrying_capacity_arrays[species]['total']
@@ -656,7 +659,7 @@ class discrete_explicit(object):
             fec_arrays = []
             for instance, data in fecundity:
                 # Filtered through its density lookup table
-                fec = self.collect_parameter(instance, data, time)
+                fec = self.collect_parameter(instance, data)
                 fec *= dynamic.collect(
                     None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
                     lookup_table=instance.fecundity_lookup

@@ -6,7 +6,6 @@ Devin Cairns, 2018
 
 from __future__ import print_function
 import os
-import time as profile_time
 import pickle
 from string import punctuation
 import numpy as np
@@ -16,6 +15,7 @@ import h5py
 from osgeo import gdal, osr
 import dispersal
 import dynamic
+from logger import time_this
 
 
 class PopdynError(Exception):
@@ -45,19 +45,6 @@ class Domain(object):
     """
     # Decorators
     #-------------------------------------------------------------------------
-    def time_this(func):
-        """Decorator for profiling methods"""
-        def inner(*args, **kwargs):
-            instance = args[0]
-            start = profile_time.time()
-            execution = func(*args, **kwargs)
-            try:
-                instance.profiler[func.__name__] += profile_time.time() - start
-            except KeyError:
-                instance.profiler[func.__name__] = profile_time.time() - start
-            return execution
-        return inner
-
     def save(func):
         """Decorator for saving attributes to the popdyn file"""
         def inner(*args, **kwargs):
@@ -792,17 +779,32 @@ class Domain(object):
         elif overwrite == 'subtract':
             ds[:] = np.subtract(ds, data)
 
-    def get_mortality(self, species_key, time, sex, group_key, inherit=True):
+    def get_mortality(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
         """
         Collect the mortality instance - key pairs
         :param str species_key:
         :param str sex:
         :param str group_key:
         :param int time:
+        :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
         :return: list of instance - HDF5 dataset pairs
         """
         time = self.get_time_input(time)
+
+        if snap_to_time:
+            times = self.fecundity[species_key][sex][group_key].keys()
+            times = [t for t in times if len(self.fecundity[species_key][sex][group_key][t]) > 0]
+
+            times = np.unique(times)
+            delta = time - times
+            backwards = delta >= 0
+            # If no times are available, time is not updated
+            if backwards.sum() > 0:
+                times = times[backwards]
+                delta = delta[backwards]
+                i = np.argmin(delta)
+                time = times[i]
 
         # Collect the dataset keys using inheritance
         if not inherit or self.avoid_inheritance:
@@ -820,17 +822,32 @@ class Domain(object):
         # If there are data in the domain, return the HDF5 dataset, else None
         return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
 
-    def get_fecundity(self, species_key, time, sex, group_key, inherit=True):
+    def get_fecundity(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
         """
         Collect the fecundity instance - key pairs
         :param str species_key:
+        :param int time:
         :param str sex:
         :param str group_key:
-        :param int time:
+        :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
         :return: list of instance - HDF5 dataset pairs
         """
         time = self.get_time_input(time)
+
+        if snap_to_time:
+            times = self.fecundity[species_key][sex][group_key].keys()
+            times = [t for t in times if len(self.fecundity[species_key][sex][group_key][t]) > 0]
+
+            times = np.unique(times)
+            delta = time - times
+            backwards = delta >= 0
+            # If no times are available, time is not updated
+            if backwards.sum() > 0:
+                times = times[backwards]
+                delta = delta[backwards]
+                i = np.argmin(delta)
+                time = times[i]
 
         # Collect the dataset keys using inheritance
         if not inherit or self.avoid_inheritance:
@@ -1019,6 +1036,10 @@ class Species(object):
 
         # Does this species get included in species-wide density calculations?
         self.contributes_to_density = kwargs.get('contributes_to_density', True)
+        # Point at which density-dependent mortality is effective
+        self.density_threshold = kwargs.get('density_threshold', 1.)
+        # Rate of density-dependent mortality
+        self.density_scale = kwargs.get('density_scale', 1.)
 
         # Does this species live past the maximum specified age (if it is an age group)?
         self.live_past_max = kwargs.get('live_past_max', False)

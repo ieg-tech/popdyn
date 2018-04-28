@@ -1,5 +1,5 @@
 """
-Summarize data from a popdyn simulation
+Summarize data from a PopDyn simulation
 
 Devin Cairns 2018
 """
@@ -41,7 +41,7 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
     else:
         return da.dstack(populations).sum(axis=-1).compute()
 
-def total_carrying_capcity(domain, species=None, time=None, sex=None, group=None):
+def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):
     """
     Collect the total carrying capacity in the domain for the given query
     :param Domain domain: Domain object

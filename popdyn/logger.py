@@ -4,12 +4,35 @@ Populations dynamics logging tools
 Devin Cairns 2018
 """
 
+import time as profile_time
 from datetime import datetime
 from dateutil.tz import tzlocal
 
 
+
 class LoggerError(Exception):
     pass
+
+
+def time_this(func):
+    """Decorator for profiling methods in classes"""
+    def inner(*args, **kwargs):
+        instance = args[0]
+        start = profile_time.time()
+        execution = func(*args, **kwargs)
+        if hasattr(instance, 'D'):
+            try:
+                instance.D.profiler[func.__name__] += profile_time.time() - start
+            except KeyError:
+                instance.D.profiler[func.__name__] = profile_time.time() - start
+            return execution
+        else:
+            try:
+                instance.profiler[func.__name__] += profile_time.time() - start
+            except KeyError:
+                instance.profiler[func.__name__] = profile_time.time() - start
+            return execution
+    return inner
 
 
 def visualize(domain, output_file, time=None):

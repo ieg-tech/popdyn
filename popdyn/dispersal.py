@@ -25,7 +25,7 @@ def apply(a, total, capacity, method, args):
     return METHODS[method](a, total, capacity, *args)
 
 
-def calculate_kernel(distance, csx, csy):
+def calculate_kernel(distance, csx, csy, outer_ring=False):
     """Calculate kernel index offsets using the distance and cell size"""
     # Calculate the kernel matrix size
     m = np.uint64(np.round(distance / csy))
@@ -35,6 +35,9 @@ def calculate_kernel(distance, csx, csy):
     kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
     kernel[m, n] = 0
     kernel = ndimage.distance_transform_edt(kernel, (csy, csx)) <= distance
+
+    if outer_ring:
+        kernel = ~(ndimage.binary_erosion(kernel, np.ones((3, 3), 'bool'))) & kernel
 
     # Create an offset matrix
     i, j = np.asarray(np.where(kernel))
@@ -68,6 +71,35 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     # Perform the dispersal
     # args: population, total_population, carrying_capacity, kernel
     output = a.map_blocks(density_flux_task, kernel, m, n, dtype='float32',
+                          chunks=(chunks + (1,)))
+    # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
+    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze()
+
+
+def distance_propagation(population, total_population, carrying_capacity, distance, csx, csy):
+    # Check the inputs
+    if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
+        raise DispersalError('Inputs must be a dask arrays')
+
+    # Calculate the kernel indices and shape
+    kernel, m, n = calculate_kernel(distance, csx, csy, outer_ring=True)
+    # Dask does not like numpy types in depth
+    m = int(m)
+    n = int(m)
+    depth = {0: m, 1: n, 2: 0}  # Padding
+    boundary = {0: 0, 1: 0, 2:0}  # Constant padding value
+
+    # Dstack and ghost the input arrays for the jitted function
+    a = da.ghost.ghost(
+        da.dstack([population, total_population, carrying_capacity]),
+        depth, boundary
+    )
+    chunks = tuple(c[0] if c else 0 for c in a.chunks)[:2]
+    a = a.rechunk((chunks + (3,)))  # Need all of the last dimension passed at once
+
+    # Perform the dispersal
+    # args: population, total_population, carrying_capacity, kernel
+    output = a.map_blocks(distance_propagation_task, kernel, m, n, dtype='float32',
                           chunks=(chunks + (1,)))
     # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
     return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze()
@@ -140,8 +172,47 @@ def density_flux_task(a, kernel, i_pad, j_pad):
     return out
 
 
-def distance_propagation(args):
-    pass
+@jit(nopython=True, nogil=True)
+def distance_propagation_task(a, kernel, i_pad, j_pad):
+    """
+    Reallocate mass to the best habitat at a specified distance
+    :param a: 3d array with the following expected dimensionality
+        axis (2, 0): mass to be redistributed (a subset of total mass)
+        axis (2, 1): total mass
+        axis (2, 2): total capacity (calculations are masked where capacity is 0)
+    :param kernel: Kernel index offset in the shape (m, n)
+    :param i_pad: padding in the y-direction
+    :param j_pad: padding in the x-direction
+    :return: ndarray of redistributed mass
+    """
+    m, n, _ = a.shape
+    k = kernel.shape[0]
+    out = np.zeros((m, n, 1), np.float32)
+
+    for i in range(i_pad, m - i_pad):
+        for j in range(j_pad, n - j_pad):
+            # Carry over mass to output
+            out[i, j] += a[i, j, 0]
+
+            if a[i, j, 2] == 0 or a[i, j, 0] == 0:
+                continue
+
+            # Find the minimum density in the kernel
+            _min = 0
+            i_min, j_min = None, None
+            for k_i in range(k):
+                if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
+                    d = a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
+                        a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2]
+                    if d < _min:
+                        _min = d
+                        i_min, j_min = kernel[k_i, 0], kernel[k_i, 1]
+
+            # Propagate mass to the candidate
+            if i_min is not None and j_min is not None:
+                out[i + i_min, j + j_min] += a[i, j, 0] * 0.5
+
+    return out
 
 
 def density_network(args):
