@@ -91,6 +91,10 @@ lannister_k = pd.CarryingCapacity('Lannister Habitat')
 white_walker_k = pd.CarryingCapacity('White Walker Habitat')
 white_walker_k_data = some_random_k(shape, 2.)
 
+# Fecundity
+#================================================================================
+male_fecundity = pd.Fecundity('males')
+female_fecundity = pd.Fecundity('females')
 
 # Tests
 #================================================================================
@@ -197,8 +201,12 @@ def single_species_fecundity():
     # F:M ratio allows offspring
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
         domain.add_carrying_capacity(starks, stark_k, 0, 100., distribute=False)
-        domain.add_population(pd.Sex('Stark', 'male', fecundity=1), 50, 0)
-        domain.add_population(pd.Sex('Stark', 'female', fecundity=1.1), 50, 0)
+        males = pd.Sex('Stark', 'male')
+        females = pd.Sex('Stark', 'female')
+        domain.add_population(males, 50, 0)
+        domain.add_population(females, 50, 0)
+        domain.add_fecundity(males, male_fecundity, 0, 1.1)
+        domain.add_fecundity(females, female_fecundity, 0, 1.1)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
     with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
@@ -359,7 +367,7 @@ if __name__ == '__main__':
     #          single_species_fecundity, single_species_agegroups, single_species_mortality,
     #          species_as_mortality, species_as_carrying_capacity]
 
-    tests = [single_species_agegroups]
+    tests = [single_species_sex]
 
     error_check = 0
     # for test in antitests:

@@ -419,7 +419,8 @@ class discrete_explicit(object):
                 continue
             if honor_reproduction:
                 # Collect fecundity to see if it is present
-                species_key, time, sex, group_key = self.D.deconstruct_key(key)[:4]
+                species_key, sex, group_key, time = self.D.deconstruct_key(key)[:4]
+
                 if len(self.D.get_fecundity(species_key, time, sex, group_key)) == 0:
                     continue
 
