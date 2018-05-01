@@ -566,10 +566,30 @@ class discrete_explicit(object):
                                                  self.population_arrays[species]['total'],
                                                  self.carrying_capacity_arrays[species]['total'],
                                                  dispersal_method, args)
-                # Apply density-dependent mortality
-                output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] = da.where(
-                    population > params['Carrying Capacity'], population - params['Carrying Capacity'], 0
-                )
+                # Apply density-dependent mortality if this species contributes to density
+
+                # if general_mortality_threshold < 1.:
+                #     deaths = ne.evaluate(
+                #         'where(kM,'
+                #         '(((density_dependent_sum/k)-general_mortality_threshold)/(1-general_mortality_threshold))*general_mortality_proportion'
+                #         ',0)'
+                #     )
+                #     deaths[deaths > general_mortality_proportion] = general_mortality_proportion
+                #     deaths = ne.evaluate(
+                #         'where(kM,1-(((density_dependent_sum-kThresh)*deaths)/density_dependent_sum),0)'
+                #     )
+                # else:
+                #     deaths = ne.evaluate('where(kM,'
+                #                          '1-(((density_dependent_sum-k)*general_mortality_proportion)/density_dependent_sum),'
+                #                          '0)')
+
+                if species_instance.contributes_to_density:
+                    dd_mort = da.where(
+                        population > params['Carrying Capacity'], population - params['Carrying Capacity'], 0
+                    )
+                else:
+                    dd_mort = da_zeros(self.D.shape, self.D.chunks)
+                output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] = dd_mort
                 population -= output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')]
 
                 # Propagate age by one increment and save to the current time step.

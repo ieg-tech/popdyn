@@ -1016,6 +1016,18 @@ class Domain(object):
 #                   and fecundity from the same species/sex when added to the domain.
 # ========================================================================================================
 
+def name_key(name):
+    """Map a given name to a stripped alphanumeric hash"""
+    # Remove white space and make lower-case
+    name = name.strip().replace(' ', '').lower()
+
+    try:
+        # String
+        return name.translate(None, punctuation)
+    except:
+        # Unicode
+        return name.translate(dict.fromkeys(punctuation))
+
 
 class Species(object):
 
@@ -1032,7 +1044,7 @@ class Species(object):
                               'Use something simple, like "Moose".')
 
         self.name = name
-        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
+        self.name_key = name_key(name)
 
         # Does this species get included in species-wide density calculations?
         self.contributes_to_density = kwargs.get('contributes_to_density', True)
@@ -1098,7 +1110,7 @@ class AgeGroup(Sex):
         super(AgeGroup, self).__init__(species_name, sex, **kwargs)
 
         self.group_name = group_name
-        self.group_key = group_name.strip().translate(None, punctuation + ' ').lower()
+        self.group_key = name_key(group_name)
 
         self.min_age = min_age
         self.max_age = max_age
@@ -1127,7 +1139,7 @@ class CarryingCapacity(object):
                               'Use something simple, like "Thicket".')
 
         self.name = name
-        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
+        self.name_key = name_key(name)
 
         self.species = self.species_table = None
 
@@ -1178,7 +1190,7 @@ class Fecundity(object):
         self.density_fecundity_max = kwargs.get('density_fecundity_max', 1.)
 
         self.name = name
-        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
+        self.name_key = name_key(name)
 
         # The default fecundity lookup is inf (no males): 0., less: 1.
         self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None)) \
@@ -1242,7 +1254,7 @@ class Mortality(object):
             raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(forbidden_names)))
 
         self.name = name
-        self.name_key = name.strip().translate(None, punctuation + ' ').lower()
+        self.name_key = name_key(name)
 
         self.species = self.species_table = None
 
