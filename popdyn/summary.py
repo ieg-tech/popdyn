@@ -41,6 +41,7 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
     else:
         return da.dstack(populations).sum(axis=-1).compute()
 
+
 def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):
     """
     Collect the total carrying capacity in the domain for the given query
@@ -69,6 +70,7 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
     else:
         return da.dstack(carrying_capacity).sum(axis=-1).compute()
 
+
 def list_mortality_types(domain, species=None, time=None, sex=None, group=None):
     """
     List the mortality names in the domain for the given query
@@ -92,6 +94,7 @@ def list_mortality_types(domain, species=None, time=None, sex=None, group=None):
                         pass
 
     return np.unique(names)
+
 
 def total_mortality(domain, species=None, time=None, sex=None, group=None, mortality_name=None, as_population=True):
     """
@@ -132,6 +135,7 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
     else:
         return da.dstack(mortality).sum(axis=-1).compute()
 
+
 def total_offspring(domain, species=None, time=None, sex=None, group=None):
     """
     Collect the total offspring using the given query
@@ -161,6 +165,7 @@ def total_offspring(domain, species=None, time=None, sex=None, group=None):
     else:
         return da.dstack(offspring).sum(axis=-1).compute()
 
+
 def fecundity(domain, species=None, time=None, sex=None, group=None):
     """
     Collect the total fecundity using the given query
@@ -188,6 +193,21 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
         return np.zeros(domain.shape, np.float32)
     else:
         return da.dstack(fecundity).sum(axis=-1).compute()
+
+
+def summarize_species(domain):
+    """
+    Summarize totals of each species and their parameters in the domain
+    :param domain: Domain instance
+    :return: dict of species and their parameters
+    """
+    # Collect parameters and dataset totals
+    Parameterization
+    Habitat
+    Solver
+
+    return dict()
+
 
 def all_times(domain):
 
@@ -258,7 +278,7 @@ def collect_iterables(domain, species, time, sex, group, age='not provided'):
     if all([gp is None for gp in group]):
         group = [None]
         for sp in species:
-            group += domain.group_keys(sp)
+            group += list(domain.group_keys(sp))
 
     if age == 'not provided':
         return species, time, sex, group
