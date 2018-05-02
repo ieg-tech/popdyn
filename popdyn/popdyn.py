@@ -633,7 +633,8 @@ class Domain(object):
 
         groups = []
         for attr in attrs:
-            groups += getattr(self, attr).keys()
+            for sex in ['male', 'female', None]:
+                groups += getattr(self, attr)[species_key][sex].keys()
 
         return np.unique(groups)
 

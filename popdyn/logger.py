@@ -9,7 +9,7 @@ import string
 import os
 import numpy as np
 import xlsxwriter
-from popdyn.summary import summarize_species
+from popdyn.summary import model_summary
 from datetime import datetime
 from dateutil.tz import tzlocal
 
@@ -112,7 +112,7 @@ def write_xlsx(domain, output_directory):
     path = os.path.join(output_directory, datetime.now(tzlocal()).strftime('popdyn_%d%B%Y_%I%M%p'))
 
     # Collect the summarize information from the domain
-    domain_dict = summarize_species(domain)
+    domain_dict = model_summary(domain)
 
     def wb_write(row, col, val):
         try:

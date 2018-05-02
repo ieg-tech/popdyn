@@ -6,6 +6,9 @@ Devin Cairns 2018
 
 from popdyn import *
 import dask.array as da
+from datetime import datetime
+from dateutil.tz import tzlocal
+from copy import deepcopy
 
 
 def total_population(domain, species=None, time=None, sex=None, group=None, age=None):
@@ -195,18 +198,48 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
         return da.dstack(fecundity).sum(axis=-1).compute()
 
 
-def summarize_species(domain):
+def model_summary(domain):
     """
     Summarize totals of each species and their parameters in the domain
     :param domain: Domain instance
     :return: dict of species and their parameters
     """
-    # Collect parameters and dataset totals
-    Parameterization
-    Habitat
-    Solver
+    log = {
+        'Habitat': {}, 'Population': {}, 'Natality': {}, 'Mortality': {},
+        'Parameterization': {'Domain size': str(domain.shape),
+                             'Cell size (x)': domain.csx,
+                             'Cell size (y)': domain.csy,
+                             'Top corner': domain.top,
+                             'Left corner': domain.left,
+                             'Distributed scheduler chunk size': domain.chunks,
+                             'Popdyn file': domain.path,
+                             'Spatial Reference': domain.projection,
+                             'Avoid Inheritance': domain.avoid_inheritance},
+        'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')] + \
+                  ['{},{:.4f}'.format(key, val) for key, val in domain.profiler.items()]
+    }
 
-    return dict()
+    summary = {sp: deepcopy(log) for sp in domain.species.keys()}
+
+    model_times = all_times(domain)
+
+    for species in summary.keys():
+        sp_log = summary[species]
+
+        for time in model_times:
+            # Carrying Capacity
+            domain.file[species]
+
+            # Natality
+
+
+            # Mortality
+
+
+            # Population
+
+
+    return log
 
 
 def all_times(domain):
