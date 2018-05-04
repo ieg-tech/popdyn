@@ -183,21 +183,21 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
     """
     species, time, sex, group = collect_iterables(domain, species, time, sex, group)
 
-    fecundity = []
+    _fecundity = []
     for t in time:
         for sp in species:
             for s in sex:
                 for gp in group:
                     fec = '{}/{}/{}/{}/params/fecundity/Fecundity'.format(sp, s, gp, t)
                     try:
-                        fecundity.append(da.from_array(domain[fec], domain.chunks))
+                        _fecundity.append(da.from_array(domain[fec], domain.chunks))
                     except KeyError:
                         pass
 
-    if len(fecundity) == 0:
+    if len(_fecundity) == 0:
         return np.zeros(domain.shape, np.float32)
     else:
-        return da.dstack(fecundity).sum(axis=-1).compute()
+        return da.dstack(_fecundity).sum(axis=-1).compute()
 
 
 def model_summary(domain):
@@ -206,7 +206,9 @@ def model_summary(domain):
     :param domain: Domain instance
     :return: dict of species and their parameters
     """
-    log = {
+    model_times = all_times(domain)
+
+    log = {'Time': model_times,
         'Habitat': {}, 'Population': {}, 'Natality': {}, 'Mortality': {},
         'Parameterization': {'Domain size': str(domain.shape),
                              'Cell size (x)': domain.csx,
@@ -222,8 +224,6 @@ def model_summary(domain):
     }
 
     summary = {sp: deepcopy(log) for sp in domain.species.keys()}
-
-    model_times = all_times(domain)
 
     for species in summary.keys():
         sp_log = summary[species]
@@ -241,7 +241,7 @@ def model_summary(domain):
             # Population
 
 
-    return log
+    return summary
 
 
 def all_times(domain):
@@ -278,10 +278,6 @@ def seek_instance(domain, instance):
         _next(getattr(domain, _type), _type)
 
 
-def name_key(name):
-    return name.strip().translate(None, punctuation + ' ').lower()
-
-
 def collect_iterables(domain, species, time, sex, group, age='not provided'):
 
     def make_iter(obj):
@@ -299,17 +295,17 @@ def collect_iterables(domain, species, time, sex, group, age='not provided'):
         time = all_times(domain)
 
     # All species are used if species is None
-    species = [name_key(sp) for sp in make_iter(species) if sp is not None]
+    species = [pd.name_key(sp) for sp in make_iter(species) if sp is not None]
     if len(species) == 0:
-        species = [name_key(name) for name in domain.species_names]
+        species = [pd.name_key(name) for name in domain.species_names]
 
     # If sex is None, add both males and females
-    sex = make_iter(sex)
+    sex = [s.lower() if s is not None else s for s in make_iter(sex)]
     if all([s is None for s in sex]):
         sex = [None, 'male', 'female']
 
     # Collect all groups if None
-    group = make_iter(group)
+    group = [pd.name_key(gp) if gp is not None else gp for gp in make_iter(group)]
     if all([gp is None for gp in group]):
         group = [None]
         for sp in species:

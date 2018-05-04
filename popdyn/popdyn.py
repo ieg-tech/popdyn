@@ -702,7 +702,13 @@ class Domain(object):
     def instance_from_key(self, key):
         """Return a species instance associated with the input key"""
         species_key, sex, group = self.deconstruct_key(key)[:3]
-        return self.species[species_key][sex][group]
+        instance = self.species[species_key][sex][group]
+        if not isinstance(instance, Species):
+            raise PopdynError('There appears to be no species associated with the query:\n'
+                              'Species Key: {}\n'
+                              'Sex: {}\n'
+                              'Group: {}'.format(species_key, sex, group))
+        return instance
 
     def introduce_species(self, species):
         """INTERNAL> Add a species to the model domain"""
@@ -715,8 +721,10 @@ class Domain(object):
     @time_this
     def add_data(self, key, data, **kwargs):
         """
-        INTERNAL method for writing to the disk.
-        Overwrite behaviour supports some simple math.
+        Prepare and write data to the popdyn file
+        Overwrite behaviour supports some simple math
+
+        This is not meant to be called directly.
 
         :param key: key of the dataset in the popdyn file
         :param np.ndarray data: Population data to save. This must be filtered through Domain.get_data_type in advance
