@@ -7,6 +7,7 @@ Devin Cairns 2018
 import popdyn as pd
 import dask.array as da
 import numpy as np
+from string import punctuation
 from datetime import datetime
 from dateutil.tz import tzlocal
 from copy import deepcopy
