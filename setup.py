@@ -19,7 +19,7 @@ def is_installed(name):
         return False
 
 
-requires = ['h5py', 'dask', 'numba', 'xlsxwriter', 'python-dateutil', 'toolz', 'scipy']
+requires = ['cython', 'h5py', 'dask', 'numba', 'xlsxwriter', 'python-dateutil', 'toolz', 'scipy']
 
 setup(name='popdyn',
       version=version,

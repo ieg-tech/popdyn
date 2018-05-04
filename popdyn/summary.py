@@ -4,8 +4,9 @@ Summarize data from a PopDyn simulation
 Devin Cairns 2018
 """
 
-from popdyn import *
+import popdyn as pd
 import dask.array as da
+import numpy as np
 from datetime import datetime
 from dateutil.tz import tzlocal
 from copy import deepcopy
@@ -288,7 +289,7 @@ def collect_iterables(domain, species, time, sex, group, age='not provided'):
         else:
             return [obj]
 
-    if not isinstance(domain, Domain):
+    if not isinstance(domain, pd.Domain):
         raise TypeError('The domain input must be a Domain instance')
 
     # All times are used if time is None
