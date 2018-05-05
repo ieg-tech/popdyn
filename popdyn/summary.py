@@ -41,7 +41,7 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
                         population = domain.get_population(sp, t, s, gp, age)
                         if population is not None:
                             populations.append(
-                                da.from_array(domain[populations], domain.chunks)
+                                da.from_array(domain[population], domain.chunks)
                             )
 
     if len(populations) == 0:
@@ -231,7 +231,8 @@ def model_summary(domain):
     for species in summary.keys():
         sp_log = summary[species]
 
-        # Collect iterables of species,
+        # Collect the species name
+        domain.species[species]
 
         for time in model_times:
             # Carrying Capacity
