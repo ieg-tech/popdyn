@@ -629,13 +629,16 @@ class Domain(object):
         return np.unique(names)
 
     def group_keys(self, species_key):
-        attrs = ['population', 'mortality', 'carrying_capacity', 'fecundity']
+        """Collect all groups under a specific species"""
+        def is_instance(d):
+            for key, val in d.items():
+                if isinstance(val, dict):
+                    is_instance(val)
+                elif any([isinstance(val, obj) for obj in [Species, Sex, AgeGroup]]):
+                    groups.append(val.group_key)
 
         groups = []
-        for attr in attrs:
-            for sex in ['male', 'female', None]:
-                groups += getattr(self, attr)[species_key][sex].keys()
-
+        is_instance(self.species[species_key])
         return np.unique(groups)
 
 
@@ -694,21 +697,24 @@ class Domain(object):
                 if any([age == val for val in val.age_range]):
                     return group
 
+    def get_species_instance(self, species_key, sex, gp):
+        if gp in self.species[species_key][sex].keys():
+            instance = self.species[species_key][sex][gp]
+        else:
+            raise PopdynError('There appears to be no species associated with the query:\n'
+                              'Species Key: {}\n'
+                              'Sex: {}\n'
+                              'Group: {}'.format(species_key, sex, gp))
+        return instance
+
     def age_from_group(self, species_key, sex, gp):
         """Collect all ages from a group"""
-        instance = self.instance_from_key('{}/{}/{}'.format(species_key, sex, gp))
-        return instance.age_range
+        return self.get_species_instance(species_key, sex, gp).age_range
 
     def instance_from_key(self, key):
         """Return a species instance associated with the input key"""
         species_key, sex, group = self.deconstruct_key(key)[:3]
-        instance = self.species[species_key][sex][group]
-        if not isinstance(instance, Species):
-            raise PopdynError('There appears to be no species associated with the query:\n'
-                              'Species Key: {}\n'
-                              'Sex: {}\n'
-                              'Group: {}'.format(species_key, sex, group))
-        return instance
+        return self.get_species_instance(species_key, sex, group)
 
     def introduce_species(self, species):
         """INTERNAL> Add a species to the model domain"""

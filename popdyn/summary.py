@@ -7,7 +7,6 @@ Devin Cairns 2018
 import popdyn as pd
 import dask.array as da
 import numpy as np
-from string import punctuation
 from datetime import datetime
 from dateutil.tz import tzlocal
 from copy import deepcopy
@@ -33,7 +32,7 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
                 for gp in group:
                     # If ages are None, they must be collected for the group
                     if len(ages) == 0:
-                        ages = domain.age_from_group(sp, s, gp)
+                        ages = domain.age_from_group(sp, s, gp)  # Returns a list
                     for age in ages:
                         population = domain.get_population(sp, t, s, gp, age)
                         if population is not None:
@@ -228,6 +227,8 @@ def model_summary(domain):
     for species in summary.keys():
         sp_log = summary[species]
 
+        # Collect iterables of species,
+
         for time in model_times:
             # Carrying Capacity
             domain.file[species]
@@ -307,7 +308,7 @@ def collect_iterables(domain, species, time, sex, group, age='not provided'):
     # Collect all groups if None
     group = [pd.name_key(gp) if gp is not None else gp for gp in make_iter(group)]
     if all([gp is None for gp in group]):
-        group = [None]
+        group = []
         for sp in species:
             group += list(domain.group_keys(sp))
 
