@@ -136,7 +136,11 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
                     else:
                         names = [mortality_name]
                     for name in names:
-                        mortality.append(da.from_array(domain['{}/{}'.format(base_key, name)], domain.chunks))
+                        try:
+                            ds = domain['{}/{}'.format(base_key, name)]
+                        except KeyError:
+                            continue
+                        mortality.append(da.from_array(ds, domain.chunks))
 
     if len(mortality) == 0:
         return np.zeros(domain.shape, np.float32)
@@ -232,19 +236,24 @@ def model_summary(domain):
         sp_log = summary[species]
 
         # Collect the species name
-        domain.species[species]
+        species_name = [name for name in domain.species_names if species == pd.name_key(name)][0]
 
-        for time in model_times:
-            # Carrying Capacity
-            domain.file[species]
+        # Iterate groups and populate data
+        for gp in domain.group_keys(species):
+            for sex in ['male', 'female', None]:
+                for param in ['param', 'flux']:
+                    for time in model_times:
+                        key = '{}/{}/{}/{}/{}'.format(species, sex, gp, time, param)
+                        # Carrying Capacity
+                        '{}/carrying capacity/Carrying Capacity'.format(key)
 
-            # Natality
+                        # Natality
 
 
-            # Mortality
+                        # Mortality
 
 
-            # Population
+                        # Population
 
 
     return summary
