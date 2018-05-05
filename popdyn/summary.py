@@ -32,7 +32,11 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
                 for gp in group:
                     # If ages are None, they must be collected for the group
                     if len(ages) == 0:
-                        ages = domain.age_from_group(sp, s, gp)  # Returns a list
+                        try:
+                            ages = domain.age_from_group(sp, s, gp)  # Returns a list
+                        except pd.PopdynError:
+                            # This group is not associated with the current species or sex in the iteration
+                            continue
                     for age in ages:
                         population = domain.get_population(sp, t, s, gp, age)
                         if population is not None:

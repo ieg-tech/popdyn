@@ -709,7 +709,8 @@ class Domain(object):
 
     def age_from_group(self, species_key, sex, gp):
         """Collect all ages from a group"""
-        return self.get_species_instance(species_key, sex, gp).age_range
+        instance = self.get_species_instance(species_key, sex, gp)
+        return instance.age_range
 
     def instance_from_key(self, key):
         """Return a species instance associated with the input key"""
