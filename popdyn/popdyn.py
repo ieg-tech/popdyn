@@ -628,6 +628,23 @@ class Domain(object):
         is_instance(self.species)
         return np.unique(names)
 
+    def group_names(self, species_key):
+        """Collect all groups under a specific species"""
+
+        def is_instance(d):
+            for key, val in d.items():
+                if isinstance(val, dict):
+                    is_instance(val)
+                elif any([isinstance(val, obj) for obj in [Species, Sex, AgeGroup]]):
+                    try:
+                        groups.append(val.group_name)
+                    except AttributeError:
+                        pass
+
+        groups = []
+        is_instance(self.species[species_key])
+        return np.unique(groups)
+
     def group_keys(self, species_key):
         """Collect all groups under a specific species"""
         def is_instance(d):
@@ -640,7 +657,6 @@ class Domain(object):
         groups = []
         is_instance(self.species[species_key])
         return np.unique(groups)
-
 
     @property
     def species_instances(self):
