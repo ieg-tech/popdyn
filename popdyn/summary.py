@@ -151,7 +151,7 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
         return da.dstack(mortality).sum(axis=-1).compute()
 
 
-def total_offspring(domain, species=None, time=None, sex=None, group=None):
+def total_offspring(domain, species=None, time=None, sex=None, group=None, offspring_sex=None):
     """
     Collect the total offspring using the given query
     :param Domain domain: Domain object
@@ -163,12 +163,17 @@ def total_offspring(domain, species=None, time=None, sex=None, group=None):
     """
     species, time, sex, group = collect_iterables(domain, species, time, sex, group)
 
+    if offspring_sex is None:
+        offspring_sex = ['Male Offspring', 'Female Offspring']
+    else:
+        offspring_sex = [offspring_sex]
+
     offspring = []
     for t in time:
         for sp in species:
             for s in sex:
                 for gp in group:
-                    for _type in ['Male Offspring', 'Female Offspring']:
+                    for _type in offspring_sex:
                         off = '{}/{}/{}/{}/flux/offspring/{}'.format(sp, s, gp, t, _type)
                         try:
                             offspring.append(da.from_array(domain[off], domain.chunks))
@@ -235,22 +240,6 @@ def model_summary(domain):
 
     summary = {sp: deepcopy(log) for sp in domain.species.keys()}
 
-    def add(top_key, log, key, name):
-        try:
-            ds = da.from_array(domain[key], chunks=domain.chunks)
-        except KeyError:
-            ds = ''
-
-        # Take the mean if it's a mortality parameter
-        if top_key == 'Mortality' and key.split('/')[-1] == 'param':
-            ds = ds.mean()
-        else:
-            ds = ds.sum()
-        try:
-            log[top_key][species_name]['NA'][name].append(ds)
-        except KeyError:
-            log[top_key][species_name]['NA'][name] = [ds]
-
     for species in summary.keys():
         sp_log = summary[species]
 
@@ -283,39 +272,52 @@ def model_summary(domain):
                     except IndexError:
                         raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
 
-                name = '{} {}'.format(gp, sex)
-
-                for param in ['param', 'flux']:
-                    for time in model_times:
-                        key = '{}/{}/{}/{}/{}'.format(species, sex, gp, time, param)
-
-                        # Carrying Capacity
-                        _key = '{}/carrying capacity/Carrying Capacity'.format(key)
-                        add('Habitat', sp_log, _key, name + ' Carrying Capacity')
-
-                        # Natality
-                        nat_types = ['']
-                        for nat_type in nat_types:
-                            _key = '{}/fecundity/{}'.format(key, nat_type)
-                            add('Natality', sp_log, _key, name + ' ' + nat_type)
-
-                        # Mortality
-                        mort_types = ['']
-                        for mort_type in mort_types:
-                            _key = '{}/mortality/{}'.format(key, mort_type)
-                            add('Mortality', sp_log, _key, name + ' ' + mort_type + ' Deaths')
-
-                # Total population for the group, only needed once
+                # Collect the total population of the group, which is only needed once
                 if 'Total' not in sp_log['Population'][species_name][group_name].keys():
                     gp_pop = []
                     for time in model_times:
                         gp_pop.append(total_population(domain, species, time, group=gp).sum())
                     sp_log['Population'][species_name][group_name]['Total'] = gp_pop
 
+                # Collect the population of this group and sex
                 gp_sex_pop = []
                 for time in model_times:
                     gp_sex_pop.append(total_population(domain, species, time, sex, gp).sum())
                 sp_log['Population'][species_name][group_name]['{}s'.format(sex[0].upper() + sex[1:])] = gp_sex_pop
+
+                for time in model_times:
+                    # Carrying Capacity
+                    sp_log['Habitat'][species_name][group_name]['{} carrying capacity'.format(sex)].append(
+                        total_carrying_capacity(domain, species, time, sex, gp).sum()
+                    )
+
+                    # Natality
+                    # Fecundity rate
+                    sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex)].append(
+                        fecundity(domain, species, time, sex, gp).mean()
+                    )
+                    # Offspring
+                    for off_type in ['Male Offspring', 'Female Offspring']:
+                        sp_log['Natality'][species_name][group_name]['{}'.format(off_type)].append(
+                            total_offspring(domain, species, time, sex, gp, off_type).sum()
+                        )
+
+                    # Mortality
+                    mort_types = list_mortality_types(domain, species, time, sex, gp)
+                    for mort_type in mort_types:
+                        # Collect the death numbers
+                        sp_log['Mortality'][species_name][group_name]['{} {} deaths'.format(sex, mort_type)].append(
+                            total_mortality(domain, species, time, sex, gp, mort_type).sum()
+                        )
+
+                        # Skip the implicit mortality types, as they will not be included in the params
+                        if mort_type in ['Old Age', 'Density Dependent']:
+                            continue
+
+                        # Collect the parameter
+                        sp_log['Mortality'][species_name][group_name]['{} mean {} rate'.format(sex, mort_type)].append(
+                            total_mortality(domain, species, time, sex, gp, mort_type, False).mean()
+                        )
 
     return summary
 
