@@ -218,7 +218,7 @@ def model_summary(domain):
     model_times = all_times(domain)
 
     log = {'Time': model_times,
-        'Habitat': {}, 'Population': {}, 'Natality': {}, 'Mortality': {},
+        'Habitat': pd.rec_dd(), 'Population': pd.rec_dd(), 'Natality': pd.rec_dd(), 'Mortality': pd.rec_dd(),
         'Parameterization': {'Domain size': str(domain.shape),
                              'Cell size (x)': domain.csx,
                              'Cell size (y)': domain.csy,
@@ -274,10 +274,13 @@ def model_summary(domain):
             sp_log['Population'][species_name]['NA']['Total {}s'.format(sex[0].upper() + sex[1:])] = sex_pop
 
             for gp in domain.group_keys(species):
-                try:
-                    group_name = [name for name in domain.group_names(species) if gp == pd.name_key(name)][0]
-                except IndexError:
-                    raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
+                if gp is None:
+                    group_name = 'NA'
+                else:
+                    try:
+                        group_name = [name for name in domain.group_names(species) if gp == pd.name_key(name)][0]
+                    except IndexError:
+                        raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
 
                 name = '{} {}'.format(gp, sex)
 

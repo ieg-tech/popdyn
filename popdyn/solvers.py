@@ -552,6 +552,8 @@ class discrete_explicit(object):
                 population -= output['{}/mortality/{}'.format(flux_prefix, mort_type)]
 
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
+            if age == max_age:
+                import pdb;pdb.set_trace()
             if not species_instance.live_past_max and max_age is not None and age == max_age:
                 output['{}/mortality/{}'.format(flux_prefix, 'Old Age')] = population
 
