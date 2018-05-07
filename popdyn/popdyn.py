@@ -114,17 +114,13 @@ class Domain(object):
 
     def dump(self):
         """Dump all of the domain instance to the file"""
-        self_data = np.void(pickle.dumps({key: val for key, val in self.__dict__.items() if
-                                          key not in ['file', 'path']}))
-
-        try:
-            self.file['self'][...] = self_data
-        except KeyError:
-            self.file.create_dataset('self', data=self_data)
+        self.file.attrs.update(
+            {key: np.void(pickle.dumps(val)) for key, val in self.__dict__.items() if key not in ['file', 'path']}
+        )
 
     def load(self):
         """Get the model parameters from an existing popdyn file"""
-        self.__dict__.update(pickle.loads(self.file['self'].value))
+        self.__dict__.update({key: pickle.loads(val) for key, val in self.file.attrs.items()})
 
         print("Domain successfully populated from the file {}".format(self.path))
 
