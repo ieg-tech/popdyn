@@ -114,9 +114,13 @@ class Domain(object):
 
     def dump(self):
         """Dump all of the domain instance to the file"""
-        self.file.create_dataset('self',
-            data=np.void(pickle.dumps({key: val for key, val in self.__dict__.items() if key not in ['file', 'path']}))
-        )
+        self_data = np.void(pickle.dumps({key: val for key, val in self.__dict__.items() if
+                                          key not in ['file', 'path']}))
+
+        try:
+            self.file['self'][...] = self_data
+        except KeyError:
+            self.file.create_dataset('self', data=self_data)
 
     def load(self):
         """Get the model parameters from an existing popdyn file"""
