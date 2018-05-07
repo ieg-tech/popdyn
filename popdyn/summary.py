@@ -100,6 +100,7 @@ def list_mortality_types(domain, species=None, time=None, sex=None, group=None):
                 for gp in group:
                     try:
                         names += domain.file['{}/{}/{}/{}/params/mortality'.format(sp, s, gp, t)].keys()
+                        names += domain.file['{}/{}/{}/{}/flux/mortality'.format(sp, s, gp, t)].keys()
                     except KeyError:
                         pass
 
