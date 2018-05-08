@@ -257,11 +257,16 @@ def model_summary(domain):
 
         # Iterate groups and populate data
         for sex in ['male', 'female', None]:
+            if sex is None:
+                sex_str = 'NA'
+            else:
+                sex_str = sex
+
             # Collect total population by sex
             sex_pop = []
             for time in model_times:
                 sex_pop.append(total_population(domain, species, time, sex).sum())
-            sp_log['Population'][species_name]['NA']['Total {}s'.format(sex[0].upper() + sex[1:])] = sex_pop
+            sp_log['Population'][species_name]['NA']['Total {}s'.format(sex_str[0].upper() + sex_str[1:])] = sex_pop
 
             for gp in domain.group_keys(species):
                 if gp is None:
@@ -283,41 +288,45 @@ def model_summary(domain):
                 gp_sex_pop = []
                 for time in model_times:
                     gp_sex_pop.append(total_population(domain, species, time, sex, gp).sum())
-                sp_log['Population'][species_name][group_name]['{}s'.format(sex[0].upper() + sex[1:])] = gp_sex_pop
+                sp_log['Population'][species_name][group_name]['{}s'.format(sex_str[0].upper() + sex_str[1:])] = gp_sex_pop
 
+                # Carrying Capacity
+                ds = []
                 for time in model_times:
-                    # Carrying Capacity
-                    sp_log['Habitat'][species_name][group_name]['{} carrying capacity'.format(sex)].append(
-                        total_carrying_capacity(domain, species, time, sex, gp).sum()
-                    )
+                    ds.append(total_carrying_capacity(domain, species, time, sex, gp).sum())
+                sp_log['Habitat'][species_name][group_name]['{} carrying capacity'.format(sex_str)] = ds
 
-                    # Natality
-                    # Fecundity rate
-                    sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex)].append(
-                        fecundity(domain, species, time, sex, gp).mean()
-                    )
-                    # Offspring
-                    for off_type in ['Male Offspring', 'Female Offspring']:
-                        sp_log['Natality'][species_name][group_name]['{}'.format(off_type)].append(
-                            total_offspring(domain, species, time, sex, gp, off_type).sum()
-                        )
+                # Natality
+                # Fecundity rate
+                ds = []
+                for time in model_times:
+                    ds.append(fecundity(domain, species, time, sex, gp).mean())
+                sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex_str)] = ds
+                # Offspring
+                for off_type in ['Male Offspring', 'Female Offspring']:
+                    ds = []
+                    for time in model_times:
+                            ds.append(total_offspring(domain, species, time, sex, gp, off_type).sum())
+                    sp_log['Natality'][species_name][group_name]['{}'.format(off_type)] = ds
 
-                    # Mortality
-                    mort_types = list_mortality_types(domain, species, time, sex, gp)
-                    for mort_type in mort_types:
-                        # Collect the death numbers
-                        sp_log['Mortality'][species_name][group_name]['{} {} deaths'.format(sex, mort_type)].append(
-                            total_mortality(domain, species, time, sex, gp, mort_type).sum()
-                        )
+                # Mortality
+                mort_types = list_mortality_types(domain, species, time, sex, gp)
+                for mort_type in mort_types:
+                    # Collect the death numbers
+                    ds = []
+                    for time in model_times:
+                        ds.append(total_mortality(domain, species, time, sex, gp, mort_type).sum())
+                    sp_log['Mortality'][species_name][group_name]['{} {} deaths'.format(sex_str, mort_type)] = ds
 
-                        # Skip the implicit mortality types, as they will not be included in the params
-                        if mort_type in ['Old Age', 'Density Dependent']:
-                            continue
+                    # Skip the implicit mortality types, as they will not be included in the params
+                    if mort_type in ['Old Age', 'Density Dependent']:
+                        continue
 
-                        # Collect the parameter
-                        sp_log['Mortality'][species_name][group_name]['{} mean {} rate'.format(sex, mort_type)].append(
-                            total_mortality(domain, species, time, sex, gp, mort_type, False).mean()
-                        )
+                    # Collect the parameter
+                    ds = []
+                    for time in model_times:
+                        ds.append(total_mortality(domain, species, time, sex, gp, mort_type, False).mean())
+                    sp_log['Mortality'][species_name][group_name]['{} mean {} rate'.format(sex_str, mort_type)] = ds
 
     return summary
 

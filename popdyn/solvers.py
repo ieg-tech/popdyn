@@ -285,7 +285,7 @@ class discrete_explicit(object):
                     except KeyError:
                         output[key] = self.age_zero_population[species][_sex]
 
-            # Compute this time slice and write to the domain
+            # Compute this time slice and write to the domain file
             self.D.domain_compute(output)
 
     @time_this
@@ -636,7 +636,7 @@ class discrete_explicit(object):
                 parameters[instance.name] = self.collect_parameter(instance, data)
                 parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
 
-        # Carrying Capacity -
+        # Carrying Capacity
         # ---------------------
         # Collect CarryingCapacity instances and/or data from the domain at the current time step
         if not self.total_density:

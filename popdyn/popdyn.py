@@ -346,9 +346,20 @@ class Domain(object):
     @time_this
     @save
     def domain_compute(self, datasets):
-        """Compute dask graph and write to the domain"""
+        """
+        Takes dask arrays and dataset pointers and computes/writes to the file
+
+        NOTE: dask.store optimization will not allow multiple writes of the same output from the graph
+
+        :param dict datasets: dataset pointers (keys) and respective dask arrays
+        :return: None
+        """
         # Compute and dump the datasets
-        da.to_hdf5(self.path, datasets, compression='lzf')
+        # TODO: find a way to write all outputs
+        # da.to_hdf5(self.path, datasets, compression='lzf')
+
+        for key, val in datasets.items():
+            da.to_hdf5(self.path, {key: val}, compression='lzf')
 
         # Add population keys to domain
         for key in datasets.keys():
