@@ -27,7 +27,7 @@ def some_random_k(shape, factor):
 
 
 # Domain
-shape = (180, 320)
+shape = (90, 160)
 
 
 # Species
@@ -123,18 +123,6 @@ def incorrect_species():
         # Add white walker as a form of mortality, but purposefully do not add white walkers to the domain
         domain.add_mortality(stark_female_adolescent, white_walker_death, time=0)
 
-        pd.solvers.discrete_explicit(domain, 0, 1).execute()
-
-
-def circular_carrying_capacity():
-    """Should raise an exception in the solver error checker"""
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=1, left=0) as domain:
-        cc_1 = pd.CarryingCapacity('Test')
-        cc_1.add_as_species(starks, [(0., 1.), (1., 1.)])
-        cc_2 = pd.CarryingCapacity('Test')
-        cc_2.add_as_species(lannister, [(0., 1.), (1., 1.)])
-        domain.add_carrying_capacity(starks, cc_2, 0)
-        domain.add_carrying_capacity(lannister, cc_1, 0)
         pd.solvers.discrete_explicit(domain, 0, 1).execute()
 
 
@@ -367,7 +355,7 @@ if __name__ == '__main__':
     #          single_species_fecundity, single_species_agegroups, single_species_mortality,
     #          species_as_mortality, species_as_carrying_capacity]
 
-    tests = [single_species_sex]
+    tests = [single_species]
 
     error_check = 0
     # for test in antitests:
