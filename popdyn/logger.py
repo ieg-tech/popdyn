@@ -125,19 +125,27 @@ def write_xlsx(domain, output_directory):
         raise LoggerError('The output directory must be a directory')
     path = os.path.join(output_directory, datetime.now(tzlocal()).strftime('popdyn_%d%B%Y_%I%M%p'))
 
+    # In case two model summaries occur within the same minute...
+    second = 0
+    while os.path.isdir(path):
+        second += 1
+        path = path[:-2] + '0{}'.format(second) + path[-2:]
+
+    os.mkdir(path)
+
     # Collect the summarize information from the domain
     domain_dict = summary.model_summary(domain)
 
     def wb_write(row, col, val):
         try:
             val = float(val)
+            if np.isinf(val) or np.isnan(val):
+                val = ''
             if val == 0:
                 tb.write(row, col, val, grey)
             else:
                 tb.write(row, col, val)
-        except:
-            if np.isinf(val) or np.isnan(val):
-                val = ''
+        except ValueError:
             tb.write(row, col, val)
 
     def index_to_char(index):
@@ -148,6 +156,7 @@ def write_xlsx(domain, output_directory):
                     string.ascii_uppercase[(index - 26) % 26])
 
     for species, file_dict in domain_dict.items():
+
         species_path = os.path.join(path, '{}.xlsx'.format(species))
 
         wb = xlsxwriter.Workbook(species_path)
@@ -169,7 +178,7 @@ def write_xlsx(domain, output_directory):
                 for col_1, col_2 in species_dict.items():
                     _row += 1
                     tb.write(_row, 0, col_1, bold)
-                    tb.write(_row, 1, col_2)
+                    tb.write(_row, 1, str(col_2))
                 tb.set_column(0, 0, max(len(str(key)) for key in species_dict.keys()))
                 tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
                 continue
