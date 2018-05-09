@@ -576,6 +576,8 @@ class discrete_explicit(object):
             ddm_rate = da.where(
                 density > 0, (dd_range * (density_scale * linear_proportion)) / density, 0
             )
+            # Make the rate 1 where there is an infinite density
+            ddm_rate = da.where(da.isinf(params['Density']), 1., ddm_rate)
 
         for age in ages:
             # Collect the population of the age from the previous time step
