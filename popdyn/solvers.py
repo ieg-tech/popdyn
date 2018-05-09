@@ -199,8 +199,7 @@ def inherit(domain, start_time, end_time):
 
 class discrete_explicit(object):
     """
-    Solve the domain from a start time to an end time on a discrete time step,
-    which is dictate by the Domain configuration.
+    Solve the domain from a start time to an end time on a discrete time step associated with the Domain
 
     The total populations from the previous year are used to calculate derived
     parameters (density, fecundity, inter-species relationships, etc.).
@@ -303,6 +302,7 @@ class discrete_explicit(object):
             if self.total_density:
                 # Population
                 population = self.D.all_population(species, time - 1)
+                # Total population of contributing groups
                 self.population_arrays[species]['total'] = self.population_total(species, population)
 
                 # Carrying Capacity
@@ -406,9 +406,11 @@ class discrete_explicit(object):
         """
         Calculate the total population for a species with the provided datasets, usually a result of a
         Domain.all_population call. This updates self.population_arrays to avoid repetitive IO
-        :param species:
-        :param datasets:
-        :return:
+        :param species: Species key
+        :param datasets: population datasets, retrieved from popdyn.Domain.all_population()
+        :param bool honor_density: Use the density contribution attribute from a species
+        :param bool honor_reproduction: Use the density contribution to fecundity attribute from a species
+        :return: Dask array of total population
         """
         pop_arrays = []
 
@@ -479,7 +481,8 @@ class discrete_explicit(object):
     @time_this
     def propagate(self, species, sex, group, time):
         """
-        Factory for propagating solved populations and recording intermediates
+        Create a graph of calculations to propagate populations and record parameters.
+        A dict of key pointers - dask array pairs are created and returned
 
         Note:
             -If age gaps exist, they will be filled by empty groups and will propagate
@@ -515,8 +518,22 @@ class discrete_explicit(object):
         mort_types = [mort_type[0].name for mort_type in self.D.get_mortality(species, time, sex, group)]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
-        output = {'{}/mortality/{}'.format(flux_prefix, mort_type):
-                  da_zeros(self.D.shape, self.D.chunks) for mort_type in mort_types}
+        output = {}
+        for mort_type in mort_types:
+            output['{}/mortality/{}'.format(flux_prefix, mort_type)] = da_zeros(self.D.shape, self.D.chunks)
+            # Write the output mortality parameters
+            output['{}/mortality/{}'.format(param_prefix, mort_type)] = params[mort_type]
+        for mort_type in ['Old Age', 'Density Dependent']:
+            output['{}/mortality/{}'.format(flux_prefix, mort_type)] = da_zeros(self.D.shape, self.D.chunks)
+
+        # Add carrying capacity to the output datasets
+        if self.carrying_capacity_total:
+            # For the total species population only
+            total_prefix = '{}/{}/{}/{}/params'.format(species, None, None, time)
+            output['{}/carrying capacity/{}'.format(total_prefix, 'Carrying Capacity')] = params['Carrying Capacity']
+        else:
+            # Specific to the species
+            output['{}/carrying capacity/{}'.format(param_prefix, 'Carrying Capacity')] = params['Carrying Capacity']
 
         # Calculate births using the effective fecundity
         if sex is not None:
@@ -537,6 +554,29 @@ class discrete_explicit(object):
                     self.age_zero_population[species][_sex] += male_births
                     output['{}/offspring/{}'.format(flux_prefix, 'Male Offspring')] = male_births
 
+        # Density-dependent mortality
+        # ---------------------------
+        # Constants that scale density-dependent mortality
+        density_threshold = species_instance.density_threshold
+        density_scale = species_instance.density_scale
+        linear_range = max(0., 1. - density_threshold)
+
+        # Calculate a density-dependent mortality rate if this species contributes to density
+        # The density parameter is either the total species or group value, depending on the flag
+        if species_instance.contributes_to_density:
+            # Make the density 1 or the threshold if it is inf
+            density = da.where(da.isinf(params['Density']), max(1., density_threshold), params['Density'])
+            # Density dependent rate
+            dd_range = density - density_threshold
+            # Apply the scale
+            if linear_range == 0:
+                linear_proportion = 1.
+            else:
+                linear_proportion = da.maximum(1., dd_range / linear_range)
+            ddm_rate = da.where(
+                density > 0, (dd_range * (density_scale * linear_proportion)) / density, 0
+            )
+
         for age in ages:
             # Collect the population of the age from the previous time step
             population = self.D.get_population(species, time - 1, sex, group, age)
@@ -544,21 +584,24 @@ class discrete_explicit(object):
             population = self.population_total(species, {population: self.D[population]}, False)
 
             # Mortaliy is applied on each age, as they need to be removed from the population
+            mort_fluxes = []
             for mort_type in mort_types:
-                output['{}/mortality/{}'.format(param_prefix, mort_type)] = params[mort_type]
-                output['{}/mortality/{}'.format(flux_prefix, mort_type)] = params[mort_type] * population
+                mort_fluxes.append(params[mort_type] * population)
+                output['{}/mortality/{}'.format(flux_prefix, mort_type)] += mort_fluxes[-1]
             # Reduce the population by the mortality
-            for mort_type in mort_types:
-                population -= output['{}/mortality/{}'.format(flux_prefix, mort_type)]
+            for mort_flux in mort_fluxes:
+                population -= mort_flux
 
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
             if not species_instance.live_past_max and max_age is not None and age == max_age:
-                output['{}/mortality/{}'.format(flux_prefix, 'Old Age')] = population
+                output['{}/mortality/{}'.format(flux_prefix, 'Old Age')] += population
 
             else:
                 # Apply dispersal to remaining population
 
                 # TODO: Do children receive dispersal of any parent species classes?
+
+                static_population = population
 
                 for dispersal_method, args in species_instance.dispersal:
                     args = args + (self.D.csx, self.D.csy)
@@ -566,31 +609,24 @@ class discrete_explicit(object):
                                                  self.population_arrays[species]['total'],
                                                  self.carrying_capacity_arrays[species]['total'],
                                                  dispersal_method, args)
-                # Apply density-dependent mortality if this species contributes to density
-
-                # if general_mortality_threshold < 1.:
-                #     deaths = ne.evaluate(
-                #         'where(kM,'
-                #         '(((density_dependent_sum/k)-general_mortality_threshold)/(1-general_mortality_threshold))*general_mortality_proportion'
-                #         ',0)'
-                #     )
-                #     deaths[deaths > general_mortality_proportion] = general_mortality_proportion
-                #     deaths = ne.evaluate(
-                #         'where(kM,1-(((density_dependent_sum-kThresh)*deaths)/density_dependent_sum),0)'
-                #     )
-                # else:
-                #     deaths = ne.evaluate('where(kM,'
-                #                          '1-(((density_dependent_sum-k)*general_mortality_proportion)/density_dependent_sum),'
-                #                          '0)')
 
                 if species_instance.contributes_to_density:
-                    dd_mort = da.where(
-                        population > params['Carrying Capacity'], population - params['Carrying Capacity'], 0
+                    # Avoid density-dependent mortality when dispersal has occurred
+                    # NOTE: This may still leave a higher density than the threshold if dispersal has exceeded the
+                    #  carrying capacity, as the DDM rate does not increase (only decreases to ensure dispersal
+                    #  results in populations being allowed to live where their density has become lower).
+                    #  Increasing the rate to account for dispersed populations may result in excessive
+                    #  population reduction to below the carrying capacity. Leave those to the next time step.
+                    new_ddm_rate = da.where(
+                        population < static_population, ddm_rate - (1 - (population / static_population)),
+                        ddm_rate
                     )
-                else:
-                    dd_mort = da_zeros(self.D.shape, self.D.chunks)
-                output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] = dd_mort
-                population -= output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')]
+
+                    ddm = da.where(new_ddm_rate > 0., population * new_ddm_rate, 0)
+
+                    output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] += ddm
+
+                    population -= ddm
 
                 # Propagate age by one increment and save to the current time step.
                 # If the input age is None, the population will simply propagate
@@ -610,9 +646,6 @@ class discrete_explicit(object):
                     output[key] = population
 
         # TODO: Deal with populations that already exist in the domain at a given time
-
-        # Add carrying capacity and fecundity to datasets
-        output['{}/carrying capacity/{}'.format(param_prefix, 'Carrying Capacity')] = params['Carrying Capacity']
 
         # Return output so that it may be included in the final compute call
         return output
@@ -646,14 +679,14 @@ class discrete_explicit(object):
         else:
             parameters['Carrying Capacity'] = self.carrying_capacity_arrays[species]['total']
 
-        # Total Population from previous time step
+        # Total Population from previous time step (all population, without regard to contribution filtering)
         # ---------------------
-        population = self.D.all_population(species, time - 1, sex, group)
-        parameters['Population'] = self.population_total(species, population, False)  # All, regardless
+        population_dsts = self.D.all_population(species, time - 1, sex, group)
+        parameters['Population'] = self.population_total(species, population_dsts, False)
 
-        # Density calculation only includes contributing species instances
+        # Population only includes contributing species instances
         if not self.total_density:
-            population = self.population_total(species, population)
+            population = self.population_total(species, population_dsts)
         else:
             population = self.population_arrays[species]['total']
 

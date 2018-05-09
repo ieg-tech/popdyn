@@ -354,12 +354,11 @@ class Domain(object):
         :param dict datasets: dataset pointers (keys) and respective dask arrays
         :return: None
         """
-        # Compute and dump the datasets
-        # TODO: find a way to write all outputs
-        # da.to_hdf5(self.path, datasets, compression='lzf')
-
-        for key, val in datasets.items():
-            da.to_hdf5(self.path, {key: val}, compression='lzf')
+        # Compute and dump the datasets (adapted from da.to_hdf5 to avoid opening file again)
+        dsets = [self.file.require_dataset(dp, shape=x.shape, dtype=x.dtype,
+                                           chunks=tuple([c[0] for c in x.chunks]), **{'compression': 'lzf'})
+                 for dp, x in datasets.items()]
+        da.store(list(datasets.values()), dsets)
 
         # Add population keys to domain
         for key in datasets.keys():

@@ -54,7 +54,10 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
 
 def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):
     """
-    Collect the total carrying capacity in the domain for the given query
+    Collect the total carrying capacity in the domain for the given query.
+
+    Note, carrying capacity for individual sexes or species may be collected for the species as a whole,
+    which will result in species-wide carrying capacity being returned.
     :param Domain domain: Domain object
     :param str species: Species name
     :param time: time slice - may be an iterable or int
@@ -62,18 +65,32 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
     :param str group: Group name - may be an iterable
     :return: ndarray of total carrying capacity
     """
-    species, time, sex, group = collect_iterables(domain, species, time, sex, group)
+    def retrieve(domain, species, time, sex, group):
+        species, time, sex, group = collect_iterables(domain, species, time, sex, group)
+
+        for t in time:
+            for sp in species:
+                # If the total species carrying capacity was used for density during the simulation,
+                #  there will not be any carrying capacity associated with sexes/groups.
+
+                for s in sex:
+                    for gp in group:
+                        cc = '{}/{}/{}/{}/params/carrying capacity/Carrying Capacity'.format(sp, s, gp, t)
+                        try:
+                            carrying_capacity.append(da.from_array(domain[cc], domain.chunks))
+                        except KeyError:
+                            pass
 
     carrying_capacity = []
-    for t in time:
-        for sp in species:
-            for s in sex:
-                for gp in group:
-                    cc = '{}/{}/{}/{}/params/carrying capacity/Carrying Capacity'.format(sp, s, gp, t)
-                    try:
-                        carrying_capacity.append(da.from_array(domain[cc], domain.chunks))
-                    except KeyError:
-                        pass
+    retrieve(domain, species, time, sex, group)
+
+    # If the total species carrying capacity was used for density during the simulation,
+    #  there will not be any carrying capacity associated with sexes/groups.
+    if len(carrying_capacity) == 0 and (sex is not None or group is not None):
+        # Try to collect the species-wide dataset
+        sex, group = None, None
+        carrying_capacity = []
+        retrieve(domain, species, time, sex, group)
 
     if len(carrying_capacity) == 0:
         return np.zeros(domain.shape, np.float32)
