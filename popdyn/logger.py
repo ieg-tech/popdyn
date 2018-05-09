@@ -10,6 +10,7 @@ import os
 import numpy as np
 import xlsxwriter
 import summary
+from string import punctuation
 from datetime import datetime
 from dateutil.tz import tzlocal
 
@@ -37,6 +38,19 @@ def time_this(func):
                 instance.profiler[func.__name__] = profile_time.time() - start
             return execution
     return inner
+
+
+def name_key(name):
+    """Map a given name to a stripped alphanumeric hash"""
+    # Remove white space and make lower-case
+    name = name.strip().replace(' ', '').lower()
+
+    try:
+        # String
+        return name.translate(None, punctuation)
+    except:
+        # Unicode
+        return name.translate(dict.fromkeys(punctuation))
 
 
 def visualize(domain, output_file, time=None):
@@ -141,6 +155,9 @@ def write_xlsx(domain, output_directory):
         grey = wb.add_format()
         grey.set_pattern(1)  # This is optional when using a solid fill.
         grey.set_bg_color('#D3D3D3')
+
+        male_age_groups = file_dict['Parameterization']['Age Groups']['male']
+        female_age_groups = file_dict['Parameterization']['Age Groups']['female']
 
         chartRowIndex = {}
         for tab_key, species_dict in file_dict.items():
@@ -252,7 +269,8 @@ def write_xlsx(domain, output_directory):
                                 index_to_char(chartRows['{} Total'.format(gp)][1]),
                                 chartRows['{} Total'.format(gp)][0]),
                              '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                             'Population', '{} Total Population By Age Class'.format(species)) for gp in self.age_groups],
+                             'Population', '{} Total Population By Age Class'.format(species))
+                            for gp in male_age_groups + female_age_groups],
                           [('Total Females', '=Population!$D${}:${}${}'.format(
                                 chartRows['Total Females'][0],
                                 index_to_char(chartRows['Total Females'][1]),
@@ -264,7 +282,8 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Females'.format(gp)][1]),
                               chartRows['{} Females'.format(gp)][0]),
                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                            'Population', '{} Total Females By Age Class'.format(species)) for gp in self.age_groups],
+                            'Population', '{} Total Females By Age Class'.format(species))
+                           for gp in female_age_groups],
                           [('Total Males', '=Population!$D${}:${}${}'.format(
                                 chartRows['Total Males'][0],
                                 index_to_char(chartRows['Total Males'][1]),
@@ -276,7 +295,7 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Males'.format(gp)][1]),
                               chartRows['{} Males'.format(gp)][0]),
                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                            'Population', '{} Total Males By Age Class'.format(species)) for gp in self.age_groups],
+                            'Population', '{} Total Males By Age Class'.format(species)) for gp in male_age_groups],
                            [('Average Age (all)', '=Population!$D${}:${}${}'.format(
                                chartRows['Average Age'][0],
                                index_to_char(chartRows['Average Age'][1]),
@@ -306,7 +325,8 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Total offspring'.format(gp)][1]),
                               chartRows['{} Total offspring'.format(gp)][0]),
                             '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
-                            'New Population', '{} New Offspring from each Female Age Class'.format(species)) for gp in self.age_groups],
+                            'New Population', '{} New Offspring from each Female Age Class'.format(species))
+                           for gp in male_age_groups + female_age_groups],
                           [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                               chartRows['All deaths'][0],
                               index_to_char(chartRows['All deaths'][1]),
@@ -336,7 +356,8 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Total deaths'.format(gp)][1]),
                               chartRows['{} Total deaths'.format(gp)][0]),
                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Mortality by Age Class'.format(species)) for gp in self.age_groups],
+                            'Deaths', '{} Total Mortality by Age Class'.format(species))
+                           for gp in male_age_groups + female_age_groups],
                           [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                               chartRows['All deaths'][0],
                               index_to_char(chartRows['All deaths'][1]),
@@ -348,7 +369,8 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Male deaths'.format(gp)][1]),
                               chartRows['{} Male deaths'.format(gp)][0]),
                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Male Mortality by Age Class'.format(species)) for gp in self.age_groups],
+                            'Deaths', '{} Total Male Mortality by Age Class'.format(species))
+                           for gp in male_age_groups],
                           [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                               chartRows['All deaths'][0],
                               index_to_char(chartRows['All deaths'][1]),
@@ -360,7 +382,8 @@ def write_xlsx(domain, output_directory):
                               index_to_char(chartRows['{} Female deaths'.format(gp)][1]),
                               chartRows['{} Female deaths'.format(gp)][0]),
                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Female Mortality by Age Class'.format(species)) for gp in self.age_groups],
+                            'Deaths', '{} Total Female Mortality by Age Class'.format(species))
+                           for gp in female_age_groups],
                            [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                                chartRows['All deaths'][0],
                                index_to_char(chartRows['All deaths'][1]),
@@ -372,8 +395,10 @@ def write_xlsx(domain, output_directory):
                                index_to_char(chartRows['Total deaths from {}'.format(mm)][1]),
                                chartRows['Total deaths from {}'.format(mm)][0]),
                              '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))\
-                            for mm in np.unique(self.mortalityNames).tolist() + ['Old Age', 'Density Dependent']],
+                             'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))
+                            for mm in summary.list_mortality_types(
+                               domain, name_key(species), None
+                           ).tolist()],
                            [('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
                                chartRows['Total male deaths'][0],
                                index_to_char(chartRows['Total male deaths'][1]),
@@ -385,8 +410,10 @@ def write_xlsx(domain, output_directory):
                                index_to_char(chartRows['Male deaths from {}'.format(mm)][1]),
                                chartRows['Male deaths from {}'.format(mm)][0]),
                              '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))\
-                            for mm in np.unique(self.mortalityNames).tolist() + ['Old Age', 'Density Dependent']],
+                             'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))
+                            for mm in summary.list_mortality_types(
+                               domain, name_key(species), None, 'male'
+                           ).tolist()],
                            [('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
                                chartRows['Total female deaths'][0],
                                index_to_char(chartRows['Total female deaths'][1]),
@@ -399,7 +426,9 @@ def write_xlsx(domain, output_directory):
                                chartRows['Female deaths from {}'.format(mm)][0]),
                              '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
                              'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))\
-                            for mm in np.unique(self.mortalityNames).tolist() + ['Old Age', 'Density Dependent']]
+                            for mm in summary.list_mortality_types(
+                               domain, name_key(species), None, 'female'
+                           ).tolist()]
                           ]
 
         positions = []
@@ -432,3 +461,5 @@ def write_xlsx(domain, output_directory):
         #                 tb.write(i, 2, str(file_dict[key]))
 
         wb.close()
+
+    return path

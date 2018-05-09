@@ -15,6 +15,7 @@ from copy import deepcopy
 def total_population(domain, species=None, time=None, sex=None, group=None, age=None):
     """
     Collect the sum of populations from a domain, filtering by sub-populations
+
     :param Domain domain: Domain object
     :param str species: Species name - may be an iterable
     :param time: time slice: int or iterable
@@ -47,9 +48,50 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
                             )
 
     if len(populations) == 0:
-        return np.zeros(domain.shape, np.float32)
+        return np.float32(0)
     else:
         return da.dstack(populations).sum(axis=-1).compute()
+
+
+def average_age(domain, species=None, time=None, sex=None, group=None):
+    """
+    Collect the average age from a domain, filtering by sub-populations
+
+    :param Domain domain: Domain object
+    :param str species: Species name - may be an iterable
+    :param time: time slice: int or iterable
+    :param sex: Sex (one of 'male' or 'female') - may be an iterable
+    :param group: group name - may be an iterable\
+    :return: ndarray with the total population
+    """
+    species, time, sex, group = collect_iterables(domain, species, time, sex, group)
+
+    ages = {}
+    for t in time:
+        for sp in species:
+            for s in sex:
+                for gp in group:
+                    try:
+                        _ages = domain.age_from_group(sp, s, gp)  # Returns a list
+                    except pd.PopdynError:
+                        # This group is not associated with the current species or sex in the iteration
+                        continue
+                    for age in _ages:
+                        population = domain.get_population(sp, t, s, gp, age)
+                        if population is not None:
+                            ds = da.from_array(domain[population], domain.chunks)
+                            try:
+                                ages[age] += ds
+                            except KeyError:
+                                ages[age] = ds
+
+    if len(ages) == 0:
+        raise pd.PopdynError('No ages were found using the given query')
+    else:
+        # Population-weighted mean
+        pops = da.dstack(ages.values())
+        pops_sum = pops.sum(axis=-1, keepdims=True)
+        return da.where(pops_sum > 0, ages.keys() * (pops / pops_sum), np.inf).compute()
 
 
 def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):
@@ -57,6 +99,8 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
     Collect the total carrying capacity in the domain for the given query.
 
     Note, carrying capacity for individual sexes or species may be collected for the species as a whole,
+
+    # TODO: Raise exception if specified group or sex does not exist, as it will still return results with typos
     which will result in species-wide carrying capacity being returned.
     :param Domain domain: Domain object
     :param str species: Species name
@@ -65,14 +109,12 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
     :param str group: Group name - may be an iterable
     :return: ndarray of total carrying capacity
     """
+
     def retrieve(domain, species, time, sex, group):
         species, time, sex, group = collect_iterables(domain, species, time, sex, group)
 
         for t in time:
             for sp in species:
-                # If the total species carrying capacity was used for density during the simulation,
-                #  there will not be any carrying capacity associated with sexes/groups.
-
                 for s in sex:
                     for gp in group:
                         cc = '{}/{}/{}/{}/params/carrying capacity/Carrying Capacity'.format(sp, s, gp, t)
@@ -93,7 +135,7 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
         retrieve(domain, species, time, sex, group)
 
     if len(carrying_capacity) == 0:
-        return np.zeros(domain.shape, np.float32)
+        return np.float32(0)
     else:
         return da.dstack(carrying_capacity).sum(axis=-1).compute()
 
@@ -163,7 +205,7 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
                         mortality.append(da.from_array(ds, domain.chunks))
 
     if len(mortality) == 0:
-        return np.zeros(domain.shape, np.float32)
+        return np.float32(0)
     else:
         return da.dstack(mortality).sum(axis=-1).compute()
 
@@ -198,7 +240,7 @@ def total_offspring(domain, species=None, time=None, sex=None, group=None, offsp
                             pass
 
     if len(offspring) == 0:
-        return np.zeros(domain.shape, np.float32)
+        return np.float32(0)
     else:
         return da.dstack(offspring).sum(axis=-1).compute()
 
@@ -227,7 +269,7 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
                         pass
 
     if len(_fecundity) == 0:
-        return np.zeros(domain.shape, np.float32)
+        return np.float32(0)
     else:
         return da.dstack(_fecundity).sum(axis=-1).compute()
 
@@ -235,6 +277,10 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
 def model_summary(domain):
     """
     Summarize totals of each species and their parameters in the domain
+
+    TODO: This is built to service the requirements of popdyn.logger.write_xlsx, and could use
+    TODO: a substantial amount of optimization
+
     :param domain: Domain instance
     :return: dict of species and their parameters
     """
@@ -250,7 +296,8 @@ def model_summary(domain):
                              'Distributed scheduler chunk size': domain.chunks,
                              'Popdyn file': domain.path,
                              'Spatial Reference': domain.projection,
-                             'Avoid Inheritance': domain.avoid_inheritance},
+                             'Avoid Inheritance': domain.avoid_inheritance,
+                             'Age Groups': {}},
         'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')] + \
                   ['{},{:.4f}'.format(key, val) for key, val in domain.profiler.items()]
     }
@@ -266,14 +313,43 @@ def model_summary(domain):
         except IndexError:
             raise pd.PopdynError('Unable to gather the species name from the key {}'.format(species))
 
+        # Collect average ages
+        ave_ages = []
+        for time in model_times:
+            m = average_age(domain, species, time)
+            ave_ages.append(m[~np.isinf(m)].mean())
+        sp_log['Population'][species_name]['NA']['Average Age'] = ave_ages
+
         # Add total population for species
         total_pop = []
         for time in model_times:
             total_pop.append(total_population(domain, species, time).sum())
         sp_log['Population'][species_name]['NA']['Total'] = total_pop
 
+        # Collect all offspring
+        tot_new_off = []
+        for time in model_times:
+            tot_new_off.append(total_offspring(domain, species, time).sum())
+        sp_log['Natality'][species_name]['NA']['Total new offspring'] = tot_new_off
+
+        # Collect all deaths
+        all_deaths = []
+        for time in model_times:
+            all_deaths.append(total_mortality(domain, species, time).sum())
+        sp_log['Mortality'][species_name]['NA']['All deaths'] = all_deaths
+
+        # Collect deaths by type
+        mort_types = list_mortality_types(domain, species, None)
+        for mort_type in mort_types:
+            ds = []
+            for time in model_times:
+                ds.append(total_mortality(domain, species, time, mortality_name=mort_type).sum())
+            sp_log['Mortality'][species_name]['NA']['Total deaths from {}'.format(mort_type)] = ds
+
         # Iterate groups and populate data
         for sex in ['male', 'female', None]:
+            if sex is not None:
+                sp_log['Parameterization']['Age Groups'][sex] = []
             if sex is None:
                 sex_str = 'NA'
             else:
@@ -285,7 +361,32 @@ def model_summary(domain):
                 sex_pop.append(total_population(domain, species, time, sex).sum())
             sp_log['Population'][species_name]['NA']['Total {}s'.format(sex_str[0].upper() + sex_str[1:])] = sex_pop
 
+            # Collect average ages by sex
+            ave_ages = []
+            for time in model_times:
+                m = average_age(domain, species, time, sex)
+                ave_ages.append(m[~np.isinf(m)].mean())
+            sp_log['Population'][species_name]['NA'][
+                'Average {} Age'.format(sex_str[0].upper() + sex_str[1:])
+            ] = ave_ages
+
+            # Collect deaths by sex
+            sex_death = []
+            for time in model_times:
+                sex_death.append(total_mortality(domain, species, time, sex).sum())
+            sp_log['Mortality'][species_name]['NA']['Total {} deaths'.format(sex)] = sex_death
+
+            # Collect deaths by type/sex
+            mort_types = list_mortality_types(domain, species, None, sex)
+            for mort_type in mort_types:
+                ds = []
+                for time in model_times:
+                    ds.append(total_mortality(domain, species, time, sex, mortality_name=mort_type).sum())
+                sp_log['Mortality'][species_name]['NA']['{} deaths from {}'.format(sex_str[0].upper() + sex_str[1:],
+                                                                                   mort_type)] = ds
+
             for gp in domain.group_keys(species):
+
                 if gp is None:
                     group_name = 'NA'
                 else:
@@ -293,19 +394,23 @@ def model_summary(domain):
                         group_name = [name for name in domain.group_names(species) if gp == pd.name_key(name)][0]
                     except IndexError:
                         raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
+                    if sex is not None:
+                        sp_log['Parameterization']['Age Groups'][sex].append(group_name)
 
                 # Collect the total population of the group, which is only needed once
                 if 'Total' not in sp_log['Population'][species_name][group_name].keys():
                     gp_pop = []
                     for time in model_times:
                         gp_pop.append(total_population(domain, species, time, group=gp).sum())
-                    sp_log['Population'][species_name][group_name]['Total'] = gp_pop
+                    sp_log['Population'][species_name][group_name]['{} Total'.format(group_name)] = gp_pop
 
                 # Collect the population of this group and sex
                 gp_sex_pop = []
                 for time in model_times:
                     gp_sex_pop.append(total_population(domain, species, time, sex, gp).sum())
-                sp_log['Population'][species_name][group_name]['{}s'.format(sex_str[0].upper() + sex_str[1:])] = gp_sex_pop
+                sp_log['Population'][species_name][group_name][
+                    '{} {}s'.format(group_name, sex_str[0].upper() + sex_str[1:])
+                ] = gp_sex_pop
 
                 # Carrying Capacity
                 ds = []
@@ -320,21 +425,22 @@ def model_summary(domain):
                     ds.append(fecundity(domain, species, time, sex, gp).mean())
                 sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex_str)] = ds
                 # Offspring
-                for off_type in ['Male Offspring', 'Female Offspring']:
-                    ds = []
-                    for time in model_times:
-                            ds.append(total_offspring(domain, species, time, sex, gp, off_type).sum())
-                    sp_log['Natality'][species_name][group_name]['{}'.format(off_type)] = ds
+                ds = []
+                for time in model_times:
+                    ds.append(total_offspring(domain, species, time, sex, gp).sum())
+                sp_log['Natality'][species_name][group_name]['{} Total offspring'.format(group_name)] = ds
 
                 # Mortality
-                mort_types = list_mortality_types(domain, species, time, sex, gp)
-                for mort_type in mort_types:
-                    # Collect the death numbers
-                    ds = []
-                    for time in model_times:
-                        ds.append(total_mortality(domain, species, time, sex, gp, mort_type).sum())
-                    sp_log['Mortality'][species_name][group_name]['{} {} deaths'.format(sex_str, mort_type)] = ds
+                # Collect the death numbers
+                ds = []
+                for time in model_times:
+                    ds.append(total_mortality(domain, species, time, sex, gp).sum())
+                sp_log['Mortality'][species_name][group_name][
+                    '{} {} deaths'.format(group_name, sex_str[0].upper() + sex_str[1:])
+                ] = ds
 
+                mort_types = list_mortality_types(domain, species, None, sex, gp)
+                for mort_type in mort_types:
                     # Skip the implicit mortality types, as they will not be included in the params
                     if mort_type in ['Old Age', 'Density Dependent']:
                         continue
