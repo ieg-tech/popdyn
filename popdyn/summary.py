@@ -312,7 +312,12 @@ def model_summary(domain):
             raise pd.PopdynError('Unable to gather the species name from the key {}'.format(species))
 
         sp_log = summary[species]
-        sp_log['Habitat'][species_name] = []
+
+        # Carrying Capacity NOTE: This should be summarized by group in the future
+        ds = []
+        for time in model_times:
+            ds.append(total_carrying_capacity(domain, species, time).sum())
+        sp_log['Habitat'][species_name] = ds
 
         # Collect average ages
         ave_ages = []
@@ -408,12 +413,6 @@ def model_summary(domain):
                 sp_log['Population'][species_name][group_name][
                     '{}s'.format(sex_str[0].upper() + sex_str[1:])
                 ] = gp_sex_pop
-
-                # Carrying Capacity
-                ds = []
-                for time in model_times:
-                    ds.append(total_carrying_capacity(domain, species, time, sex, gp).sum())
-                sp_log['Habitat'][species_name].append(ds)
 
                 # Natality
                 # Fecundity rate
