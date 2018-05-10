@@ -182,7 +182,7 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
     if as_population:
         _type = 'flux'
     else:
-        _type = 'param'
+        _type = 'params'
 
     mortality = []
     for t in time:
@@ -327,7 +327,7 @@ def model_summary(domain):
             if not_inf.sum() > 0:
                 ave_ages.append(m[not_inf].mean())
             else:
-                ave_ages.append(0)
+                ave_ages.append(0)  # This should be something else, because age 0 could exist
         sp_log['Population'][species_name]['NA']['Average Age'] = ave_ages
 
         # Add total population for species

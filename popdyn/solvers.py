@@ -293,6 +293,7 @@ class discrete_explicit(object):
         Collect all population and carrying capacity datasets, and calculate species totals if necessary.
         Dynamic calculations of carrying capacity are made by calling collect_parameter, which may also
         update the carrying_capacity or population array dicts.
+
         :param list all_species: All species in the domain
         :param int time: Time slice to collect totals
         :return: None
@@ -535,13 +536,14 @@ class discrete_explicit(object):
             # Specific to the species
             output['{}/carrying capacity/{}'.format(param_prefix, 'Carrying Capacity')] = params['Carrying Capacity']
 
-        # Calculate births using the effective fecundity
         if sex is not None:
+            # Check if this species is capable of offspring
+            # Calculate births using the effective fecundity
             # The total population of this group is used, as fecundity will be 0
             # within groups that do not reproduce
             output['{}/fecundity/{}'.format(param_prefix, 'Fecundity')] = params['Fecundity']
             births = params['Population'] * params['Fecundity']
-            male_births = births * params['Birth Ratio']
+            male_births = births * params.get('Birth Ratio', 0.5)
             female_births = births - male_births
 
             # Add new offspring to males or females
@@ -565,16 +567,16 @@ class discrete_explicit(object):
         # The density parameter is either the total species or group value, depending on the flag
         if species_instance.contributes_to_density:
             # Make the density 1 or the threshold if it is inf
-            density = da.where(da.isinf(params['Density']), max(1., density_threshold), params['Density'])
             # Density dependent rate
-            dd_range = density - density_threshold
+            dd_range = da.maximum(0., params['Density'] - density_threshold)
             # Apply the scale
             if linear_range == 0:
                 linear_proportion = 1.
             else:
-                linear_proportion = da.maximum(1., dd_range / linear_range)
+                linear_proportion = da.minimum(1., dd_range / linear_range)
             ddm_rate = da.where(
-                density > 0, (dd_range * (density_scale * linear_proportion)) / density, 0
+                (params['Density'] > 0) & ~da.isinf(params['Density']),
+                (dd_range * (density_scale * linear_proportion)) / params['Density'], 0
             )
             # Make the rate 1 where there is an infinite density
             ddm_rate = da.where(da.isinf(params['Density']), 1., ddm_rate)
@@ -585,10 +587,18 @@ class discrete_explicit(object):
             # Use population total to avoid re-read from disk
             population = self.population_total(species, {population: self.D[population]}, False)
 
+            if np.any(population < 0):
+                print('Minus before mortality')
+
             # Mortaliy is applied on each age, as they need to be removed from the population
+            # Aggregate mortality must be scaled so as to not exceed 1.
+            if len(mort_types) > 0:
+                agg_mort = da.dstack([params[mort_type] for mort_type in mort_types]).sum(axis=-1)
+                mort_coeff = da.where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
+
             mort_fluxes = []
             for mort_type in mort_types:
-                mort_fluxes.append(params[mort_type] * population)
+                mort_fluxes.append(params[mort_type] * mort_coeff * population)
                 output['{}/mortality/{}'.format(flux_prefix, mort_type)] += mort_fluxes[-1]
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
@@ -706,59 +716,60 @@ class discrete_explicit(object):
         # Collect the fecundity instances - HDF5[or None] pairs
         fecundity = self.D.get_fecundity(species, time, sex, group)
 
-        # Calculate the fecundity values
-        if len(fecundity) == 0:
-            # Defaults to 0
-            parameters['Fecundity'] = da_zeros(self.D.shape, self.D.chunks)
-        else:
-            # Fecundity is collected then aggregated
-            fec_arrays = []
-            for instance, data in fecundity:
+        # Calculate the fecundity values]
+        # Fecundity is collected then aggregated
+        fec_arrays = []
+        for instance, data in fecundity:
+            # First, check if the species multiplies
+            if getattr(instance, 'multiplies'):
                 # Filtered through its density lookup table
                 fec = self.collect_parameter(instance, data)
                 fec *= dynamic.collect(
                     None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
                     lookup_table=instance.fecundity_lookup
                 )
-                # Linearly adjusted based on threshold values
+                # Fecundity scales from a low threshold to high and is reduced linearly using a specified rate
                 density_fecundity_threshold = getattr(instance, 'density_fecundity_threshold')
                 density_fecundity_max = getattr(instance, 'density_fecundity_max')
-                fecundity_reduction_rate = getattr(instance, 'fecundity_reduction_rate')
-                if density_fecundity_threshold < density_fecundity_max:
-                    fec_mod = da.where(
-                        parameters['Density'] > density_fecundity_threshold,
-                        (parameters['Density'] - density_fecundity_threshold) /
-                        (density_fecundity_max - density_fecundity_threshold),
-                        1.
-                    )
-                    fec_mod = da.where(
-                        fec_mod <= 1, 1 - (fec_mod * fecundity_reduction_rate), 1 - fecundity_reduction_rate
-                    )
-                elif density_fecundity_threshold == density_fecundity_max:
-                    fec_mod = da.where(
-                        parameters['Density'] >= density_fecundity_max, 1. - fecundity_reduction_rate, 1.
-                    )
+                fecundity_reduction_rate = max(1., getattr(instance, 'fecundity_reduction_rate'))
+
+                input_range = max(0., density_fecundity_max - density_fecundity_threshold)
+                density_range = parameters['Density'] - density_fecundity_threshold
+
+                if input_range == 0:
+                    fec_mod = da.where(density_range > 0, fecundity_reduction_rate, 0.)
                 else:
-                    fec_mod = 1.
-                fec *= fec_mod
+                    fec_mod = da.where(
+                        density_range > 0, da.maximum(1., (density_range / input_range)) * fecundity_reduction_rate, 0.
+                    )
+
+                fec -= fec * fec_mod
+
+                # Apply randomness
+                if getattr(instance, 'random_method', False):
+                    fec = dynamic.collect(
+                        fec, random_method=instance.random_method, random_args=instance.random_args
+                    )
+
+                fec = da.where(fec > 0, fec, 0)
+
+                # If multiple fecundity instances are specified for this species, only the last birth ratio will
+                #  be used
+                birth_ratio = instance.birth_ratio
+
+                if birth_ratio == 'random':
+                    parameters['Birth Ratio'] = np.random.random()
+                else:
+                    parameters['Birth Ratio'] = birth_ratio
+
                 # Add to stack
                 fec_arrays.append(fec)
-            parameters['Fecundity'] = da.dstack(fec_arrays).sum(axis=-1)
 
-        if getattr(species, 'fecundity_random', False):
-            parameters['Fecundity'] = dynamic.collect(
-                parameters['Fecundity'], random_method=species.fecundity_random,
-                random_args=species.fecundity_random_args
-            )
-
-        parameters['Fecundity'] = da.where(parameters['Fecundity'] > 0, parameters['Fecundity'], 0)
-
-        birth_ratio = getattr(species, 'birth_ratio', 'random')
-
-        if birth_ratio == 'random':
-            parameters['Birth Ratio'] = np.random.random()
+        if len(fec_arrays) == 0:
+            # Defaults to 0
+            parameters['Fecundity'] = da_zeros(self.D.shape, self.D.chunks)
         else:
-            parameters['Birth Ratio'] = birth_ratio
+            parameters['Fecundity'] = da.dstack(fec_arrays).sum(axis=-1)
 
         return parameters
 

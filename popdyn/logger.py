@@ -455,7 +455,47 @@ def write_xlsx(domain, output_directory):
             chart.set_y_axis({'name': yAxis})  # y-axis/title get the last value in __iter__
             chart.set_title({'name': title})
             tb.insert_chart(positions[i], chart)
+
+        # The hard-coded worksheet for AFW
+        afw = wb.add_worksheet('Harvest')
+
+        # Styling
+        black = wb.add_format({'bg_color': '#000000', 'font_color': 'white'})
+        purple = wb.add_format({'bg_color': '#800080', 'font_color': 'white'})
+        green = wb.add_format({'bg_color': '#90EE90'})
+        orange = wb.add_format({'bg_color': '#FFDEAD'})
+        yellow = wb.add_format({'bg_color': '#FFFF00'})
+
+        # Block headings
+        afw.write(3, 3, 'Current Pre-Hunting Season Population Size and Composition', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total', 'Sex Ratio']):
+            afw.write(row + 4, 3, heading, black)
+        afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for Permitted Harvest', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 11, 3, heading, black)
+        afw.write(16, 3, 'Simulated "Total" Permit Harvest Number', bold)
+        afw.write(16, 6, 'Note: These values will include non-permitted mortality if not address in AO PD explicitly')
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
+            afw.write(row + 17, 3, heading, black)
+
+        # Block 1
+        # Just assume age group names are identical for this bit
+        # TODO- ask about time to collect total population from
+        for col, gp in enumerate(male_age_groups):
+            afw.write(4, col + 4, gp, black)
+
+        # Block 2
+        for col, gp in enumerate(male_age_groups):
+            afw.write(11, col + 4, gp, black)
+
+        # Block 3
+        for col, gp in enumerate(male_age_groups):
+            afw.write(17, col + 4, gp, black)
+
+
         tb.activate()
+
+
         # except KeyError as e:
         #     tb = wb.add_worksheet('Charts')
         #     tb.write(0, 0, 'Error while creating charts:')

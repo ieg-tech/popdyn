@@ -1165,21 +1165,13 @@ class AgeGroup(Sex):
 # =======================================================================================================
 
 
-class CarryingCapacity(object):
-    """
-    Carrying capacity is a template that may be applied to any species in a model domain. Multiple carrying capacity
-        instances may be added to a given species.
-
-    Carrying capacity instances contain relevant attributes, and also serve to use species to modify carrying capacity.
-    Carrying capacity is added to a Domain along with a species that utilizes the carrying capacity,
-        and a dataset that defines the carrying capacity.
-    """
+class Parameter(object):
 
     def __init__(self, name, **kwargs):
-        # Limit carrying capacity names to 25 chars
+        # Limit names to 25 chars
         if len(name) > 25:
-            raise PopdynError('Carrying capacity names must not exceed 25 characters. '
-                              'Use something simple, like "Thicket".')
+            raise PopdynError('Parameter names must not exceed 25 characters. '
+                              'Use something simple.')
 
         self.name = name
         self.name_key = name_key(name)
@@ -1190,23 +1182,22 @@ class CarryingCapacity(object):
 
     def add_as_species(self, species, lookup_table):
         """
-        Add carrying capacity using another species. Inter-species relationships are specified using a lookup table.
+        Add a parameter using another species. Inter-species relationships are specified using a lookup table.
         :param Species species: Species instance
         :param iterable lookup_table: A table to define the relationship between the input species density and
-            carrying capacity. The lookup table x-values define the density of the input species, and the
-            y-values define a coefficient that is applied to the carrying capacity data when added to another
-            species in the domain.
+            the parameter. The lookup table x-values define the density of the input species, and the y-values
+            define this parameter.
         :return: None
         """
         if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
-            raise PopdynError('Input carrying capacity is not a species')
+            raise PopdynError('Input mortality is not a species')
 
         self.species = species
         self.species_table = dynamic.collect_lookup(lookup_table)
 
     def random(self, type, **kwargs):
         """
-        Apply a type of random variability to this carrying capacity
+        Apply a type of random variability to this parameter
         :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
         :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
         :return: None
@@ -1220,56 +1211,44 @@ class CarryingCapacity(object):
         self.random_args = kwargs.get('args', None)
 
 
-class Fecundity(object):
+class CarryingCapacity(Parameter):
+    """
+    Carrying capacity is a template that may be applied to any species in a model domain. Multiple carrying capacity
+        instances may be added to a given species.
+
+    Carrying capacity instances contain relevant attributes, and also serve to use species to modify carrying capacity.
+    Carrying capacity is added to a Domain along with a species that utilizes the carrying capacity,
+        and a dataset that defines the carrying capacity.
+    """
+
+    def __init__(self, name, **kwargs):
+        super(CarryingCapacity, self).__init__(name, **kwargs)
+
+
+class Fecundity(Parameter):
     """
     Fecundity can be derived from a dataset or a species and a lookup table. It is added to a species and a domain
     using the Domain.add_fecundity method, along with respective data if necessary.
     """
 
     def __init__(self, name, **kwargs):
+
+        super(Fecundity, self).__init__(name, **kwargs)
+
         self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
-        self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 0)
+        self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 1.)
         self.fecundity_reduction_rate = kwargs.get('fecundity_reduction_rate', 1.)
         self.density_fecundity_max = kwargs.get('density_fecundity_max', 1.)
 
-        self.name = name
-        self.name_key = name_key(name)
+        # This dictates whether offspring spawn from species tied to this fecundity
+        self.multiplies = kwargs.get('multiplies', True)
 
         # The default fecundity lookup is inf (no males): 0., less: 1.
         self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None)) \
             if kwargs.get('fecundity_lookup', False) else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
 
-    def add_as_species(self, species, lookup_table):
-        """
-        Add fecundity using another species. Inter-species relationships are specified using a lookup table.
-        :param Species species: Species instance
-        :param iterable lookup_table: A table to define the relationship between the input species density and fecundity.
-            The lookup table x-values define the density of the input species, and the y-values define a fecundity rate.
-        :return: None
-        """
-        if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
-            raise PopdynError('Input fecundity is not a species')
 
-        self.species = species
-        self.species_table = dynamic.collect_lookup(lookup_table)
-
-    def random(self, method, **kwargs):
-        """
-        Apply a type of random variability to fecundity
-        :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
-        :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
-        :return: None
-        """
-        if method not in dynamic.RANDOM_METHODS.keys():
-            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                method, '\n'.join(dynamic.RANDOM_METHODS.keys()))
-            )
-
-        self.random_method = method
-        self.random_args = kwargs.get('args', None)
-
-
-class Mortality(object):
+class Mortality(Parameter):
     """
     Mortality drivers are templates that may be applied to any species in a model domain. Multiple mortality
         instances may be added to a given species.
@@ -1287,47 +1266,8 @@ class Mortality(object):
         :param kwargs:
             :param is_rate: This mortality is defined as a rate, as opposed to an absolute number (default is True)
         """
-        # Limit mortality names to 25 chars
-        if len(name) > 25:
-            raise PopdynError('Mortality names must not exceed 25 characters. '
-                              'Use something simple, like "Starvation".')
+        super(Mortality, self).__init__(name, **kwargs)
 
         forbidden_names = ['mortality', 'density dependent', 'old age']
         if name.strip().lower() in forbidden_names:
             raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(forbidden_names)))
-
-        self.name = name
-        self.name_key = name_key(name)
-
-        self.species = self.species_table = None
-
-        self.__dict__.update(kwargs)
-
-    def add_as_species(self, species, lookup_table):
-        """
-        Add mortality using another species. Inter-species relationships are specified using a lookup table.
-        :param Species species: Species instance
-        :param iterable lookup_table: A table to define the relationship between the input species density and mortality.
-            The lookup table x-values define the density of the input species, and the y-values define a mortality rate.
-        :return: None
-        """
-        if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
-            raise PopdynError('Input mortality is not a species')
-
-        self.species = species
-        self.species_table = dynamic.collect_lookup(lookup_table)
-
-    def random(self, type, **kwargs):
-        """
-        Apply a type of random variability to this mortality
-        :param type: Variance type. Use one of the random distribution generator methods in popdyn.dynamic.
-        :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
-        :return: None
-        """
-        if type not in dynamic.RANDOM_METHODS.keys():
-            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
-            )
-
-        self.random_method = type
-        self.random_args = kwargs.get('args', None)

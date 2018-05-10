@@ -7,6 +7,7 @@ import os
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
+from popdyn import summary
 import h5py
 import dask.array as da
 
@@ -93,7 +94,7 @@ white_walker_k_data = some_random_k(shape, 2.)
 
 # Fecundity
 #================================================================================
-male_fecundity = pd.Fecundity('males')
+male_fecundity = pd.Fecundity('males', multiplies=False)
 female_fecundity = pd.Fecundity('females')
 
 # Tests
@@ -132,24 +133,116 @@ def single_species():
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        for i in range(3):
-            if np.sum(f['stark/None/None/{}/None'.format(i)][:]) != 10000.:
-                raise Exception('Population not consistent')
+        # Population should remain consistent at 10,000 for time steps 1 and 2
+        for i in range(1, 3):
+            tot_pop = summary.total_population(domain, 'stark', i).sum()
+            if not np.isclose(tot_pop, 10000):
+                raise Exception('The population has changed to {} at time {}'.format(tot_pop, i))
 
 
 def single_species_random_k():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        stark_k.random('normal', args=(10,))
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        domain.add_population(starks, stark_k_data, 0, distribute=False)
+        rand_k = pd.CarryingCapacity('Stark Habitat')
+        rand_k_data = some_random_k(shape, 1.)
+        rand_k.random('normal', args=(10,))
+        domain.add_carrying_capacity(starks, rand_k, 0, rand_k_data, distribute=False)
+        domain.add_population(starks, rand_k_data, 0, distribute=False)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        pop = np.sum(f['stark/None/None/{}/None'.format(0)][:])
+        # Population is at k, so any k above the previous year should result in:
+        #   1. density dependent mortality
+        #   2. a reciprocal reduction in population
+        prv_pop = rand_k_data
         for i in range(1, 3):
-            if np.sum(f['stark/None/None/{}/None'.format(i)][:]) == pop:
-                raise Exception('No variability in k')
+            # Make sure k is variable
+            cc = summary.total_carrying_capacity(domain, 'stark', i)
+            if np.all(cc == rand_k_data):
+                raise Exception('The k is unchanged')
+            tot_pop = summary.total_population(domain, 'stark', i)
+            dd_mort = summary.total_mortality(domain, 'stark', i, mortality_name='Density Dependent')
+            if not np.allclose(-dd_mort, (tot_pop - prv_pop), atol=1E-04):
+                raise Exception('DD mortality not correct at time {}'.format(i))
+            prv_pop = tot_pop
+
+
+def single_species_sex():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
+        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
+        domain.add_population(pd.Sex('Stark', 'male'), 5000., 0, distribute_by_habitat=True)
+        domain.add_population(pd.Sex('Stark', 'female'), 5000., 0, distribute_by_habitat=True)
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        # Population should remain consistent at 10,000 for time steps 1 and 2
+        for i in range(1, 3):
+            tot_pop = summary.total_population(domain, 'stark', i).sum()
+            if not np.isclose(tot_pop, 20000):
+                raise Exception('The total population has changed to {} at time {}'.format(tot_pop, i))
+            tot_pop = summary.total_population(domain, 'stark', i, 'male').sum()
+            if not np.isclose(tot_pop, 10000):
+                raise Exception('The male population has changed to {} at time {}'.format(tot_pop, i))
+            tot_pop = summary.total_population(domain, 'stark', i, 'female').sum()
+            if not np.isclose(tot_pop, 10000):
+                raise Exception('The female population has changed to {} at time {}'.format(tot_pop, i))
+            cc = summary.total_carrying_capacity(domain, 'stark', i, 'male').sum()
+            if not np.isclose(cc, (stark_k_data).sum()):
+                raise Exception('The male carrying capacity has changed to {} at time {}'.format(cc, i))
+            cc = summary.total_carrying_capacity(domain, 'stark', i, 'male').sum()
+            if not np.isclose(cc, (stark_k_data).sum()):
+                raise Exception('The female carrying capacity has changed to {} at time {}'.format(cc, i))
+
+
+def single_species_fecundity():
+    # F:M ratio allows offspring
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 1000., distribute=False)
+        males = pd.Sex('Stark', 'male')
+        females = pd.Sex('Stark', 'female')
+        domain.add_population(males, 50, 0)
+        domain.add_population(females, 50, 0)
+        domain.add_fecundity(males, male_fecundity, 0, 1.1)
+        domain.add_fecundity(females, female_fecundity, 0, 1.1)
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        # A constant set of offspring should result
+        prv_pop = 50.
+        for i in range(1, 3):
+            tot_pop = summary.total_population(domain, 'stark', i, 'female').sum()
+            tot_off = summary.total_offspring(domain, 'stark', i, 'female').sum()
+            if not np.isclose(tot_off, prv_pop * 1.1):
+                raise Exception(
+                    'The offspring is {} and should be {} at time {}'.format(tot_off, prv_pop * 1.1, i)
+                )
+            if not np.isclose(tot_pop, prv_pop + (prv_pop * 1.1) / 2):
+                raise Exception(
+                    'The population is {} and should be {} at time {}'.format(
+                        tot_pop, prv_pop + (prv_pop * 1.1) / 2, i
+                    )
+                )
+            prv_pop = tot_pop
+
+    os.remove('seven_kingdoms.popdyn')
+
+    # F:M ratio disallows offspring
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 60)
+
+        stark_male = pd.Sex('Stark', 'male')
+        stark_female = pd.Sex('Stark', 'female')
+
+        domain.add_population(stark_male, 20., 0)
+        domain.add_population(stark_female, 40., 0)
+
+        domain.add_fecundity(stark_male, male_fecundity, 0, 1.0)
+        domain.add_fecundity(stark_female, female_fecundity, 0, 1.1, fecundity_lookup=[(0., 1.), (2., 0.)])
+
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        for i in range(1, 3):
+            male_pop = summary.total_population(domain, 'stark', i, 'male').sum()
+            fem_pop = summary.total_population(domain, 'stark', i, 'female').sum()
+            if male_pop != 0 or fem_pop != 0:
+                raise Exception('Offspring occurred when not allowable')
 
 
 def single_species_dispersion():
@@ -170,59 +263,6 @@ def single_species_dispersion():
             if np.all(np.isclose(new_pop, pop)):
                 raise Exception('No dispersal occurred')
             pop = new_pop
-
-
-def single_species_sex():
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
-        domain.add_population(pd.Sex('Stark', 'male'), 5000., 0, distribute_by_habitat=True)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
-
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        for i in range(3):
-            if not np.isclose(np.sum(f['stark/male/None/{}/None'.format(i)][:]), 15000.):
-                raise Exception('Population for males changed')
-
-
-def single_species_fecundity():
-    # F:M ratio allows offspring
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, 100., distribute=False)
-        males = pd.Sex('Stark', 'male')
-        females = pd.Sex('Stark', 'female')
-        domain.add_population(males, 50, 0)
-        domain.add_population(females, 50, 0)
-        domain.add_fecundity(males, male_fecundity, 0, 1.1)
-        domain.add_fecundity(females, female_fecundity, 0, 1.1)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
-
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        fm = np.sum(f['stark/female/None/{}/flux/offspring/Female Offspring'.format(1)][:])
-        ml = np.sum(f['stark/female/None/{}/flux/offspring/Male Offspring'.format(1)][:])
-        if not np.isclose(ml, (50 * 1.1 / 2.)) or not np.isclose(fm, (50 * 1.1 / 2)):
-            raise Exception('Incorrect offspring magnitude')
-        fm = np.sum(f['stark/female/None/{}/flux/offspring/Female Offspring'.format(2)][:])
-        ml = np.sum(f['stark/female/None/{}/flux/offspring/Male Offspring'.format(2)][:])
-        if not np.isclose(ml, 77.5 * 1.1 / 2) or not np.isclose(fm, 77.5 * 1.1 / 2):
-            raise Exception('Incorrect offspring magnitude')
-
-    os.remove('seven_kingdoms.popdyn')
-
-    # F:M ratio disallows offspring
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, 60)
-        domain.add_population(pd.Sex('Stark', 'male', fecundity=1), 20., 0)
-        domain.add_population(pd.Sex('Stark', 'female', fecundity=1.1,
-                                     fecundity_lookup=[(0., 1.), (2., 0.)]), 40., 0)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
-
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        for i in range(1, 3):
-            fm = np.sum(f['stark/female/None/{}/flux/offspring/Female Offspring'.format(i)][:])
-            ml = np.sum(f['stark/female/None/{}/flux/offspring/Male Offspring'.format(i)][:])
-            if ml != 0 or fm != 0:
-                raise Exception('Offspring occurred when not allowable')
 
 
 def single_species_agegroups():
@@ -349,13 +389,13 @@ def test_simulation():
 
 
 if __name__ == '__main__':
-    antitests = [no_species, incorrect_ages, incorrect_species, circular_carrying_capacity]
+    antitests = [no_species, incorrect_ages, incorrect_species]
 
     # tests = [single_species, single_species_random_k, single_species_dispersion, single_species_sex,
     #          single_species_fecundity, single_species_agegroups, single_species_mortality,
     #          species_as_mortality, species_as_carrying_capacity]
 
-    tests = [single_species]
+    tests = [single_species_fecundity]
 
     error_check = 0
     # for test in antitests:
