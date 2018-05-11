@@ -277,7 +277,7 @@ class discrete_explicit(object):
                     if zero_group is None:
 
                         # Apply the offspring to the youngest group or do not record an age
-                        zero_group = self.youngest_group(species, _sex)
+                        zero_group = self.D.youngest_group(species, _sex)
                         if zero_group is not None:
                             if time == self.simulation_range[0]:
                                 print('Warning: no group with age 0 exists for {} {}s.\n'
@@ -302,22 +302,6 @@ class discrete_explicit(object):
 
             # Compute this time slice and write to the domain file
             self.D.domain_compute(output)
-
-    def youngest_group(self, species, sex):
-        """Collect the youngest group instance - used if no group exists for age 0"""
-        age = np.finfo(np.float32).max
-        min_gp = None
-        for group in self.D.species[species][sex].values():
-            if isinstance(group, Species):
-                try:
-                    _age = group.min_age
-                except AttributeError:
-                    continue
-                if _age < age:
-                    age = _age
-                    min_gp = group
-
-        return min_gp
 
     @time_this
     def totals(self, all_species, time):
@@ -380,6 +364,7 @@ class discrete_explicit(object):
         if data is None:
             # There must be a species attached to the parameter instance if there are no data
             # Density derived from other species- directly applied to the lookup table kwargs
+
             kwargs.update(self.interspecies_density(param))
         else:
             data = da.from_array(data, data.chunks)
@@ -410,7 +395,7 @@ class discrete_explicit(object):
                 param.species.name_key, self.current_time, param.species.sex, param.species.group_key
             )
             for _cc in cc:
-                if _cc[0] is not None:
+                if _cc[0].species is not None:
                     if _cc[0].species.name_key in tree:
                         raise SolverError('Britches must be held until circular references are allowed')
                     next_cc(_cc[0])

@@ -40,11 +40,11 @@ starks = pd.Species('Stark')
 stark_male_infant = pd.AgeGroup('Stark', 'Infant', 'male', 0, 3)
 stark_female_infant = pd.AgeGroup('Stark', 'Infant', 'female', 0, 3)
 
-stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12, fecundity=1.)
-stark_female_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'female', 4, 12, fecundity=0.9)
+stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12)
+stark_female_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'female', 4, 12)
 
-stark_male_adult = pd.AgeGroup('Stark', 'Adult', 'male', 13, 50, fecundity=1.)
-stark_female_adult = pd.AgeGroup('Stark', 'Adult', 'female', 13, 50, fecundity=0.6)
+stark_male_adult = pd.AgeGroup('Stark', 'Adult', 'male', 13, 50)
+stark_female_adult = pd.AgeGroup('Stark', 'Adult', 'female', 13, 50)
 
 # Lannister
 lannister = pd.Species('Lannister')
@@ -52,11 +52,11 @@ lannister = pd.Species('Lannister')
 lannister_male_infant = pd.AgeGroup('Lannister', 'Infant', 'male', 0, 3)
 lannister_female_infant = pd.AgeGroup('Lannister', 'Infant', 'female', 0, 3)
 
-lannister_male_adolescent = pd.AgeGroup('Lannister', 'Adolescent', 'male', 4, 12, fecundity=1.)
-lannister_female_adolescent = pd.AgeGroup('Lannister', 'Adolescent', 'female', 4, 12, fecundity=0.9)
+lannister_male_adolescent = pd.AgeGroup('Lannister', 'Adolescent', 'male', 4, 12)
+lannister_female_adolescent = pd.AgeGroup('Lannister', 'Adolescent', 'female', 4, 12)
 
-lannister_male_adult = pd.AgeGroup('Lannister', 'Adult', 'male', 13, 50, fecundity=1.)
-lannister_female_adult = pd.AgeGroup('Lannister', 'Adult', 'female', 13, 50, fecundity=0.6)
+lannister_male_adult = pd.AgeGroup('Lannister', 'Adult', 'male', 13, 50)
+lannister_female_adult = pd.AgeGroup('Lannister', 'Adult', 'female', 13, 50)
 
 # White walker
 white_walker = pd.Species('White Walker')
@@ -330,6 +330,10 @@ def single_species_agegroups():
 
 def single_species_mortality():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        # Test old age propagation here
+        stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12, live_past_max=True)
+        stark_female_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'female', 4, 12, live_past_max=True)
+
         domain.add_carrying_capacity(starks, stark_k, 0, 1000., distribute=False)
         domain.add_population(stark_male_adolescent, 10., 0)
         domain.add_population(stark_female_adolescent, 10., 0)
@@ -339,144 +343,86 @@ def single_species_mortality():
         domain.add_mortality(stark_male_adolescent, accident, 0, 0.1)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-        prv_pop = 20
-        for i in range(1, 3):
-            tot_pop = summary.total_population(domain, 'stark', i, group=stark_male_adolescent.group_name)
-            mort1 = summary.total_mortality(domain, 'stark', i, mortality_name='Accident')
-            mort2 = summary.total_mortality(domain, 'stark', i, mortality_name='Disease')
-            if (not np.isclose(tot_pop.sum(), mort1.sum() + mort2.sum()) or
-                    not np.isclose(tot_pop.sum(), prv_pop - (prv_pop * 0.1 + prv_pop * 0.2))
-                ):
-                raise Exception('Male adolescent mortality not correct at time {}'.format(i))
-            prv_pop = tot_pop
-
-
-# def single_species_mortality():
-#     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-#         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-#         stark_male_infant.add_dispersal('density-based dispersion', (5,))
-#         stark_female_infant.add_dispersal('density-based dispersion', (5,))
-#         stark_male_adolescent.add_dispersal('density-based dispersion', (5,))
-#         stark_female_adolescent.add_dispersal('density-based dispersion', (5,))
-#         stark_male_adult.add_dispersal('density-based dispersion', (5,))
-#         stark_female_adult.add_dispersal('density-based dispersion', (5,))
-#         domain.add_population(stark_male_infant, 250., 0, distribute_by_habitat=True)
-#         domain.add_population(stark_female_infant, 250., 0, distribute_by_habitat=True)
-#         domain.add_population(stark_male_adolescent, 600., 0, distribute_by_habitat=True)
-#         domain.add_population(stark_female_adolescent, 600., 0, distribute_by_habitat=True)
-#         domain.add_population(stark_male_adult, 3000., 0, distribute_by_habitat=True)
-#         domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
-#         for i in range(3):
-#             domain.add_mortality(starks, disease, i, 0.1, distribute=False)
-#             domain.add_mortality(starks, accident, i, 0.1, distribute=False)
-#         pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        for sex in ['male', 'female']:
+            prv_pop = 10
+            for i in range(1, 3):
+                tot_pop = summary.total_population(domain, 'stark', i, sex, group='adolescent')
+                mort1 = summary.total_mortality(domain, 'stark', i, sex, mortality_name='Accident')
+                mort2 = summary.total_mortality(domain, 'stark', i, sex, mortality_name='Disease')
+                if not np.isclose(tot_pop.sum(), prv_pop - (mort1.sum() + mort2.sum())):
+                    raise Exception('{} adolescent mortality not correct at time {}'.format(sex, i))
+                prv_pop = tot_pop
 
 
 def species_as_mortality():
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
-        for i in range(3):
-            domain.add_mortality(starks, white_walker_death, i)
+    # White Walker mortality lookup: [(0, 0), (0.1, 0.1), (0.5, 0.8), (1, 0.9)]
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 100)
+        domain.add_population(starks, 100, 0)
+        domain.add_mortality(starks, white_walker_death, 0)
 
-        domain.add_carrying_capacity(white_walker, white_walker_k, 0, white_walker_k_data, distribute=False)
-        domain.add_population(white_walker, 1000., 0, distribute_by_habitat=True)
+        # 30% density, mortality should be 0.45
+        domain.add_carrying_capacity(white_walker, white_walker_k, 0, 100)
+        domain.add_population(white_walker, 30., 0)
+
+        # 50% density, mortality should be 0.8
+        domain.add_carrying_capacity(white_walker, white_walker_k, 2, 60)
 
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
+        tot_pop = summary.total_population(domain, 'stark', 1).sum()
+        if not np.isclose(tot_pop, 100 - (100 * 0.45)):
+            raise Exception('Population is {}, but should be {} at time step 1'.format(tot_pop, 100 - (100 * 0.45)))
+        tot_pop = summary.total_population(domain, 'stark', 2).sum()
+        if not np.isclose(tot_pop, 55. - (55 * 0.8)):
+            raise Exception('Population is {}, but should be {} at time step 1'.format(tot_pop, 55. - (55 * 0.8)))
+
 
 def species_as_carrying_capacity():
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        domain.add_carrying_capacity(lannister, lannister_k, 0, lannister_k_data, distribute=False)
-        domain.add_population(starks, stark_k_data * 0.9, 0)
-        domain.add_population(lannister, 10000., 0, distribute_by_habitat=True)
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 100)
+        domain.add_carrying_capacity(lannister, lannister_k, 0, 100)
+        domain.add_population(starks, 20, 0)  # Density should be 20%, increasing lannister habitat by 20%
+        domain.add_population(lannister, 100, 0)
 
         stark_as_k = pd.CarryingCapacity('Starks')
-        stark_as_k.add_as_species(starks, [(0., 0.), (0.2, .2), (0.5, -0.1), (1., -0.9)])
+        stark_as_k.add_as_species(starks, [(0., 1), (0.2, 1.2), (0.5, 0.9), (1., 0.1)])
 
         domain.add_carrying_capacity(lannister, stark_as_k, 0)
 
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-
-def test_simulation():
-        # Create a rectangular domain
-    #===============================================================================
-    shape = (180, 320)
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=180, left=0) as domain:
-        # Add starks
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-
-        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
-
-        domain.add_population(pd.Sex('Stark', 'female'), 10000., 0, distribute_by_habitat=True)
-
-        domain.add_population(stark_male_infant, 10000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_infant, 10000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_male_adolescent, 200000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_adolescent, 200000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_male_adult, 500000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_adult, 500000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_male_elder, 10000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_elder, 10000., 0, distribute_by_habitat=True)
-
-        # domain.add_mortality()
-
-        # Add lannisters
-        domain.add_carrying_capacity(lannister, lannister_k, 0, lannister_k_data, distribute=False)
-
-        domain.add_population(lannister_male_infant, 10000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_female_infant, 10000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_male_adolescent, 200000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_female_adolescent, 200000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_male_adult, 500000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_female_adult, 500000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_male_elder, 10000, 0, distribute_by_habitat=True)
-        domain.add_population(lannister_female_elder, 10000, 0, distribute_by_habitat=True)
-
-        # Add white walkers
-        domain.add_carrying_capacity(white_walker, stark_k, 0, stark_k_data, distribute=False)
-
-        white_walker_pop0 = np.random.normal(100, 1000, shape)
-        white_walker_pop0[white_walker_pop0 < 0] = 0
-        white_walker_pop0[80:, :] = 0
-
-        domain.add_population(white_walker, white_walker_pop0, 0)
-        pd.solvers.discrete_explicit(domain, 0, 1)
-        # pd.solvers.discrete_explicit(domain, 0, 1).execute()
-
-        return domain.profiler
+        cc = summary.total_carrying_capacity(domain, 'lannister', 1).sum()
+        if not np.isclose(cc, 120):
+            raise Exception('Carrying capacity should be {}, but it is {}'.format(120, cc))
 
 
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    # tests = [single_species, single_species_random_k, single_species_sex, single_species_fecundity,
-    #          single_species_dispersion, single_species_agegroups, single_species_mortality,
-    #          species_as_mortality, species_as_carrying_capacity]
-
-    tests = [single_species_mortality]
+    tests = [single_species, single_species_random_k, single_species_sex, single_species_fecundity,
+             single_species_dispersion, single_species_agegroups, single_species_mortality,
+             species_as_mortality, species_as_carrying_capacity]
 
     error_check = 0
-    # for test in antitests:
-    #     try:
-    #         test()
-    #         print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-    #               "{}: FAIL:\nNo Exception raised\n"
-    #               "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__))
-    #     except Exception as e:
-    #         if (isinstance(e, pd.solvers.SolverError) or
-    #             isinstance(e, pd.PopdynError)):
-    #             error_check += 1
-    #             print("--------------------------------------\n"
-    #                   "{}: PASS\n"
-    #                   "--------------------------------------\n".format(test.__name__))
-    #         else:
-    #             print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-    #                   "{}: FAIL:\n{}\n"
-    #                   "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
-    #     os.remove('seven_kingdoms.popdyn')
+    for test in antitests:
+        try:
+            test()
+            print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+                  "{}: FAIL:\nNo Exception raised\n"
+                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__))
+        except Exception as e:
+            if (isinstance(e, pd.solvers.SolverError) or
+                isinstance(e, pd.PopdynError)):
+                error_check += 1
+                print("--------------------------------------\n"
+                      "{}: PASS\n"
+                      "--------------------------------------\n".format(test.__name__))
+            else:
+                print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
+                      "{}: FAIL:\n{}\n"
+                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
+        os.remove('seven_kingdoms.popdyn')
 
     function_check = 0
     for test in tests:
@@ -492,13 +438,15 @@ if __name__ == '__main__':
                   "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
         os.remove('seven_kingdoms.popdyn')
 
-    print("Completed tests\n")
-    print("{} of {} exception checks passed".format(error_check, len(antitests)))
-    print("{} of {} solver checks passed".format(function_check, len(tests)))
+    stars = np.array([[' '] * 50 for i in range(10)])
+    stars[(np.random.randint(0, 5, 40), np.random.randint(0, 50, 40))] = '*'
+    stars[(np.random.randint(5, 10, 10), np.random.randint(0, 50, 10))] = '*'
+    stars[:, -1] = '\n'
+    stars = ''.join(stars.ravel())
 
-    # datasets = []
-    # with pd.h5py.File('/Users/devin/PycharmProjects/popdyn/tests/seven_kingdoms.popdyn') as f:
-    #     for i in range(3):
-    #         datasets.append(f['stark']['male']['None'][str(i)]['None'][:])
-
-    # ds = test_simulation()
+    print("{}"
+          "\n\n\n                Tests Complete\n\n"
+          "".format(stars))
+    print("          {} of {} exception checks passed".format(error_check, len(antitests)))
+    print("          {} of {} solver checks passed\n\n\n"
+          "___wv_____wwWww____vW___|____wWv___|_|____w____wwvWWv".format(function_check, len(tests)))

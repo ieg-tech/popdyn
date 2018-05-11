@@ -715,6 +715,22 @@ class Domain(object):
 
         return values
 
+    def youngest_group(self, species, sex):
+        """Collect the youngest group instance"""
+        age = np.finfo(np.float32).max
+        min_gp = None
+        for group in self.species[species][sex].values():
+            if isinstance(group, Species):
+                try:
+                    _age = group.min_age
+                except AttributeError:
+                    continue
+                if _age < age:
+                    age = _age
+                    min_gp = group
+
+        return min_gp
+
     def group_from_age(self, species, sex, age):
         """Collect the group of a discrete age"""
         groups = self.species[species][sex].keys()
