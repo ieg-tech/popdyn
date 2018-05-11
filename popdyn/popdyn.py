@@ -836,8 +836,8 @@ class Domain(object):
         time = self.get_time_input(time)
 
         if snap_to_time:
-            times = self.fecundity[species_key][sex][group_key].keys()
-            times = [t for t in times if len(self.fecundity[species_key][sex][group_key][t]) > 0]
+            times = self.mortality[species_key][sex][group_key].keys()
+            times = [t for t in times if len(self.mortality[species_key][sex][group_key][t]) > 0]
 
             times = np.unique(times)
             delta = time - times
@@ -847,7 +847,7 @@ class Domain(object):
                 times = times[backwards]
                 delta = delta[backwards]
                 i = np.argmin(delta)
-                time = times[i]
+                time = times[np.squeeze(i)]
 
         # Collect the dataset keys using inheritance
         if not inherit or self.avoid_inheritance:

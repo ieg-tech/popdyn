@@ -8,7 +8,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
 from popdyn import summary
-import h5py
+from popdyn import dispersal
 import dask.array as da
 
 
@@ -233,43 +233,68 @@ def single_species_fecundity():
         domain.add_population(stark_male, 20., 0)
         domain.add_population(stark_female, 40., 0)
 
+        test_female_fecundity_1 = pd.Fecundity('females', fecundity_lookup=[(0., 1.), (2., 0.)])
+        # Explore density-dependence
+        test_female_fecundity_2 = pd.Fecundity('females',
+                                               density_fecundity_threshold=0.9,
+                                               density_fecundity_max=1.1,
+                                               fecundity_lookup=[(0., 1.), (1.5, 1. / 1.1)])
         domain.add_fecundity(stark_male, male_fecundity, 0, 1.0)
-        domain.add_fecundity(stark_female, female_fecundity, 0, 1.1, fecundity_lookup=[(0., 1.), (2., 0.)])
+        domain.add_fecundity(stark_female, test_female_fecundity_1, 0, 1.1)
+
+        domain.add_fecundity(stark_female, test_female_fecundity_2, 2, 1.1)
 
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-        for i in range(1, 3):
-            male_pop = summary.total_population(domain, 'stark', i, 'male').sum()
-            fem_pop = summary.total_population(domain, 'stark', i, 'female').sum()
-            if male_pop != 0 or fem_pop != 0:
-                raise Exception('Offspring occurred when not allowable')
+        male_pop = summary.total_offspring(domain, 'stark', 1, 'male').sum()
+        if male_pop != 0:
+            raise Exception('Offspring is {} when should be 0'.format(male_pop))
+
+        female_pop = summary.total_population(domain, 'stark', 2, 'female').sum()
+        # Fecundity should be 0.5
+        if not np.isclose(female_pop, 40 + (40 * 0.5 / 2)):
+            raise Exception(
+                'The population is {} and should be {}'.format(female_pop, 40 + (40 * 0.5 / 2))
+            )
 
 
 def single_species_dispersion():
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        starks.add_dispersal('density-based dispersion', (10,))
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
+    for _iter, method in enumerate(dispersal.METHODS.keys()):
+        with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
+            starks = pd.Species('Stark')
 
-        seed_population = np.zeros(shape=shape, dtype='float32')
-        seed_population[(np.random.randint(0, shape[0], 10), np.random.randint(0, shape[1], 10))] = 100
-        domain.add_population(starks, seed_population, 0, distribute=False)
+            starks.add_dispersal(method, (10,))
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+            # Avoid density-dependent mortality
+            domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data + 1000., distribute=False)
 
-    with h5py.File('seven_kingdoms.popdyn', libver='latest') as f:
-        pop = f['stark/None/None/{}/None'.format(0)][:]
-        for i in range(1, 3):
-            new_pop = f['stark/None/None/{}/None'.format(i)][:]
-            if np.all(np.isclose(new_pop, pop)):
-                raise Exception('No dispersal occurred')
-            pop = new_pop
+            seed_population = np.zeros(shape=shape, dtype='float32')
+            seed_population[(np.random.randint(0, shape[0], 10), np.random.randint(0, shape[1], 10))] = 100
+            domain.add_population(starks, seed_population, 0, distribute=False)
+
+            pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+            prv_pop = seed_population
+            for i in range(1, 3):
+                _pop = summary.total_population(domain, 'stark', i)
+                if not np.isclose(_pop.sum(), prv_pop.sum()):
+                    raise Exception('The population changed from {} to {} at time {}'.format(prv_pop.sum(), _pop.sum() ,i))
+                if np.allclose(_pop, prv_pop):
+                    raise Exception('The population did not disperse using {}'.format(method))
+                prv_pop = _pop
+
+        if _iter != len(dispersal.METHODS.keys()) - 1:
+            os.remove('seven_kingdoms.popdyn')
 
 
 def single_species_agegroups():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        stark_female_adolescent.fecundity = 0.
-        stark_female_adult.fecundity = 0.
+        groups = [stark_male_infant, stark_female_infant, stark_male_adolescent,
+                  stark_female_adolescent, stark_male_adult, stark_female_adult]
+        pops = [250., 250., 600., 600., 3000., 3000.]
+        tot_pop = np.sum(pops)
+
+        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data + tot_pop, distribute=False)
         domain.add_population(stark_male_infant, 250., 0, distribute_by_habitat=True)
         domain.add_population(stark_female_infant, 250., 0, distribute_by_habitat=True)
         domain.add_population(stark_male_adolescent, 600., 0, distribute_by_habitat=True)
@@ -278,37 +303,73 @@ def single_species_agegroups():
         domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
-        pop = da.stack(
-            [da.from_array(ds, domain.chunks) for ds in domain.all_population('stark', 0).values()]
-        ).sum().compute()
         for i in range(1, 3):
-            _pop = da.stack(
-                [da.from_array(ds, domain.chunks) for ds in domain.all_population('stark', i).values()]
-            ).sum().compute()
-            print(_pop)
-            # if not np.isclose(pop, _pop):
-            #     raise Exception('Population not consistent')
+            _pop = summary.total_population(domain, 'stark', i).sum()
+            # Subtract old age mortality for the total population
+            if not np.isclose(_pop, tot_pop - 3000. / (50 - 13. + 1) * 2 * i):
+                raise Exception('The population should be {}, not {} at time {}'.format(
+                    tot_pop - 3000. / (50 - 13. + 1) * 2, _pop, i)
+                )
+            # Check propagation
+            _pop = summary.total_population(domain, 'stark', i, 'male', group=stark_male_infant.group_name).sum()
+            if not np.isclose(_pop, 250 - ((250 / 4.) * i)):
+                raise Exception('{} population should be {}, but is {} at time {}'.format(
+                    stark_male_infant.group_name, 250 - ((250 / 4.) * i), _pop, i
+                ))
+            _pop = summary.total_population(domain, 'stark', i, 'male', group=stark_male_adolescent.group_name).sum()
+            if not np.isclose(_pop, 600 - ((600 / 9.) * i) + ((250 / 4.) * i)):
+                raise Exception('{} population should be {}, but is {} at time {}'.format(
+                    stark_male_adolescent.group_name, 600 - ((600 / 9.) * i) + ((250 / 4.) * i), _pop, i
+                ))
+            _pop = summary.total_population(domain, 'stark', i, 'male', group=stark_male_adult.group_name).sum()
+            if not np.isclose(_pop, 3000. - (3000. / (50 - 13. + 1) * i) + ((600 / 9.) * i)):
+                raise Exception('{} population should be {}, but is {} at time {}'.format(
+                    stark_male_adult.group_name, 3000. - (3000. / (50 - 13. + 1) * i) + ((600 / 9.) * i), _pop, i
+                ))
 
 
 def single_species_mortality():
-    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
-        stark_male_infant.add_dispersal('density-based dispersion', (5,))
-        stark_female_infant.add_dispersal('density-based dispersion', (5,))
-        stark_male_adolescent.add_dispersal('density-based dispersion', (5,))
-        stark_female_adolescent.add_dispersal('density-based dispersion', (5,))
-        stark_male_adult.add_dispersal('density-based dispersion', (5,))
-        stark_female_adult.add_dispersal('density-based dispersion', (5,))
-        domain.add_population(stark_male_infant, 250., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_infant, 250., 0, distribute_by_habitat=True)
-        domain.add_population(stark_male_adolescent, 600., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_adolescent, 600., 0, distribute_by_habitat=True)
-        domain.add_population(stark_male_adult, 3000., 0, distribute_by_habitat=True)
-        domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
-        for i in range(3):
-            domain.add_mortality(starks, disease, i, 0.1, distribute=False)
-            domain.add_mortality(starks, accident, i, 0.1, distribute=False)
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 1000., distribute=False)
+        domain.add_population(stark_male_adolescent, 10., 0)
+        domain.add_population(stark_female_adolescent, 10., 0)
+        domain.add_mortality(stark_male_adolescent, disease, 0, 0.2)
+        domain.add_mortality(stark_female_adolescent, disease, 0, 0.2)
+        domain.add_mortality(stark_female_adolescent, accident, 0, 0.1)
+        domain.add_mortality(stark_male_adolescent, accident, 0, 0.1)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        prv_pop = 20
+        for i in range(1, 3):
+            tot_pop = summary.total_population(domain, 'stark', i, group=stark_male_adolescent.group_name)
+            mort1 = summary.total_mortality(domain, 'stark', i, mortality_name='Accident')
+            mort2 = summary.total_mortality(domain, 'stark', i, mortality_name='Disease')
+            if (not np.isclose(tot_pop.sum(), mort1.sum() + mort2.sum()) or
+                    not np.isclose(tot_pop.sum(), prv_pop - (prv_pop * 0.1 + prv_pop * 0.2))
+                ):
+                raise Exception('Male adolescent mortality not correct at time {}'.format(i))
+            prv_pop = tot_pop
+
+
+# def single_species_mortality():
+#     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
+#         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
+#         stark_male_infant.add_dispersal('density-based dispersion', (5,))
+#         stark_female_infant.add_dispersal('density-based dispersion', (5,))
+#         stark_male_adolescent.add_dispersal('density-based dispersion', (5,))
+#         stark_female_adolescent.add_dispersal('density-based dispersion', (5,))
+#         stark_male_adult.add_dispersal('density-based dispersion', (5,))
+#         stark_female_adult.add_dispersal('density-based dispersion', (5,))
+#         domain.add_population(stark_male_infant, 250., 0, distribute_by_habitat=True)
+#         domain.add_population(stark_female_infant, 250., 0, distribute_by_habitat=True)
+#         domain.add_population(stark_male_adolescent, 600., 0, distribute_by_habitat=True)
+#         domain.add_population(stark_female_adolescent, 600., 0, distribute_by_habitat=True)
+#         domain.add_population(stark_male_adult, 3000., 0, distribute_by_habitat=True)
+#         domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
+#         for i in range(3):
+#             domain.add_mortality(starks, disease, i, 0.1, distribute=False)
+#             domain.add_mortality(starks, accident, i, 0.1, distribute=False)
+#         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
 
 def species_as_mortality():
@@ -391,11 +452,11 @@ def test_simulation():
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    # tests = [single_species, single_species_random_k, single_species_dispersion, single_species_sex,
-    #          single_species_fecundity, single_species_agegroups, single_species_mortality,
+    # tests = [single_species, single_species_random_k, single_species_sex, single_species_fecundity,
+    #          single_species_dispersion, single_species_agegroups, single_species_mortality,
     #          species_as_mortality, species_as_carrying_capacity]
 
-    tests = [single_species_fecundity]
+    tests = [single_species_mortality]
 
     error_check = 0
     # for test in antitests:

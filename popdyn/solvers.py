@@ -35,9 +35,9 @@ def error_check(domain):
             if any([isinstance(instance, obj) for obj in [Species, Sex, AgeGroup]]):
                 ages += range(instance.min_age, instance.max_age + 1)
 
-        if np.any(np.diff(np.sort(ages)) == 0):
+        if np.any(np.diff(np.sort(ages)) != 1):
             raise SolverError(
-                'The species (key) {} {}s have group age ranges that overlap'.format(
+                'The species (key) {} {}s have group age ranges that overlap or have gaps'.format(
                     species_key, sex)
             )
 
@@ -272,20 +272,52 @@ class discrete_explicit(object):
 
                 # Update the output with the age 0 populations
                 for _sex in self.age_zero_population[species].keys():
+
                     zero_group = self.D.group_from_age(species, _sex, 0)
                     if zero_group is None:
-                        age = None
+
+                        # Apply the offspring to the youngest group or do not record an age
+                        zero_group = self.youngest_group(species, _sex)
+                        if zero_group is not None:
+                            if time == self.simulation_range[0]:
+                                print('Warning: no group with age 0 exists for {} {}s.\n'
+                                      'Offspring will be added to the group {}.'.format(
+                                    zero_group.name, _sex, zero_group.group_name
+                                ))
+
+                            age = zero_group.min_age
+                            zero_group = zero_group.group_key
+
+                        else:
+                            # Age is not recorded
+                            age = None
                     else:
                         age = 0
                     key = '{}/{}/{}/{}/{}'.format(species, _sex, zero_group, time, age)
                     try:
                         # Add them together if the key exists in the output
-                        output[key] = output[key] + self.age_zero_population[species][_sex]
+                        output[key] += self.age_zero_population[species][_sex]
                     except KeyError:
                         output[key] = self.age_zero_population[species][_sex]
 
             # Compute this time slice and write to the domain file
             self.D.domain_compute(output)
+
+    def youngest_group(self, species, sex):
+        """Collect the youngest group instance - used if no group exists for age 0"""
+        age = np.finfo(np.float32).max
+        min_gp = None
+        for group in self.D.species[species][sex].values():
+            if isinstance(group, Species):
+                try:
+                    _age = group.min_age
+                except AttributeError:
+                    continue
+                if _age < age:
+                    age = _age
+                    min_gp = group
+
+        return min_gp
 
     @time_this
     def totals(self, all_species, time):
@@ -587,9 +619,6 @@ class discrete_explicit(object):
             # Use population total to avoid re-read from disk
             population = self.population_total(species, {population: self.D[population]}, False)
 
-            if np.any(population < 0):
-                print('Minus before mortality')
-
             # Mortaliy is applied on each age, as they need to be removed from the population
             # Aggregate mortality must be scaled so as to not exceed 1.
             if len(mort_types) > 0:
@@ -648,8 +677,13 @@ class discrete_explicit(object):
                     new_age = age
                 new_group = self.D.group_from_age(species, sex, new_age)
                 if new_group is None:
-                    # This age does not exist in the domain
-                    new_age = None
+                    # No group past this point. If there is a legitimate age, this means that live_past_max is True
+                    if max_age is not None and age == max_age:
+                        # Need to add an age sequentially to the current group
+                        self.D.species[species][sex][group].max_age += 1
+                        new_group = group
+                    else:
+                        new_age = None
                 key = '{}/{}/{}/{}/{}'.format(species, sex, new_group, time, new_age)
                 # In case a duplicate key exists, addition is first attempted
                 try:
@@ -740,7 +774,7 @@ class discrete_explicit(object):
                     fec_mod = da.where(density_range > 0, fecundity_reduction_rate, 0.)
                 else:
                     fec_mod = da.where(
-                        density_range > 0, da.maximum(1., (density_range / input_range)) * fecundity_reduction_rate, 0.
+                        density_range > 0, da.minimum(1., (density_range / input_range)) * fecundity_reduction_rate, 0.
                     )
 
                 fec -= fec * fec_mod
