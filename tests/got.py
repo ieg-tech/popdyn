@@ -144,7 +144,7 @@ def single_species_random_k():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         rand_k = pd.CarryingCapacity('Stark Habitat')
         rand_k_data = some_random_k(shape, 1.)
-        rand_k.random('normal', args=(10,))
+        rand_k.random('normal', **{'scale': 10})
         domain.add_carrying_capacity(starks, rand_k, 0, rand_k_data, distribute=False)
         domain.add_population(starks, rand_k_data, 0, distribute=False)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()

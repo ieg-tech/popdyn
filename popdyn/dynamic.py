@@ -43,7 +43,7 @@ def derive_from_lookup(a, lookup):
     return a
 
 
-def apply_random(a, method, *args):
+def apply_random(a, method, **kwargs):
     """
     Generate random values for each domain element using the existing values
     and a random number generator distribution
@@ -53,9 +53,8 @@ def apply_random(a, method, *args):
     :return: randomly generated values
     """
     # Array should implicitly come from dask
-    args = (a,) + args
 
-    return RANDOM_METHODS[method](*args)
+    return RANDOM_METHODS[method](a, **kwargs)
 
 
 def collect_lookup(input_table):
@@ -108,6 +107,7 @@ def collect(data, **kwargs):
     if random_method is not None:
         if random_args is None:
             raise DynamicError('If a random method is supplied, random arguments may not be NoneType')
-        data = data.map_blocks(apply_random, random_method, random_args, dtype='float32')
+        random_args.update({'dtype': 'float32'})
+        data = data.map_blocks(apply_random, random_method, **random_args)
 
     return data

@@ -1224,7 +1224,7 @@ class Parameter(object):
             )
 
         self.random_method = type
-        self.random_args = kwargs.get('args', None)
+        self.random_args = kwargs
 
 
 class CarryingCapacity(Parameter):
