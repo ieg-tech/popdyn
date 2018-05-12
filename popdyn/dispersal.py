@@ -31,6 +31,10 @@ def calculate_kernel(distance, csx, csy, outer_ring=False):
     m = np.uint64(np.round(distance / csy))
     n = np.uint64(np.round(distance / csx))
 
+    if m == 0 or n == 0:
+        # Unable to traverse to adjacent elements
+        return
+
     # Use a distance transform to select the active grid locations
     kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
     kernel[m, n] = 0
@@ -58,8 +62,15 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
 
+    if distance == 0:
+        # Don't do anything
+        return population
+
     # Calculate the kernel indices and shape
-    kernel, m, n = calculate_kernel(distance, csx, csy)
+    kernel = calculate_kernel(distance, csx, csy)
+    if kernel is None:
+        return population
+    kernel, m, n = kernel
     # Dask does not like numpy types in depth
     m = int(m)
     n = int(m)
@@ -165,8 +176,16 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
 
+    if distance == 0:
+        # Don't do anything
+        return population
+
     # Calculate the kernel indices and shape
-    kernel, m, n = calculate_kernel(distance, csx, csy, outer_ring=True)
+    kernel = calculate_kernel(distance, csx, csy)
+    if kernel is None:
+        return population
+    kernel, m, n = kernel
+
     # Dask does not like numpy types in depth
     m = int(m)
     n = int(m)

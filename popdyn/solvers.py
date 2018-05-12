@@ -363,9 +363,17 @@ class discrete_explicit(object):
         # Collect the total species population from the previous time step
         if data is None:
             # There must be a species attached to the parameter instance if there are no data
-            # Density derived from other species- directly applied to the lookup table kwargs
+            # Generate lookup data using the density of the attached species
+            population = self.D.all_population(param.species.name_key, self.current_time - 1,
+                                      param.species.sex, param.species.group_key)
+            p = self.population_total(param.species.name_key, population)
 
-            kwargs.update(self.interspecies_density(param))
+            carrying_capacity = self.D.all_carrying_capacity(
+                    param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+                )
+            cc = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
+
+            kwargs.update({'lookup_data': da.where(cc > 0, p / cc, np.inf), 'lookup_table': param.species_table})
         else:
             data = da.from_array(data, data.chunks)
 
@@ -373,51 +381,68 @@ class discrete_explicit(object):
         if getattr(param, 'random_method', False) and not (isinstance(param, CarryingCapacity) and data is None):
             kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
 
-        return dynamic.collect(data, **kwargs)  # A dask array
+        return dynamic.collect(data, **kwargs)
 
     @time_this
-    def interspecies_density(self, param):
+    def interspecies_carrying_capacity(self, parent_species, param):
         """
-        Returns the kwargs of density and lookup for a species-dependent parameter.
-        Because interspecies dependencies may be nested or circular, the carrying capacity of all connected
+        Because inter-species dependencies may be nested or circular, the carrying capacity of all connected
         species is calculated herein and added to the self.carrying_capacity_arrays object. Future calls of any
         of the connected species will have data available, avoiding redundant calculations.
-        :param species:
-        :param param:
-        :return: dict of lookup data and table to update kwargs in dynamic call
+
+        :param param: input instance of CarryingCapacity
+        :return: coefficient array for the given carrying capacity parameter
         """
+        def _population(species):
+            """Population at the previous time"""
+            population = self.D.all_population(species.name_key, self.current_time - 1, species.sex, species.group_key)
+            return self.population_total(species.name_key, population)
 
-        # Check for circular references
-        # ------------------------------------------------------
-        def next_cc(param):
-            tree.append(param.species.name_key)
-            cc = self.D.all_carrying_capacity(
-                param.species.name_key, self.current_time, param.species.sex, param.species.group_key
-            )
-            for _cc in cc:
-                if _cc[0].species is not None:
-                    if _cc[0].species.name_key in tree:
-                        raise SolverError('Britches must be held until circular references are allowed')
-                    next_cc(_cc[0])
+        def next_species_node(param):
+            """Prepare the next node in the species graph"""
+            # Condition that terminates recursion
+            if not param.species in density:
+                density[param.species] = {'p': _population(param.species), 'd': da_zeros(self.D.shape, self.D.chunks)}
+                cc = self.D.all_carrying_capacity(
+                    param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+                )
+                for cc_instance, ds in cc:
+                    if ds is None:
+                        next_species_node(cc_instance)
+                    else:
+                        if cc_instance not in self.carrying_capacity_arrays[param.species.name_key]:
+                            d = self.collect_parameter(cc_instance, ds)
+                            self.carrying_capacity_arrays[param.species.name_key][cc_instance] = d
+                        else:
+                            d  = self.carrying_capacity_arrays[param.species.name_key][cc_instance]
+                        density[param.species]['d'] += d
 
-        tree = []
-        next_cc(param)
-        # ------------------------------------------------------
+        # Collect the sum of all density parameters without inter-species perturbation
+        density = {}  # Global in func next_species_node
+        next_species_node(param)
 
-        # Collect the population of the interdependent species
-        # Collect the total baseline (time - 1) population of the species
-        population = self.D.all_population(param.species.name_key, self.current_time - 1,
-                                           param.species.sex, param.species.group_key)
-        a = self.population_total(param.species.name_key, population)
+        # Calculate the coefficient for each carrying capacity instance
+        def next_species_edge(param, parent_species):
+            """Traverse the edges and calculate coefficients"""
+            if param not in complete:
+                complete.append(param)
+                p, d = density[param.species]['p'], density[param.species]['d']
+                kwargs = {
+                    'lookup_data': da.where(d > 0, p / d, np.inf),
+                    'lookup_table': param.species_table
+                }
 
-        carrying_capacity = self.D.all_carrying_capacity(
-            param.species.name_key, self.current_time, param.species.sex, param.species.group_key
-        )
+                self.carrying_capacity_arrays[parent_species][param] = dynamic.collect(None, **kwargs)
 
-        c = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
+                cc = self.D.all_carrying_capacity(
+                    param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+                )
+                for cc_instance, ds in cc:
+                    if ds is None:
+                        next_species_edge(cc_instance, param.species.name_key)
 
-        # the kwargs for the lookup table related to the original query are returned along with the density
-        return {'lookup_data': da.where(c > 0, a / c, np.inf), 'lookup_table': param.species_table}
+        complete = []
+        next_species_edge(param, parent_species)
 
     @time_this
     def population_total(self, species, datasets, honor_density=True, honor_reproduction=False):
@@ -477,24 +502,27 @@ class discrete_explicit(object):
                     cc_arrays.append(self.carrying_capacity_arrays[species][cc[0]])
             except KeyError:
                 # The dataset must be calculated or added to the arrays dict
-                ds = self.collect_parameter(cc[0], cc[1])
-                self.carrying_capacity_arrays[species][cc[0]] = ds
-
                 if cc[1] is None:
-                    cc_coeff.append(ds)
+                    # Circular relationships are solved here
+                    self.interspecies_carrying_capacity(species, cc[0])
+                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]])
                 else:
+                    ds = self.collect_parameter(cc[0], cc[1])
+                    self.carrying_capacity_arrays[species][cc[0]] = ds
                     cc_arrays.append(ds)
 
-        if len(cc_coeff) > 0:
-            coeff = da.dstack(cc_coeff).sum(axis=-1)
-        else:
-            coeff = 1.
         if len(cc_arrays) == 0:
-            arrays = da_zeros(self.D.shape, self.D.chunks)
+            array = da_zeros(self.D.shape, self.D.chunks)
         else:
-            arrays = da.dstack(cc_arrays).sum(axis=-1)
-        arrays *= coeff
-        return da.where(arrays > 0, arrays, 0)
+            array = da.dstack(cc_arrays).sum(axis=-1)
+
+        if len(cc_coeff) == 0:
+            coeff = 1.
+        else:
+            # Use the mean of the coefficients to avoid compounding perturbation
+            coeff = da.dstack(cc_coeff).mean(axis=-1)
+
+        return da.where(array > 0, array * coeff, 0)
 
     @time_this
     def propagate(self, species, sex, group, time):

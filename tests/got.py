@@ -397,12 +397,36 @@ def species_as_carrying_capacity():
             raise Exception('Carrying capacity should be {}, but it is {}'.format(120, cc))
 
 
+def circular_species():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 100)
+        domain.add_carrying_capacity(lannister, lannister_k, 0, 100)
+        domain.add_population(starks, 20, 0)  # Density should be 20%, increasing lannister habitat by 20%
+        domain.add_population(lannister, 100, 0)  # Density should be 100%, decreasing stark habitat by 90%
+
+        stark_as_k = pd.CarryingCapacity('Starks')
+        stark_as_k.add_as_species(starks, [(0., 1), (0.2, 1.2), (0.5, 0.9), (1., 0.1)])
+
+        lannister_as_k = pd.CarryingCapacity('Lannister')
+        lannister_as_k.add_as_species(lannister, [(0., 1), (0.2, 1.2), (0.5, 0.9), (1., 0.1)])
+
+        domain.add_carrying_capacity(lannister, stark_as_k, 0)
+        domain.add_carrying_capacity(starks, lannister_as_k, 0)
+
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        if not np.isclose(summary.total_carrying_capacity(domain, 'lannister', 1).sum(), 120):
+            raise Exception('Lannister carrying capacity should be {}, but it is {}'.format(120, cc))
+        if not np.isclose(summary.total_carrying_capacity(domain, 'stark', 1).sum(), 10):
+            raise Exception('Stark carrying capacity should be {}, but it is {}'.format(10, cc))
+
+
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
     tests = [single_species, single_species_random_k, single_species_sex, single_species_fecundity,
              single_species_dispersion, single_species_agegroups, single_species_mortality,
-             species_as_mortality, species_as_carrying_capacity]
+             species_as_mortality, species_as_carrying_capacity, circular_species]
 
     error_check = 0
     for test in antitests:
@@ -439,8 +463,8 @@ if __name__ == '__main__':
         os.remove('seven_kingdoms.popdyn')
 
     stars = np.array([[' '] * 50 for i in range(10)])
-    stars[(np.random.randint(0, 5, 40), np.random.randint(0, 50, 40))] = '*'
-    stars[(np.random.randint(5, 10, 10), np.random.randint(0, 50, 10))] = '*'
+    stars[(np.random.randint(0, 5, 40), np.random.randint(0, 49, 40))] = '*'
+    stars[(np.random.randint(5, 10, 10), np.random.randint(0, 49, 10))] = '*'
     stars[:, -1] = '\n'
     stars = ''.join(stars.ravel())
 
