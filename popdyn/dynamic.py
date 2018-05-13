@@ -54,7 +54,7 @@ def apply_random(a, method, **kwargs):
     """
     # Array should implicitly come from dask
 
-    return RANDOM_METHODS[method](a, **kwargs)
+    return RANDOM_METHODS[method](a, **kwargs).astype(np.float32)
 
 
 def collect_lookup(input_table):
@@ -74,7 +74,8 @@ def collect_lookup(input_table):
     X = zip(a[0, :-1], a[0, 1:])
     Y = zip(a[1, :-1], a[1, 1:])
     return np.array(
-        [np.concatenate([x, np.linalg.solve([[x[0], 1.], [x[1], 1.]], [y[0], y[1]])]) for x, y in zip(X, Y)]
+        [np.concatenate([x, np.linalg.solve([[x[0], 1.], [x[1], 1.]], [y[0], y[1]])]) for x, y in zip(X, Y)],
+        dtype=np.float32
     )
 
 
