@@ -354,6 +354,9 @@ class Domain(object):
         :param dict datasets: dataset pointers (keys) and respective dask arrays
         :return: None
         """
+        # Force all data to float32...
+        datasets = {key: val.astype(np.float32) for key, val in datasets.items()}
+
         # Compute and dump the datasets (adapted from da.to_hdf5 to avoid opening file again)
         dsets = [self.file.require_dataset(dp, shape=x.shape, dtype=x.dtype,
                                            chunks=tuple([c[0] for c in x.chunks]), **{'compression': 'lzf'})
