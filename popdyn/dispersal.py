@@ -90,7 +90,7 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     output = a.map_blocks(density_flux_task, kernel, m, n, dtype='float32',
                           chunks=(chunks + (1,)))
     # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
-    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze()
+    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze().astype('float32')
 
 
 @jit(nopython=True, nogil=True)
@@ -205,7 +205,7 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     output = a.map_blocks(distance_propagation_task, kernel, m, n, dtype='float32',
                           chunks=(chunks + (1,)))
     # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
-    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze()
+    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze().astype('float32')
 
 
 @jit(nopython=True, nogil=True)

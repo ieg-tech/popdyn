@@ -239,7 +239,7 @@ class Domain(object):
         else:
             # Return an array with no data converted to 0
             a[(a == no_data) | ~self.mask] = 0
-            return a
+            return a.astype(np.float32)
 
     def data_from_raster(self, raster):
         """
@@ -1108,9 +1108,9 @@ class Species(object):
         # Does this species get included in species-wide density calculations?
         self.contributes_to_density = kwargs.get('contributes_to_density', True)
         # Point at which density-dependent mortality is effective
-        self.density_threshold = kwargs.get('density_threshold', 1.)
+        self.density_threshold = np.float32(kwargs.get('density_threshold', 1.))
         # Rate of density-dependent mortality
-        self.density_scale = kwargs.get('density_scale', 1.)
+        self.density_scale = np.float32(kwargs.get('density_scale', 1.))
 
         # Does this species live past the maximum specified age (if it is an age group)?
         self.live_past_max = kwargs.get('live_past_max', False)
@@ -1251,10 +1251,10 @@ class Fecundity(Parameter):
 
         super(Fecundity, self).__init__(name, **kwargs)
 
-        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
-        self.density_fecundity_threshold = kwargs.get('density_fecundity_threshold', 1.)
-        self.fecundity_reduction_rate = kwargs.get('fecundity_reduction_rate', 1.)
-        self.density_fecundity_max = kwargs.get('density_fecundity_max', 1.)
+        self.birth_ratio = np.float32(kwargs.get('birth_ratio', 0.5))  # May be 'random' to use a random uniform query
+        self.density_fecundity_threshold = np.float32(kwargs.get('density_fecundity_threshold', 1.))
+        self.fecundity_reduction_rate = np.float32(kwargs.get('fecundity_reduction_rate', 1.))
+        self.density_fecundity_max = np.float32(kwargs.get('density_fecundity_max', 1.))
 
         # This dictates whether offspring spawn from species tied to this fecundity
         self.multiplies = kwargs.get('multiplies', True)
