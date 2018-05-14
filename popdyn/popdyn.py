@@ -1254,7 +1254,9 @@ class Fecundity(Parameter):
 
         super(Fecundity, self).__init__(name, **kwargs)
 
-        self.birth_ratio = np.float32(kwargs.get('birth_ratio', 0.5))  # May be 'random' to use a random uniform query
+        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
+        if self.birth_ratio != 'random':
+            self.birth_ratio = np.float32(self.birth_ratio)
         self.density_fecundity_threshold = np.float32(kwargs.get('density_fecundity_threshold', 1.))
         self.fecundity_reduction_rate = np.float32(kwargs.get('fecundity_reduction_rate', 1.))
         self.density_fecundity_max = np.float32(kwargs.get('density_fecundity_max', 1.))
