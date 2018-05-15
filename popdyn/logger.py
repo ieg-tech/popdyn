@@ -467,28 +467,31 @@ def write_xlsx(domain, output_directory):
         orange = wb.add_format({'bg_color': '#FFDEAD'})
         yellow = wb.add_format({'bg_color': '#FFFF00'})
 
-        # Block headings
+        # **
+        # Note: it is assumed that age group names are identical
+        # **
+
+        # Block 1
         afw.write(3, 3, 'Current Pre-Hunting Season Population Size and Composition', bold)
         for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total', 'Sex Ratio']):
             afw.write(row + 4, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(4, col + 4, gp, black)
+            # Collect the initial populations
+
+
+        # Block 2
         afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for Permitted Harvest', bold)
         for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
             afw.write(row + 11, 3, heading, black)
-        afw.write(16, 3, 'Simulated "Total" Permit Harvest Number', bold)
-        afw.write(16, 6, 'Note: These values will include non-permitted mortality if not address in AO PD explicitly')
-        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
-            afw.write(row + 17, 3, heading, black)
-
-        # Block 1
-        # Just assume age group names are identical for this bit
-        for col, gp in enumerate(male_age_groups):
-            afw.write(4, col + 4, gp, black)
-
-        # Block 2
         for col, gp in enumerate(male_age_groups):
             afw.write(11, col + 4, gp, black)
 
         # Block 3
+        afw.write(16, 3, 'Simulated "Total" Permit Harvest Number', bold)
+        afw.write(16, 6, 'Note: These values will include non-permitted mortality if not address in AO PD explicitly')
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
+            afw.write(row + 17, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(17, col + 4, gp, black)
 

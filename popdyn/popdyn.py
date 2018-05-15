@@ -1212,7 +1212,7 @@ class Parameter(object):
         :return: None
         """
         if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
-            raise PopdynError('Input mortality is not a species')
+            raise PopdynError('Input parameter is not a species')
 
         self.species = species
         self.species_table = dynamic.collect_lookup(lookup_table)
@@ -1293,3 +1293,17 @@ class Mortality(Parameter):
         forbidden_names = ['mortality', 'density dependent', 'old age']
         if name.strip().lower() in forbidden_names:
             raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(forbidden_names)))
+
+        self.recipient_species = None
+
+    def add_recipient_species(self, species):
+        """
+        The population that succumbs to this mortality may be added to another species. This is primarily used to
+        track infection and disease, whereby infected individuals are treated as a different species.
+        :param species: Species instance
+        :return: None
+        """
+        if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
+            raise PopdynError('Input parameter is not a species')
+
+        self.recipient_species = species

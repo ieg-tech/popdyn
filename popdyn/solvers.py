@@ -56,6 +56,7 @@ def error_check(domain):
             test(domain.species[species_key][sex])
 
     # Check that species with relationships are both included
+    recipient_ranges = {}
     def get_species(d):
         for key, val in d.items():
             if isinstance(val, dict):
@@ -63,6 +64,8 @@ def error_check(domain):
             elif isinstance(val, tuple):
                 if val[0].species is not None:
                     species.append(val[0].species.name_key)
+                if hasattr(val[0], 'recipient_species') and val[0].recipient_species is not None:
+                    species.append(val[0].recipient_species.name_key)
 
     for ds_type in ['carrying_capacity', 'mortality']:
         species = []
@@ -75,6 +78,24 @@ def error_check(domain):
                         'The domain requires the species (key) {} to calculate {}'.format(
                             sp, ds_type.replace('_', ' '))
                     )
+
+    def all_times(domain):
+        """duplicate of summary.all_times"""
+        def _next(gp_cnt):
+            group, cnt = gp_cnt
+            # time is always 4 nodes down
+            if cnt == 4:
+                times.append(int(group.name.split('/')[-1]))
+            else:
+                for key in group.keys():
+                    _next((group[key], cnt + 1))
+
+        times = []
+
+        for key in domain.file.keys():
+            _next((domain.file[key], 1))
+
+        return np.unique(times)
 
 
 def inherit(domain, start_time, end_time):
@@ -560,17 +581,18 @@ class discrete_explicit(object):
         # -----------------------------------------------------------------
         params = self.calculate_parameters(species, sex, group, time)
 
-        # Collect mortality names
-        mort_types = [mort_type[0].name for mort_type in self.D.get_mortality(species, time, sex, group)]
+        # Collect mortality instances
+        mort_types = [mort_type[0] for mort_type in self.D.get_mortality(species, time, sex, group)]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
         output = {}
         for mort_type in mort_types:
-            output['{}/mortality/{}'.format(flux_prefix, mort_type)] = da_zeros(self.D.shape, self.D.chunks)
+            mort_name = mort_type.name
+            output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
             # Write the output mortality parameters
-            output['{}/mortality/{}'.format(param_prefix, mort_type)] = params[mort_type]
-        for mort_type in ['Old Age', 'Density Dependent']:
-            output['{}/mortality/{}'.format(flux_prefix, mort_type)] = da_zeros(self.D.shape, self.D.chunks)
+            output['{}/mortality/{}'.format(param_prefix, mort_name)] = params[mort_name]
+        for mort_name in ['Old Age', 'Density Dependent']:
+            output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
 
         # Add carrying capacity to the output datasets
         if self.carrying_capacity_total:
@@ -641,13 +663,38 @@ class discrete_explicit(object):
             # Mortaliy is applied on each age, as they need to be removed from the population
             # Aggregate mortality must be scaled so as to not exceed 1.
             if len(mort_types) > 0:
-                agg_mort = da.dstack([params[mort_type] for mort_type in mort_types]).sum(axis=-1)
+                agg_mort = da.dstack([params[mort_type.name] for mort_type in mort_types]).sum(axis=-1)
                 mort_coeff = da.where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
 
             mort_fluxes = []
             for mort_type in mort_types:
-                mort_fluxes.append(params[mort_type] * mort_coeff * population)
-                output['{}/mortality/{}'.format(flux_prefix, mort_type)] += mort_fluxes[-1]
+                mort_fluxes.append(params[mort_type.name] * mort_coeff * population)
+                output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
+
+                # Apply mortality to any recipients
+                if mort_type.recipient_species is not None:
+                    # The population is added to the model domain for the same age,
+                    # and is added to any existing population
+                    other_species = mort_type.recipient_species
+                    existing_pop = self.D.get_population(
+                        other_species.name_key, time, other_species.sex, other_species.group_key, age
+                    )
+
+                    other_species_key = '{}/{}/{}/{}/{}'.format(
+                        other_species.name_key, other_species.sex, other_species.group_key, time, age
+                    )
+
+                    if existing_pop is not None:
+                        output[other_species_key] = (
+                                da.from_array(self.D[existing_pop], self.D.chunks) + mort_fluxes[-1]
+                        )
+                    else:
+                        output[other_species_key] = mort_fluxes[-1]
+
+                    self.D.population[
+                        other_species.name_key][other_species.sex][other_species.group_key][time][age] = \
+                        other_species_key
+
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
                 population -= mort_flux

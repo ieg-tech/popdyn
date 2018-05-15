@@ -386,6 +386,31 @@ def single_species_mortality():
                 prv_pop = tot_pop
 
 
+def single_species_recipient():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        recipient = pd.Species('recipient')
+
+        test_mortality = pd.Mortality('test recipient')
+        test_mortality.add_recipient_species(recipient)
+
+        domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
+        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
+        domain.add_mortality(starks, test_mortality, 0, 0.1)
+        domain.add_population(recipient, 0, 10)
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        tot_pop = summary.total_population(domain, 'recipient', 1).sum()
+        if tot_pop != 10000 * .1:
+            raise Exception('Recipient population should be {}, got {} at time 1'.format(
+                10000 * .1, tot_pop)
+            )
+        tot_pop = summary.total_population(domain, 'recipient', 2).sum()
+        if tot_pop != (10000 - (10000 * .1)) * .1:
+            raise Exception('Recipient population should be {}, got {} at time 2'.format(
+                (10000 - (10000 * .1)) * .1, tot_pop)
+            )
+
+
 def species_as_mortality():
     # White Walker mortality lookup: [(0, 0), (0.1, 0.1), (0.5, 0.8), (1, 0.9)]
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
@@ -458,7 +483,8 @@ if __name__ == '__main__':
 
     tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
              single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-             single_species_mortality, species_as_mortality, species_as_carrying_capacity, circular_species]
+             single_species_mortality, single_species_recipient, species_as_mortality, species_as_carrying_capacity,
+             circular_species]
 
     error_check = 0
     for test in antitests:
