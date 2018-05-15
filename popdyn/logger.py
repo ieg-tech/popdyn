@@ -456,7 +456,8 @@ def write_xlsx(domain, output_directory):
             chart.set_title({'name': title})
             tb.insert_chart(positions[i], chart)
 
-        # The hard-coded worksheet for AFW
+        # Hard-coded worksheet for AFW
+        # --------------------------------
         afw = wb.add_worksheet('Harvest')
 
         # Styling
@@ -480,7 +481,6 @@ def write_xlsx(domain, output_directory):
 
         # Block 1
         # Just assume age group names are identical for this bit
-        # TODO- ask about time to collect total population from
         for col, gp in enumerate(male_age_groups):
             afw.write(4, col + 4, gp, black)
 

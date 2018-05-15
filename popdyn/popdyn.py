@@ -40,11 +40,10 @@ class Domain(object):
         add_population
         add_mortality
         add_carrying_capacity
+        add_fecundity
     Once added to a domain, species become stratified by their name, sex, and age groups, and are
-    able to inherit mortality and carrying capacity based on a species - sex - age group hierarchy.
+    able to inherit mortality and carrying capacity based on a species --> sex --> age group hierarchy.
     """
-    # Decorators
-    #-------------------------------------------------------------------------
     def save(func):
         """Decorator for saving attributes to the popdyn file"""
         def inner(*args, **kwargs):
@@ -72,7 +71,7 @@ class Domain(object):
         """
         # If the path exists, parameterize the model based on the previous run
         if os.path.isfile(popdyn_path):
-            self.path = popdyn_path  # Files are accessed through the file property
+            self.path = popdyn_path  # Files are accessed through the file attribute
             self.file = h5py.File(self.path, libver='latest')
             self.load()
         else:
@@ -149,7 +148,7 @@ class Domain(object):
                                      compression='lzf', chunks=self.chunks)
 
     def __repr__(self):
-        return 'Popdyn model domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
+        return 'Popdyn domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
 
     # Data parsing and checking methods
     #==================================================================================================
@@ -1114,6 +1113,10 @@ class Species(object):
         self.density_threshold = np.float32(kwargs.get('density_threshold', 1.))
         # Rate of density-dependent mortality
         self.density_scale = np.float32(kwargs.get('density_scale', 1.))
+        # Minimum viable population - a minimum population that may be allowed within a given area
+        self.minimum_viable_population = kwargs.get('minimum_viable_population', 0)
+        # Minimum viable population area
+        self.minimum_viable_area = kwargs.get('minimum_viable_area', 0)
 
         # Does this species live past the maximum specified age (if it is an age group)?
         self.live_past_max = kwargs.get('live_past_max', False)
@@ -1255,8 +1258,6 @@ class Fecundity(Parameter):
         super(Fecundity, self).__init__(name, **kwargs)
 
         self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
-        if self.birth_ratio != 'random':
-            self.birth_ratio = np.float32(self.birth_ratio)
         self.density_fecundity_threshold = np.float32(kwargs.get('density_fecundity_threshold', 1.))
         self.fecundity_reduction_rate = np.float32(kwargs.get('fecundity_reduction_rate', 1.))
         self.density_fecundity_max = np.float32(kwargs.get('density_fecundity_max', 1.))

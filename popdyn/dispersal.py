@@ -281,24 +281,42 @@ def fixed_network(args):
     pass
 
 
-def minimum_viable_population(self, population, min_pop, area, filter_std=3):
+def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=3):
     """
     Eliminate clusters of low populations using minimum population and area thresholds
-    :param population: Input population
+    :param population: Input population (dask array expected)
     :param min_pop: Minimum population of cluster
     :param area: Minimum cluster area
     :param filter_std: Standard deviation of gaussian filter to find clusters
     :return: Mask where population eliminated
     """
+    # If the area is zero, just filter the population values directly
+    if area == 0:
+        return da.where(population < min_pop, 0, population)
+
     # Normalize population using gaussian kernel
-    regions = ndimage.gaussian_filter(population, filter_std)
+    # ------------------------------------------
+    # Calculate the padding using sigma (borrowed from scipy.ndimage.gaussian_filter1d)
+    m = int(4. * filter_std + 0.5)
+
+    depth = {0: m, 1: m}  # Padding
+    boundary = {0: 'reflect', 1: 'reflect'}  # Constant padding value
+    a = da.ghost.ghost(population, depth, boundary)
+
+    regions = a.map_blocks(ndimage.gaussian_filter, filter_std, dtype=np.float32)
+    regions = da.ghost.trim_internal(regions, depth)
+
     # Cluster populations and label using percentile based on n
-    breakpoint = min_pop / (area / (self.csx * self.csy))
+    breakpoint = min_pop / (area / (csx * csy))
     breakpoint = (regions.min() + (
         (((breakpoint / population.mean()) + (breakpoint / population.max())) / 2) *
         (regions.max() - regions.min())))
+
+    # Label the output and collect sums
+    # TODO: This is incomplete from here onwards (but works)- the dask tree is computed to gather the labels
+    # How does one ghost for a label operation??
     labels, num = ndimage.label(regions < breakpoint, np.ones(shape=(3, 3)))
-    areas = ndimage.sum(np.ones(shape=labels.shape) * (self.csx * self.csy), labels, np.arange(num) + 1)
+    areas = ndimage.sum(np.ones(shape=labels.shape) * (csx * csy), labels, np.arange(num) + 1)
     pops = ndimage.sum(population, labels, np.arange(num) + 1)
     takeLabels = (np.arange(num) + 1)[(pops < min_pop) & (areas >= area)]
     indices = np.argsort(labels.ravel())
@@ -308,7 +326,8 @@ def minimum_viable_population(self, population, min_pop, area, filter_std=3):
     output = np.ones(shape=labels.ravel().shape, dtype='bool')
     for lab in takeLabels:
         output[indices[lab]] = 0
-    return output.reshape(labels.shape)
+
+    return population * da.from_array(output.reshape(labels.shape), chunks=population.chunks)
 
 
 def convolve(a, kernel):
