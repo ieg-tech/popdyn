@@ -478,10 +478,16 @@ def write_xlsx(domain, output_directory):
         # Styling
         black = wb.add_format({'bg_color': '#000000', 'font_color': 'white'})
         purple = wb.add_format({'bg_color': '#800080', 'font_color': 'white'})
+        purple.set_num_format('#,##0.0')
         green = wb.add_format({'bg_color': '#98FB98', 'align': 'right'})
+        green.set_num_format('#,##0.0')
+        green_sr = wb.add_format({'bg_color': '#98FB98', 'align': 'right'})
+        green_sr.set_num_format('#,##0.00')
         orange = wb.add_format({'bg_color': '#FFDEAD', 'align': 'right'})
         yellow = wb.add_format({'bg_color': '#FFFF00'})
+        yellow.set_num_format('#,##0.0')
         brown = wb.add_format({'bg_color': '#CD853F', 'align': 'right'})
+        brown.set_num_format('#,##0.0')
         bold_orange = wb.add_format({'bg_color': '#FFDEAD', 'bold': True})
 
         afw.write(0, 3, 'Computing "Harvest Permits" in Alces Online Population Dynamics', bold)
@@ -497,16 +503,16 @@ def write_xlsx(domain, output_directory):
         for col, gp in enumerate(male_age_groups):
             afw.write(4, col + 4, gp, black)
             # Collect the initial populations
-            afw.write(5, col + 4, file_dict['Population'][species_name][gp]['Males'][0], purple)
-            afw.write(6, col + 4, file_dict['Population'][species_name][gp]['Females'][0], purple)
+            afw.write(5, col + 4, round(file_dict['Population'][species_name][gp]['Males'][0], 1), purple)
+            afw.write(6, col + 4, round(file_dict['Population'][species_name][gp]['Females'][0], 1), purple)
             afw.write(7, col + 4, '={0}6+{0}7'.format(index_to_char(col + 4)), green)
-            afw.write(8, col + 4, '={0}7/{0}6'.format(index_to_char(col + 4)), green)
+            afw.write(8, col + 4, '={0}7/{0}6'.format(index_to_char(col + 4)), green_sr)
         afw.write(4, len(male_age_groups) + 4, 'Total', black)
         for row in range(5, 8):
             afw.write(row, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
                 index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
             ), green)
-        afw.write(8, len(male_age_groups) + 4, '={0}7/{0}6'.format(index_to_char(len(male_age_groups) + 4)), green)
+        afw.write(8, len(male_age_groups) + 4, '={0}7/{0}6'.format(index_to_char(len(male_age_groups) + 4)), green_sr)
 
         # Block 2
         afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for Permitted Harvest', bold)
@@ -531,6 +537,9 @@ def write_xlsx(domain, output_directory):
                     female_rate = 0
             except TypeError:
                 female_rate = 0
+
+            female_rate = round(female_rate, 1)
+            male_rate = round(male_rate, 1)
 
             afw.write(12, col + 4, male_rate, purple)
             afw.write(13, col + 4, female_rate, purple)
@@ -605,9 +614,9 @@ def write_xlsx(domain, output_directory):
                 # Last group
                 bg = green
                 for col in range(len(male_age_groups) + 1):
-                    afw.write(cur_row, col + 4, '={0}19-{0}{1}'.format(index_to_char(col + 4), cur_row - 3), green)
-                    afw.write(cur_row + 1, col + 4, '={0}20-{0}{1}'.format(index_to_char(col + 4), cur_row - 2), green)
-                    afw.write(cur_row + 2, col + 4, '={0}21-{0}{1}'.format(index_to_char(col + 4), cur_row - 1), green)
+                    afw.write(cur_row, col + 4, '=MAX(0,{0}19-{0}{1})'.format(index_to_char(col + 4), cur_row - 3), green)
+                    afw.write(cur_row + 1, col + 4, '=MAX(0,{0}20-{0}{1})'.format(index_to_char(col + 4), cur_row - 2), green)
+                    afw.write(cur_row + 2, col + 4, '=MAX(0,{0}21-{0}{1})'.format(index_to_char(col + 4), cur_row - 1), green)
 
             else:
                 bg = orange
