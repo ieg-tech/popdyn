@@ -367,6 +367,14 @@ def model_summary(domain):
                 sex_pop.append(total_population(domain, species, time, sex).sum())
             sp_log['Population'][species_name]['NA']['Total {}s'.format(sex_str[0].upper() + sex_str[1:])] = sex_pop
 
+            # Calculate the F:M ratio if both sexes present
+            if all(['Total {}s'.format(_sex) in sp_log['Population'][species_name]['NA'].keys()
+                    for _sex  in ['Male', 'Female']]):
+                sp_log['Natality'][species_name]['NA']['F:M Ratio'] = \
+                    np.where(sp_log['Population'][species_name]['NA']['Total Males'] > 0,
+                             np.array(sp_log['Population'][species_name]['NA']['Total Females']) / \
+                             np.array(sp_log['Population'][species_name]['NA']['Total Males']), np.inf).tolist()
+
             # Collect average ages by sex
             ave_ages = []
             for time in model_times:
@@ -375,6 +383,12 @@ def model_summary(domain):
             sp_log['Population'][species_name]['NA'][
                 'Average {} Age'.format(sex_str[0].upper() + sex_str[1:])
             ] = ave_ages
+
+            # Offspring by sex
+            ds = []
+            for time in model_times:
+                ds.append(total_offspring(domain, species, time, sex).sum())
+            sp_log['Natality'][species_name]['NA']['{} offspring'.format(sex_str[0].upper() + sex_str[1:])] = ds
 
             # Collect deaths by sex
             sex_death = []
@@ -410,6 +424,15 @@ def model_summary(domain):
                         gp_pop.append(total_population(domain, species, time, group=gp).sum())
                     sp_log['Population'][species_name][group_name]['Total'] = gp_pop
 
+                # Collect average ages by gp
+                ave_ages = []
+                for time in model_times:
+                    m = average_age(domain, species, time, sex, gp)
+                    ave_ages.append(m[~np.isinf(m)].mean())
+                sp_log['Population'][species_name][gp][
+                    'Average {} Age'.format(sex_str[0].upper() + sex_str[1:])
+                ] = ave_ages
+
                 # Collect the population of this group and sex
                 gp_sex_pop = []
                 for time in model_times:
@@ -432,12 +455,12 @@ def model_summary(domain):
 
                 # Mortality
                 # Male/Female by group
-                ds = []
+                mort_ds = []
                 for time in model_times:
-                    ds.append(total_mortality(domain, species, time, sex, gp).sum())
+                    mort_ds.append(total_mortality(domain, species, time, sex, gp).sum())
                 sp_log['Mortality'][species_name][group_name][
                     '{} deaths'.format(sex_str[0].upper() + sex_str[1:])
-                ] = ds
+                ] = mort_ds
 
                 # All for group
                 ds = []
@@ -445,8 +468,27 @@ def model_summary(domain):
                     ds.append(total_mortality(domain, species, time, None, gp).sum())
                 sp_log['Mortality'][species_name][group_name]['Total deaths'] = ds
 
+                # Survivorship
+                if 'Survivorship'.format(group_name) not in sp_log['Mortality'][species_name][group_name].keys():
+                    srv_pop = []
+                    for time_ind, time in enumerate(model_times):
+                        if time == model_times[0]:
+                            srv_pop.append(0)
+                            continue
+                        prv_pop = total_population(domain, species, time - 1, group=gp).sum()
+                        if prv_pop == 0:
+                            srv_pop.append(0)
+                            continue
+                        srv_pop.append((prv_pop - mort_ds[time_ind]) / prv_pop)
+                    sp_log['Mortality'][species_name][group_name]['Survivorship'] = srv_pop
+
                 mort_types = list_mortality_types(domain, species, None, sex, gp)
                 for mort_type in mort_types:
+                    ds = []
+                    for time in model_times:
+                        ds.append(total_mortality(domain, species, time, sex, gp, mort_type).sum())
+                    sp_log['Mortality'][species_name][group_name]['{} {} deaths'.format(sex_str, mort_type)] = ds
+
                     # Skip the implicit mortality types, as they will not be included in the params
                     if mort_type in ['Old Age', 'Density Dependent']:
                         continue

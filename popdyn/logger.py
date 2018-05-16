@@ -155,9 +155,11 @@ def write_xlsx(domain, output_directory):
             return (string.ascii_uppercase[(index - 26) / 26] +
                     string.ascii_uppercase[(index - 26) % 26])
 
-    for species, file_dict in domain_dict.items():
+    for species_key, file_dict in domain_dict.items():
 
-        species_path = os.path.join(path, '{}.xlsx'.format(species))
+        species_name = list(file_dict['Population'].keys())[0]
+
+        species_path = os.path.join(path, '{}.xlsx'.format(species_key))
 
         wb = xlsxwriter.Workbook(species_path)
         bold = wb.add_format({'bold': True})
@@ -245,216 +247,229 @@ def write_xlsx(domain, output_directory):
             tb.set_column(1, 1, gpLen)
             tb.set_column(2, 2, nameLen)
 
-        # try:
-        # Add charts
-        chartItems = []
-        for species, chartRows in chartRowIndex.items():
-            chartItems += [[('Total Population', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Population'][0],
-                                index_to_char(chartRows['Total Population'][1]),
-                                chartRows['Total Population'][0]),
+        try:
+            # Add charts
+            chartItems = []
+            for species, chartRows in chartRowIndex.items():
+                chartItems += [[('Total Population', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Population'][0],
+                                    index_to_char(chartRows['Total Population'][1]),
+                                    chartRows['Total Population'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
+                                    'Population', '{} Total Population'.format(species)),
+                               ('Total Females', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Females'][0],
+                                    index_to_char(chartRows['Total Females'][1]),
+                                    chartRows['Total Females'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Females'][1])),
+                                    'Population', '{} Total Population'.format(species)),
+                               ('Total Males', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Males'][0],
+                                    index_to_char(chartRows['Total Males'][1]),
+                                    chartRows['Total Males'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Males'][1])),
+                                    'Population', '{} Total Population'.format(species))],
+                              [('Total Population', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Population'][0],
+                                    index_to_char(chartRows['Total Population'][1]),
+                                    chartRows['Total Population'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
+                                    'Population', '{} Total Population By Age Class'.format(species))] +
+                               [('{} Total'.format(gp), '=Population!$D${}:${}${}'.format(
+                                    chartRows['{} Total'.format(gp)][0],
+                                    index_to_char(chartRows['{} Total'.format(gp)][1]),
+                                    chartRows['{} Total'.format(gp)][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
+                                 'Population', '{} Total Population By Age Class'.format(species))
+                                for gp in male_age_groups + female_age_groups],
+                              [('Total Females', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Females'][0],
+                                    index_to_char(chartRows['Total Females'][1]),
+                                    chartRows['Total Females'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Females'][1])),
+                                    'Population', '{} Total Females By Age Class'.format(species))] +
+                              [('{} Females'.format(gp), '=Population!$D${}:${}${}'.format(
+                                  chartRows['{} Females'.format(gp)][0],
+                                  index_to_char(chartRows['{} Females'.format(gp)][1]),
+                                  chartRows['{} Females'.format(gp)][0]),
                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                                'Population', '{} Total Population'.format(species)),
-                           ('Total Females', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Females'][0],
-                                index_to_char(chartRows['Total Females'][1]),
-                                chartRows['Total Females'][0]),
-                                '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Females'][1])),
-                                'Population', '{} Total Population'.format(species)),
-                           ('Total Males', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Males'][0],
-                                index_to_char(chartRows['Total Males'][1]),
-                                chartRows['Total Males'][0]),
-                                '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Males'][1])),
-                                'Population', '{} Total Population'.format(species))],
-                          [('Total Population', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Population'][0],
-                                index_to_char(chartRows['Total Population'][1]),
-                                chartRows['Total Population'][0]),
+                                'Population', '{} Total Females By Age Class'.format(species))
+                               for gp in female_age_groups],
+                              [('Total Males', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Total Males'][0],
+                                    index_to_char(chartRows['Total Males'][1]),
+                                    chartRows['Total Males'][0]),
+                                    '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Males'][1])),
+                                    'Population', '{} Total Males By Age Class'.format(species))] +
+                              [('{} Males'.format(gp), '=Population!$D${}:${}${}'.format(
+                                  chartRows['{} Males'.format(gp)][0],
+                                  index_to_char(chartRows['{} Males'.format(gp)][1]),
+                                  chartRows['{} Males'.format(gp)][0]),
                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                                'Population', '{} Total Population By Age Class'.format(species))] +
-                           [('{} Total'.format(gp), '=Population!$D${}:${}${}'.format(
-                                chartRows['{} Total'.format(gp)][0],
-                                index_to_char(chartRows['{} Total'.format(gp)][1]),
-                                chartRows['{} Total'.format(gp)][0]),
-                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                             'Population', '{} Total Population By Age Class'.format(species))
-                            for gp in male_age_groups + female_age_groups],
-                          [('Total Females', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Females'][0],
-                                index_to_char(chartRows['Total Females'][1]),
-                                chartRows['Total Females'][0]),
-                                '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Females'][1])),
-                                'Population', '{} Total Females By Age Class'.format(species))] +
-                          [('{} Females'.format(gp), '=Population!$D${}:${}${}'.format(
-                              chartRows['{} Females'.format(gp)][0],
-                              index_to_char(chartRows['{} Females'.format(gp)][1]),
-                              chartRows['{} Females'.format(gp)][0]),
-                            '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                            'Population', '{} Total Females By Age Class'.format(species))
-                           for gp in female_age_groups],
-                          [('Total Males', '=Population!$D${}:${}${}'.format(
-                                chartRows['Total Males'][0],
-                                index_to_char(chartRows['Total Males'][1]),
-                                chartRows['Total Males'][0]),
-                                '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Males'][1])),
-                                'Population', '{} Total Males By Age Class'.format(species))] +
-                          [('{} Males'.format(gp), '=Population!$D${}:${}${}'.format(
-                              chartRows['{} Males'.format(gp)][0],
-                              index_to_char(chartRows['{} Males'.format(gp)][1]),
-                              chartRows['{} Males'.format(gp)][0]),
-                            '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
-                            'Population', '{} Total Males By Age Class'.format(species)) for gp in male_age_groups],
-                           [('Average Age (all)', '=Population!$D${}:${}${}'.format(
-                               chartRows['Average Age'][0],
-                               index_to_char(chartRows['Average Age'][1]),
-                               chartRows['Average Age'][0]),
-                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Age'][1])),
-                             'Average Age', '{} Average Age'.format(species)),
-                            ('Average Female Age', '=Population!$D${}:${}${}'.format(
-                                chartRows['Average Female Age'][0],
-                                index_to_char(chartRows['Average Female Age'][1]),
-                                chartRows['Average Female Age'][0]),
-                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Female Age'][1])),
-                             'Average Age', '{} Average Age'.format(species)),
-                            ('Average Male Age', '=Population!$D${}:${}${}'.format(
-                                chartRows['Average Male Age'][0],
-                                index_to_char(chartRows['Average Male Age'][1]),
-                                chartRows['Average Male Age'][0]),
-                             '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Male Age'][1])),
-                             'Average Age', '{} Average Age'.format(species))],
-                          [('Total New Offspring', '=Natality!$D${}:${}${}'.format(
-                              chartRows['Total new offspring'][0],
-                              index_to_char(chartRows['Total new offspring'][1]),
-                              chartRows['Total new offspring'][0]),
-                            '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
-                            'New Population', '{} New Offspring from each Female Age Class'.format(species))] +
-                          [('{} New Offspring'.format(gp), '=Natality!$D${}:${}${}'.format(
-                              chartRows['{} Total offspring'.format(gp)][0],
-                              index_to_char(chartRows['{} Total offspring'.format(gp)][1]),
-                              chartRows['{} Total offspring'.format(gp)][0]),
-                            '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
-                            'New Population', '{} New Offspring from each Female Age Class'.format(species))
-                           for gp in male_age_groups + female_age_groups],
-                          [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
-                              chartRows['All deaths'][0],
-                              index_to_char(chartRows['All deaths'][1]),
-                              chartRows['All deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Mortality by Gender Class'.format(species)),
-                           ('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Total female deaths'][0],
-                               index_to_char(chartRows['Total female deaths'][1]),
-                               chartRows['Total female deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['Total female deaths'][1])),
-                            'Deaths', '{} Total Mortality by Gender Class'.format(species)),
-                           ('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Total male deaths'][0],
-                               index_to_char(chartRows['Total male deaths'][1]),
-                               chartRows['Total male deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['Total male deaths'][1])),
-                            'Deaths', '{} Total Mortality by Gender Class'.format(species))],
-                          [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
-                              chartRows['All deaths'][0],
-                              index_to_char(chartRows['All deaths'][1]),
-                              chartRows['All deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Mortality by Age Class'.format(species))] +
-                          [('{} Total Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
-                              chartRows['{} Total deaths'.format(gp)][0],
-                              index_to_char(chartRows['{} Total deaths'.format(gp)][1]),
-                              chartRows['{} Total deaths'.format(gp)][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Mortality by Age Class'.format(species))
-                           for gp in male_age_groups + female_age_groups],
-                          [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
-                              chartRows['All deaths'][0],
-                              index_to_char(chartRows['All deaths'][1]),
-                              chartRows['All deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Male Mortality by Age Class'.format(species))] +
-                          [('{} Male Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
-                              chartRows['{} Male deaths'.format(gp)][0],
-                              index_to_char(chartRows['{} Male deaths'.format(gp)][1]),
-                              chartRows['{} Male deaths'.format(gp)][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Male Mortality by Age Class'.format(species))
-                           for gp in male_age_groups],
-                          [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
-                              chartRows['All deaths'][0],
-                              index_to_char(chartRows['All deaths'][1]),
-                              chartRows['All deaths'][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Female Mortality by Age Class'.format(species))] +
-                          [('{} Female Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
-                              chartRows['{} Female deaths'.format(gp)][0],
-                              index_to_char(chartRows['{} Female deaths'.format(gp)][1]),
-                              chartRows['{} Female deaths'.format(gp)][0]),
-                            '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                            'Deaths', '{} Total Female Mortality by Age Class'.format(species))
-                           for gp in female_age_groups],
-                           [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
-                               chartRows['All deaths'][0],
-                               index_to_char(chartRows['All deaths'][1]),
-                               chartRows['All deaths'][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))] +
-                           [('Total {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Total deaths from {}'.format(mm)][0],
-                               index_to_char(chartRows['Total deaths from {}'.format(mm)][1]),
-                               chartRows['Total deaths from {}'.format(mm)][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))
-                            for mm in summary.list_mortality_types(
-                               domain, name_key(species), None
-                           ).tolist()],
-                           [('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Total male deaths'][0],
-                               index_to_char(chartRows['Total male deaths'][1]),
-                               chartRows['Total male deaths'][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))] +
-                           [('Male {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Male deaths from {}'.format(mm)][0],
-                               index_to_char(chartRows['Male deaths from {}'.format(mm)][1]),
-                               chartRows['Male deaths from {}'.format(mm)][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))
-                            for mm in summary.list_mortality_types(
-                               domain, name_key(species), None, 'male'
-                           ).tolist()],
-                           [('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Total female deaths'][0],
-                               index_to_char(chartRows['Total female deaths'][1]),
-                               chartRows['Total female deaths'][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))] +
-                           [('Female {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
-                               chartRows['Female deaths from {}'.format(mm)][0],
-                               index_to_char(chartRows['Female deaths from {}'.format(mm)][1]),
-                               chartRows['Female deaths from {}'.format(mm)][0]),
-                             '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                             'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))\
-                            for mm in summary.list_mortality_types(
-                               domain, name_key(species), None, 'female'
-                           ).tolist()]
-                          ]
+                                'Population', '{} Total Males By Age Class'.format(species)) for gp in male_age_groups],
+                               [('Average Age (all)', '=Population!$D${}:${}${}'.format(
+                                   chartRows['Average Age'][0],
+                                   index_to_char(chartRows['Average Age'][1]),
+                                   chartRows['Average Age'][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Age'][1])),
+                                 'Average Age', '{} Average Age'.format(species)),
+                                ('Average Female Age', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Average Female Age'][0],
+                                    index_to_char(chartRows['Average Female Age'][1]),
+                                    chartRows['Average Female Age'][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Female Age'][1])),
+                                 'Average Age', '{} Average Age'.format(species)),
+                                ('Average Male Age', '=Population!$D${}:${}${}'.format(
+                                    chartRows['Average Male Age'][0],
+                                    index_to_char(chartRows['Average Male Age'][1]),
+                                    chartRows['Average Male Age'][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Average Male Age'][1])),
+                                 'Average Age', '{} Average Age'.format(species))],
+                              [('Total New Offspring', '=Natality!$D${}:${}${}'.format(
+                                  chartRows['Total new offspring'][0],
+                                  index_to_char(chartRows['Total new offspring'][1]),
+                                  chartRows['Total new offspring'][0]),
+                                '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
+                                'New Population', '{} New Offspring from each Female Age Class'.format(species))] +
+                              [('{} New Offspring'.format(gp), '=Natality!$D${}:${}${}'.format(
+                                  chartRows['{} Total offspring'.format(gp)][0],
+                                  index_to_char(chartRows['{} Total offspring'.format(gp)][1]),
+                                  chartRows['{} Total offspring'.format(gp)][0]),
+                                '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
+                                'New Population', '{} New Offspring from each Female Age Class'.format(species))
+                               for gp in male_age_groups + female_age_groups],
+                              [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['All deaths'][0],
+                                  index_to_char(chartRows['All deaths'][1]),
+                                  chartRows['All deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Mortality by Gender Class'.format(species)),
+                               ('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Total female deaths'][0],
+                                   index_to_char(chartRows['Total female deaths'][1]),
+                                   chartRows['Total female deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['Total female deaths'][1])),
+                                'Deaths', '{} Total Mortality by Gender Class'.format(species)),
+                               ('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Total male deaths'][0],
+                                   index_to_char(chartRows['Total male deaths'][1]),
+                                   chartRows['Total male deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['Total male deaths'][1])),
+                                'Deaths', '{} Total Mortality by Gender Class'.format(species))],
+                              [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['All deaths'][0],
+                                  index_to_char(chartRows['All deaths'][1]),
+                                  chartRows['All deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Mortality by Age Class'.format(species))] +
+                              [('{} Total Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['{} Total deaths'.format(gp)][0],
+                                  index_to_char(chartRows['{} Total deaths'.format(gp)][1]),
+                                  chartRows['{} Total deaths'.format(gp)][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Mortality by Age Class'.format(species))
+                               for gp in male_age_groups + female_age_groups],
+                              [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['All deaths'][0],
+                                  index_to_char(chartRows['All deaths'][1]),
+                                  chartRows['All deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Male Mortality by Age Class'.format(species))] +
+                              [('{} Male Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['{} Male deaths'.format(gp)][0],
+                                  index_to_char(chartRows['{} Male deaths'.format(gp)][1]),
+                                  chartRows['{} Male deaths'.format(gp)][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Male Mortality by Age Class'.format(species))
+                               for gp in male_age_groups],
+                              [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['All deaths'][0],
+                                  index_to_char(chartRows['All deaths'][1]),
+                                  chartRows['All deaths'][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Female Mortality by Age Class'.format(species))] +
+                              [('{} Female Deaths'.format(gp), '=Mortality!$D${}:${}${}'.format(
+                                  chartRows['{} Female deaths'.format(gp)][0],
+                                  index_to_char(chartRows['{} Female deaths'.format(gp)][1]),
+                                  chartRows['{} Female deaths'.format(gp)][0]),
+                                '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                'Deaths', '{} Total Female Mortality by Age Class'.format(species))
+                               for gp in female_age_groups],
+                               [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['All deaths'][0],
+                                   index_to_char(chartRows['All deaths'][1]),
+                                   chartRows['All deaths'][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))] +
+                               [('Total {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Total deaths from {}'.format(mm)][0],
+                                   index_to_char(chartRows['Total deaths from {}'.format(mm)][1]),
+                                   chartRows['Total deaths from {}'.format(mm)][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))
+                                for mm in summary.list_mortality_types(
+                                   domain, name_key(species), None
+                               ).tolist()],
+                               [('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Total male deaths'][0],
+                                   index_to_char(chartRows['Total male deaths'][1]),
+                                   chartRows['Total male deaths'][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))] +
+                               [('Male {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Male deaths from {}'.format(mm)][0],
+                                   index_to_char(chartRows['Male deaths from {}'.format(mm)][1]),
+                                   chartRows['Male deaths from {}'.format(mm)][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))
+                                for mm in summary.list_mortality_types(
+                                   domain, name_key(species), None, 'male'
+                               ).tolist()],
+                               [('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Total female deaths'][0],
+                                   index_to_char(chartRows['Total female deaths'][1]),
+                                   chartRows['Total female deaths'][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))] +
+                               [('Female {} Deaths'.format(mm), '=Mortality!$D${}:${}${}'.format(
+                                   chartRows['Female deaths from {}'.format(mm)][0],
+                                   index_to_char(chartRows['Female deaths from {}'.format(mm)][1]),
+                                   chartRows['Female deaths from {}'.format(mm)][0]),
+                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
+                                 'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))\
+                                for mm in summary.list_mortality_types(
+                                   domain, name_key(species), None, 'female'
+                               ).tolist()]
+                              ]
 
-        positions = []
-        for i in range(2, 3000, 23):
-            for letter in ['B', 'N']:
-                positions.append('{}{}'.format(letter, i))
-        tb = wb.add_worksheet('Charts')
-        for i, items in enumerate(chartItems):
-            chart = wb.add_chart({'type': 'scatter', 'subtype': 'smooth'})
-            chart.set_size({'x_scale': 1.5, 'y_scale': 1.5})
-            for name, values, cats, yAxis, title in items:
-                chart.add_series({'name': name, 'values': values, 'categories': cats,
-                                  'marker': {'type': 'circle', 'size': 3}})
-            chart.set_x_axis({'name': 'Time'})
-            chart.set_y_axis({'name': yAxis})  # y-axis/title get the last value in __iter__
-            chart.set_title({'name': title})
-            tb.insert_chart(positions[i], chart)
+            positions = []
+            for i in range(2, 3000, 23):
+                for letter in ['B', 'N']:
+                    positions.append('{}{}'.format(letter, i))
+            tb = wb.add_worksheet('Charts')
+            for i, items in enumerate(chartItems):
+                chart = wb.add_chart({'type': 'scatter', 'subtype': 'smooth'})
+                chart.set_size({'x_scale': 1.5, 'y_scale': 1.5})
+                for name, values, cats, yAxis, title in items:
+                    chart.add_series({'name': name, 'values': values, 'categories': cats,
+                                      'marker': {'type': 'circle', 'size': 3}})
+                chart.set_x_axis({'name': 'Time'})
+                chart.set_y_axis({'name': yAxis})  # y-axis/title get the last value in __iter__
+                chart.set_title({'name': title})
+                tb.insert_chart(positions[i], chart)
+
+        except Exception as e:
+            tb = wb.add_worksheet('Charts')
+            tb.write(0, 0, 'Error while creating charts:')
+            tb.write(1, 0, str(e))
+            i = 2
+            for key, val in file_dict.items():
+                if type(val) == dict:
+                    for _key, _val in val.items():
+                        i += 1
+                        tb.write(i, 0, key)
+                        tb.write(i, 1, _key)
+                        tb.write(i, 2, str(file_dict[key]))
 
         # Hard-coded worksheet for AFW
         # --------------------------------
@@ -463,9 +478,13 @@ def write_xlsx(domain, output_directory):
         # Styling
         black = wb.add_format({'bg_color': '#000000', 'font_color': 'white'})
         purple = wb.add_format({'bg_color': '#800080', 'font_color': 'white'})
-        green = wb.add_format({'bg_color': '#90EE90'})
-        orange = wb.add_format({'bg_color': '#FFDEAD'})
+        green = wb.add_format({'bg_color': '#98FB98', 'align': 'right'})
+        orange = wb.add_format({'bg_color': '#FFDEAD', 'align': 'right'})
         yellow = wb.add_format({'bg_color': '#FFFF00'})
+        brown = wb.add_format({'bg_color': '#CD853F', 'align': 'right'})
+        bold_orange = wb.add_format({'bg_color': '#FFDEAD', 'bold': True})
+
+        afw.write(0, 3, 'Computing "Harvest Permits" in Alces Online Population Dynamics', bold)
 
         # **
         # Note: it is assumed that age group names are identical
@@ -478,7 +497,16 @@ def write_xlsx(domain, output_directory):
         for col, gp in enumerate(male_age_groups):
             afw.write(4, col + 4, gp, black)
             # Collect the initial populations
-
+            afw.write(5, col + 4, file_dict['Population'][species_name][gp]['Males'][0], purple)
+            afw.write(6, col + 4, file_dict['Population'][species_name][gp]['Females'][0], purple)
+            afw.write(7, col + 4, '={0}6+{0}7'.format(index_to_char(col + 4)), green)
+            afw.write(8, col + 4, '={0}7/{0}6'.format(index_to_char(col + 4)), green)
+        afw.write(4, len(male_age_groups) + 4, 'Total', black)
+        for row in range(5, 8):
+            afw.write(row, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
+        afw.write(8, len(male_age_groups) + 4, '={0}7/{0}6'.format(index_to_char(len(male_age_groups) + 4)), green)
 
         # Block 2
         afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for Permitted Harvest', bold)
@@ -486,6 +514,33 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 11, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(11, col + 4, gp, black)
+            # Fraction of population
+            try:
+                if file_dict['Population'][species_name][gp]['Males'][0] > 0:
+                    male_rate = file_dict['Mortality'][species_name][gp]['male License Harvest deaths'][1] / \
+                                file_dict['Population'][species_name][gp]['Males'][0]
+                else:
+                    male_rate = 0
+            except TypeError:
+                male_rate = 0
+            try:
+                if file_dict['Population'][species_name][gp]['Females'][0] > 0:
+                    female_rate = file_dict['Mortality'][species_name][gp]['female License Harvest deaths'][1] / \
+                                  file_dict['Population'][species_name][gp]['Females'][0]
+                else:
+                    female_rate = 0
+            except TypeError:
+                female_rate = 0
+
+            afw.write(12, col + 4, male_rate, purple)
+            afw.write(13, col + 4, female_rate, purple)
+            afw.write(14, col + 4, '=AVERAGE({0}13:{0}14)'.format(index_to_char(col + 4)), green)
+        afw.write(11, len(male_age_groups) + 4, 'Average', black)
+        for row in range(12, 15):
+            afw.write(row, len(male_age_groups) + 4, '=SUMPRODUCT({0}{3}:{1}{3}, {0}{4}:{1}{4})/{2}{4}'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), index_to_char(len(male_age_groups) + 4),
+                row + 1, row - 6
+            ), green)
 
         # Block 3
         afw.write(16, 3, 'Simulated "Total" Permit Harvest Number', bold)
@@ -494,23 +549,164 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 17, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(17, col + 4, gp, black)
+            afw.write(18, col + 4, '={0}6*{0}13'.format(index_to_char(col + 4)), green)
+            afw.write(19, col + 4, '={0}7*{0}14'.format(index_to_char(col + 4)), green)
+            afw.write(20, col + 4, '=SUM({0}19:{0}20)'.format(index_to_char(col + 4)), green)
+        afw.write(17, len(male_age_groups) + 4, 'Total', black)
+        afw.write(18, len(male_age_groups) + 4, '=SUM({}19:{}19)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)
+        ), green)
+        afw.write(19, len(male_age_groups) + 4, '=SUM({}20:{}20)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)
+        ), green)
+        afw.write(20, len(male_age_groups) + 4, '=SUM({}21:{}21)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)
+        ), green)
 
+        # Block 4
+        afw.write(22, 1, 'Factoring in "Non-Permitted" Mortality. Units are # animals killed/year', bold_orange)
+        afw.write(22, 2, '', orange)
+        afw.write(22, 3, '', orange)
+
+        afw.write(23, 3, 'Gender/Stage', black)
+        for col, gp in enumerate(male_age_groups + ['Total']):
+            afw.write(23, col + 4, gp, black)
+
+        categories = ['Expected Offtake from Outfitters', 'Expected Offtake from Indigenous Communities',
+                      'Expected Offtake from Landowners', 'Expected Offtake from Archers',
+                      'Expected Offtake from Vehicular Mortality', 'Expected Offtake from Wounding',
+                      'Expected Offtake from Poachers', 'Total Non-Permit Offtake',
+                      'Total Available for "Permit Harvest"']
+
+        for row, category in enumerate(categories):
+            cur_row = ((row + (row * 3)) + 24)
+
+            if row == len(categories) - 2:
+                # Second last group
+                bg = brown
+                afw.write(cur_row - 1, 1, '', orange)
+                afw.write(cur_row - 1, 2, '', orange)
+                for col in range(len(male_age_groups) + 1):
+                    afw.write(cur_row, col + 4, '={}'.format(
+                        '+'.join(['{}{}'.format(
+                            index_to_char(col + 4), ((_row + (_row * 3)) + 24) + 1
+                        ) for _row in range(len(categories) - 2)])
+                    ), brown)
+                    afw.write(cur_row + 1, col + 4, '={}'.format(
+                        '+'.join(['{}{}'.format(
+                            index_to_char(col + 4), ((_row + (_row * 3)) + 24) + 2
+                        ) for _row in range(len(categories) - 2)])
+                    ), brown)
+                    afw.write(cur_row + 2, col + 4, '=SUM({0}{1}:{0}{2})'.format(
+                        index_to_char(col + 4), cur_row + 1, cur_row + 2
+                    ), brown)
+
+            elif row == len(categories) - 1:
+                # Last group
+                bg = green
+                for col in range(len(male_age_groups) + 1):
+                    afw.write(cur_row, col + 4, '={0}19-{0}{1}'.format(index_to_char(col + 4), cur_row - 3), green)
+                    afw.write(cur_row + 1, col + 4, '={0}20-{0}{1}'.format(index_to_char(col + 4), cur_row - 2), green)
+                    afw.write(cur_row + 2, col + 4, '={0}21-{0}{1}'.format(index_to_char(col + 4), cur_row - 1), green)
+
+            else:
+                bg = orange
+                afw.write(cur_row - 1, 1, '', orange)
+                afw.write(cur_row - 1, 2, '', orange)
+                for col in range(len(male_age_groups) + 1):
+                    afw.write(cur_row, col + 4, 0, yellow)
+                    afw.write(cur_row + 1, col + 4, 0, yellow)
+                    afw.write(cur_row + 2, col + 4, '=SUM({0}{1}:{0}{2})'.format(index_to_char(col + 4),
+                                                                                 cur_row + 1, cur_row + 2), green)
+                afw.write(cur_row, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                    index_to_char(4), index_to_char(len(male_age_groups) + 3), cur_row + 1
+                ), yellow)
+                afw.write(cur_row + 1, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                    index_to_char(4), index_to_char(len(male_age_groups) + 3), cur_row + 2
+                ), yellow)
+                afw.write(cur_row + 2, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                    index_to_char(4), index_to_char(len(male_age_groups) + 3), cur_row + 3), green)
+
+            afw.write(cur_row, 2, category, bg)
+            afw.write(cur_row, 1, '', bg)
+            afw.write(cur_row + 1, 1, '', bg)
+            afw.write(cur_row + 1, 2, '', bg)
+            afw.write(cur_row + 2, 1, '', bg)
+            afw.write(cur_row + 2, 2, '', bg)
+            afw.write(cur_row, 3, 'Males', black)
+            afw.write(cur_row + 1, 3, 'Females', black)
+            afw.write(cur_row + 2, 3, 'Total', black)
+
+        # Block 5
+        afw.write(60, 3, 'Average Quota Success (fraction) of Permit Hunter', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 61, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(61, col + 4, gp, black)
+            afw.write(62, col + 4, 0, yellow)
+            afw.write(63, col + 4, 0, yellow)
+            afw.write(64, col + 4, '=AVERAGE({0}63:{0}64)'.format(index_to_char(col + 4)), green)
+        afw.write(61, len(male_age_groups) + 4, 'Average', black)
+        for row in range(62, 65):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
+
+        # Block 6
+        afw.write(66, 3, 'Number of Tags to Issue to Permit Hunters', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
+            afw.write(row + 67, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(67, col + 4, gp, black)
+            afw.write(68, col + 4, '={0}57/{0}63'.format(index_to_char(col + 4)), green)
+            afw.write(69, col + 4, '={0}58/{0}64'.format(index_to_char(col + 4)), green)
+            afw.write(70, col + 4, '=SUM({0}69:{0}70)'.format(index_to_char(col + 4)), green)
+        afw.write(67, len(male_age_groups) + 4, 'Total', black)
+        afw.write(68, len(male_age_groups) + 4, '={0}57/{0}63'.format(index_to_char(len(male_age_groups) + 4)), green)
+        afw.write(69, len(male_age_groups) + 4, '={0}58/{0}64'.format(index_to_char(len(male_age_groups) + 4)), green)
+        afw.write(70, len(male_age_groups) + 4, '={0}59/{0}65'.format(index_to_char(len(male_age_groups) + 4)), green)
+
+        # Block 7
+        afw.write(72, 3, 'Average Number of Permit Hunter Days Per Animal Harvested', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 73, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(73, col + 4, gp, black)
+            afw.write(74, col + 4, 0, yellow)
+            afw.write(75, col + 4, 0, yellow)
+            afw.write(76, col + 4, '=AVERAGE({0}75:{0}76)'.format(index_to_char(col + 4)), green)
+        afw.write(73, len(male_age_groups) + 4, 'Average', black)
+        for row in range(74, 77):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
+
+        # Block 8
+        afw.write(78, 3, 'Total Number of "Permitted" Hunting Days', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
+            afw.write(row + 79, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(79, col + 4, gp, black)
+            afw.write(80, col + 4, '={0}69*{0}75'.format(index_to_char(col + 4)), green)
+            afw.write(81, col + 4, '={0}70*{0}76'.format(index_to_char(col + 4)), green)
+            afw.write(82, col + 4, '=SUM({0}81:{0}82)'.format(index_to_char(col + 4)), green)
+        afw.write(79, len(male_age_groups) + 4, 'Total', black)
+        afw.write(80, len(male_age_groups) + 4, '=SUM({0}81:{1}81)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)), green
+                  )
+        afw.write(81, len(male_age_groups) + 4, '=SUM({0}82:{1}82)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)), green
+                  )
+        afw.write(82, len(male_age_groups) + 4, '=SUM({0}83:{1}83)'.format(
+            index_to_char(4), index_to_char(len(male_age_groups) + 3)), green
+                  )
+
+        afw.set_column(2, 2, 40)
+        afw.set_column(3, 3, 13)
+        for col in range(len(male_age_groups)):
+            afw.set_column(col + 4, col + 4, 13)
 
         tb.activate()
-
-
-        # except KeyError as e:
-        #     tb = wb.add_worksheet('Charts')
-        #     tb.write(0, 0, 'Error while creating charts:')
-        #     tb.write(1, 0, str(e))
-        #     i = 2
-        #     for key, val in file_dict.items():
-        #         if type(val) == dict:
-        #             for _key, _val in val.items():
-        #                 i += 1
-        #                 tb.write(i, 0, key)
-        #                 tb.write(i, 1, _key)
-        #                 tb.write(i, 2, str(file_dict[key]))
 
         wb.close()
 
