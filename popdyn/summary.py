@@ -91,7 +91,7 @@ def average_age(domain, species=None, time=None, sex=None, group=None):
         # Population-weighted mean
         pops = da.dstack(ages.values())
         pops_sum = pops.sum(axis=-1, keepdims=True)
-        return da.where(pops_sum > 0, ages.keys() * (pops / pops_sum), np.inf).compute()
+        return da.where(pops_sum > 0, ages.keys() * (pops / pops_sum), np.inf).sum(axis=-1).compute()
 
 
 def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):

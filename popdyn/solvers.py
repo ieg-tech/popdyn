@@ -652,11 +652,6 @@ class discrete_explicit(object):
             # Collect the population of the age from the previous time step
             population = self.D.get_population(species, time - 1, sex, group, age)
 
-            # Current time step for immigration/emigration
-            add_population = self.D.get_population(species, time, sex, group, age)
-            if add_population is not None:
-                output[add_population] = da.from_array(self.D[add_population], chunks=self.D.chunks)
-
             # Use population total to avoid re-read from disk
             population = self.population_total(species, {population: self.D[population]}, False)
 
@@ -759,9 +754,12 @@ class discrete_explicit(object):
                     )
 
                 key = '{}/{}/{}/{}/{}'.format(species, sex, new_group, time, new_age)
-                # In case a duplicate key exists, addition is first attempted
                 try:
-                    output[key] += population
+                    # In case a duplicate key exists, addition is first attempted at the
+                    # current time step for immigration/emigration
+                    output[key] = da.from_array(self.D[key], chunks=self.D.chunks) + population
+                    # Do not allow negative populations
+                    output[key] = da.where(output[key] < 0, 0, output[key])
                 except KeyError:
                     output[key] = population
 

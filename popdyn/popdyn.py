@@ -353,6 +353,8 @@ class Domain(object):
         :param dict datasets: dataset pointers (keys) and respective dask arrays
         :return: None
         """
+        import pdb;pdb.set_trace()
+
         # Force all data to float32...
         datasets = {key: val.astype(np.float32) if val.dtype != np.float32 else val for key, val in datasets.items()}
 
