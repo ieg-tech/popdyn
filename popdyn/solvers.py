@@ -707,10 +707,15 @@ class discrete_explicit(object):
 
                 for dispersal_method, args in species_instance.dispersal:
                     args = args + (self.D.csx, self.D.csy)
+                    # Gather a mask if it exists
+                    mask_ds = self.D.get_mask(species, self.current_time, sex, group)
+                    if mask_ds is not None:
+                        mask_ds = da.from_array(self.D[mask_ds], self.D.chunks)
+                    disp_kwargs = {'mask': mask_ds}
                     population = dispersal.apply(population,
                                                  self.population_arrays[species]['total'],
                                                  self.carrying_capacity_arrays[species]['total'],
-                                                 dispersal_method, args)
+                                                 dispersal_method, args, **disp_kwargs)
 
                 if species_instance.contributes_to_density:
                     # Avoid density-dependent mortality when dispersal has occurred

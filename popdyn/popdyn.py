@@ -200,6 +200,7 @@ class Domain(object):
         self.population = rec_dd()
         self.mortality = rec_dd()
         self.fecundity = rec_dd()
+        self.masks = rec_dd()
         self.carrying_capacity = rec_dd()
         # Inheritance may be turned off completely
         if not hasattr(self, 'avoid_inheritance'):
@@ -353,8 +354,6 @@ class Domain(object):
         :param dict datasets: dataset pointers (keys) and respective dask arrays
         :return: None
         """
-        #import pdb;pdb.set_trace()
-
         # Force all data to float32...
         datasets = {key: val.astype(np.float32) if val.dtype != np.float32 else val for key, val in datasets.items()}
 
@@ -592,6 +591,34 @@ class Domain(object):
             )
 
         self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
+
+    @save
+    def add_mask(self, species, time, data=None, **kwargs):
+        """
+        A mask is a general-use dataset associated with a species. It is currently only used for masked density-based
+         dispersal. Only one mask may exist for a species - sex - age group.
+
+        :param Species species: Species instance
+        :param data: Fecundity data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
+        :param time: The time slice to insert fecundity
+        :kwargs:
+            :distribute: Divide the input data evenly over the domain
+            :overwrite: Overwrite any existing data (Default 'replace')
+        """
+        self.introduce_species(species)  # Introduce the species
+        time = self.get_time_input(time)  # Gather time
+        data = self.get_data_type(data)  # Parse input data
+
+        key = '{}/{}/{}/{}/mask'.format(species.name_key, species.sex, species.group_key, time)
+
+        # Add the data to the file
+        self.add_data(key, data,
+                      distribute=kwargs.get('distribute', True),
+                      overwrite=kwargs.get('overwrite', 'replace'),
+                      distribute_by_co=kwargs.get('distribute_by_co', None)
+                      )
+
+        self.masks[species.name_key][species.sex][species.group_key][time] = key
 
     @save
     def remove_dataset(self, ds_type, species_key, sex, group, time, name):
@@ -927,6 +954,50 @@ class Domain(object):
 
         # If there are data in the domain, return the HDF5 dataset, else None
         return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
+
+    def get_mask(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
+        """
+        Collect the key associated with the mask query
+        :param str species_key:
+        :param int time:
+        :param str sex:
+        :param str group_key:
+        :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
+        :param avoid_inheritance: Do not inherit a dataset from the sex or species
+        :return: list of instance - HDF5 dataset pairs
+        """
+        time = self.get_time_input(time)
+
+        # Collect the dataset keys using inheritance
+        def collect(species_key, time, sex, group_key):
+            if snap_to_time:
+                times = self.masks[species_key][sex][group_key].keys()
+                times = [t for t in times if len(self.masks[species_key][sex][group_key][t]) > 0]
+
+                times = np.unique(times)
+                delta = time - times
+                backwards = delta >= 0
+                # If no times are available, time is not updated
+                if backwards.sum() > 0:
+                    times = times[backwards]
+                    delta = delta[backwards]
+                    i = np.argmin(delta)
+                    time = times[i]
+            key = self.masks[species_key][sex][group_key][time]
+            if len(key) > 0:
+                return key
+            else:
+                return None
+
+        if inherit:
+            for _sex in [sex, None]:
+                for gp in [group_key, None]:
+                    key = collect(species_key, time, _sex, gp)
+                    if key is not None:
+                        return key
+            return None
+        else:
+            return collect(species_key, time, sex, group_key)
 
     def get_carrying_capacity(self, species_key, time, sex=None, group_key=None, snap_to_time=True, inherit=False):
         """

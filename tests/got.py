@@ -292,6 +292,8 @@ def single_species_fecundity():
 
 def single_species_dispersion():
     for _iter, method in enumerate(dispersal.METHODS.keys()):
+        if method == 'masked density-based dispersion':
+            continue
         with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
             starks = pd.Species('Stark')
 
@@ -321,8 +323,6 @@ def single_species_dispersion():
 
 def single_species_agegroups():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        groups = [stark_male_infant, stark_female_infant, stark_male_adolescent,
-                  stark_female_adolescent, stark_male_adult, stark_female_adult]
         pops = [250., 250., 600., 600., 3000., 3000.]
         tot_pop = np.sum(pops)
 
@@ -358,6 +358,32 @@ def single_species_agegroups():
                 raise Exception('{} population should be {}, but is {} at time {}'.format(
                     stark_male_adult.group_name, 3000. - (3000. / (50 - 13. + 1) * i) + ((600 / 9.) * i), _pop, i
                 ))
+
+
+def single_species_mask():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
+
+        starks = pd.Species('Stark')
+        stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12)
+        stark_male_adult = pd.AgeGroup('Stark', 'Adult', 'male', 13, 50)
+        stark_male_adolescent.add_dispersal('masked density-based dispersion', (10,))
+
+        domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
+        domain.add_population(stark_male_adolescent, np.random.random(shape), 0, distribute=False)
+        domain.add_population(stark_male_adult, np.random.random(shape), 0, distribute=False)
+        domain.add_mask(starks, 0, np.random.random(shape), distribute=False)  # Should be inherited
+
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        for i in range(1, 2):
+            _pop = summary.total_population(domain, 'stark', i).sum() + summary.total_mortality(domain, 'stark', i).sum()
+            if not np.isclose(_pop, summary.total_population(domain, 'stark', 0).sum()):
+                raise Exception('Population should be {}, got {}'.format(
+                    summary.total_population(domain, 'stark', 0).sum(), _pop)
+                )
+            if np.allclose(summary.total_population(domain, 'stark', i) + summary.total_mortality(domain, 'stark', i),
+                           summary.total_population(domain, 'stark', 0)):
+                raise Exception('No dispersal occurred')
 
 
 def single_species_mortality():
@@ -483,8 +509,8 @@ if __name__ == '__main__':
 
     tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
              single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-             single_species_mortality, single_species_recipient, species_as_mortality, species_as_carrying_capacity,
-             circular_species]
+             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+             species_as_carrying_capacity, circular_species]
 
     error_check = 0
     for test in antitests:

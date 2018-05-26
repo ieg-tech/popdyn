@@ -14,7 +14,7 @@ class DispersalError(Exception):
     pass
 
 
-def apply(a, total, capacity, method, args):
+def apply(a, total, capacity, method, args, **kwargs):
     """Apply a dispersal method on the input dask array"""
     if not isinstance(a, da.Array):
         raise DispersalError('The input array must be a dask array')
@@ -22,7 +22,7 @@ def apply(a, total, capacity, method, args):
     if method not in METHODS:
         raise DispersalError('The input method "{}" is mot supported'.format(method))
 
-    return METHODS[method](a, total, capacity, *args)
+    return METHODS[method](a, total, capacity, *args, **kwargs)
 
 
 def calculate_kernel(distance, csx, csy, outer_ring=False):
@@ -38,7 +38,8 @@ def calculate_kernel(distance, csx, csy, outer_ring=False):
     # Use a distance transform to select the active grid locations
     kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
     kernel[m, n] = 0
-    kernel = ndimage.distance_transform_edt(kernel, (csy, csx)) <= distance
+    kernel = ndimage.distance_transform_edt(kernel, (csy, csx))
+    kernel = (kernel <= distance)
 
     if outer_ring:
         kernel = ~(ndimage.binary_erosion(kernel, np.ones((3, 3), 'bool'))) & kernel
@@ -51,13 +52,31 @@ def calculate_kernel(distance, csx, csy, outer_ring=False):
     return np.asarray([i, j]).T, m, n
 
 
+def pd_trim_internal():
+    """
+    Borrowed from da.trim_internal, refactored to add the edges of ghosted chunks together
+    :return: dask array via map_blocks
+    """
+    olist = []
+    for i, bd in enumerate(x.chunks):
+        ilist = []
+        for d in bd:
+            ilist.append(d - axes.get(i, 0) * 2)
+        olist.append(tuple(ilist))
+
+    chunks = tuple(olist)
+
+    return map_blocks(partial(chunk.trim, axes=axes), x, chunks=chunks,
+                      dtype=x.dtype)
+
+
 """
 Density flux, also known as inter-habitat dispersal. Calculates a mean density over a neighbourhood and
 reallocates populations within the neighbourhood in attempt to flatten the gradient.
 =======================================================================================================
 """
 
-def density_flux(population, total_population, carrying_capacity, distance, csx, csy):
+def density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
     # Check the inputs
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
@@ -65,6 +84,16 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     if distance == 0:
         # Don't do anything
         return population
+
+    mask = kwargs.get('mask', None)
+    if mask is None:
+        mask = da.ones(shape=population.shape, dtype='float32',
+                       chunks=tuple(c[0] if c else 0 for c in population.chunks))
+
+    # Normalize the mask
+    mask_min = da.min(mask)
+    _range = da.max(mask) - mask_min
+    mask = da.where(_range > 0, (mask - mask_min) / _range, 1.)
 
     # Calculate the kernel indices and shape
     kernel = calculate_kernel(distance, csx, csy)
@@ -79,11 +108,11 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
 
     # Dstack and ghost the input arrays for the jitted function
     a = da.ghost.ghost(
-        da.dstack([population, total_population, carrying_capacity]),
+        da.dstack([population, total_population, carrying_capacity, mask]),
         depth, boundary
     )
     chunks = tuple(c[0] if c else 0 for c in a.chunks)[:2]
-    a = a.rechunk((chunks + (3,)))  # Need all of the last dimension passed at once
+    a = a.rechunk((chunks + (4,)))  # Need all of the last dimension passed at once
 
     # Perform the dispersal
     # args: population, total_population, carrying_capacity, kernel
@@ -93,14 +122,23 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze().astype('float32')
 
 
+def masked_density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
+    """wraps density flux, adds a mask"""
+    # Check that there is a mask
+    if kwargs.get('mask', None) is None:
+        raise DispersalError('Masked Density Flux requires a mask, which is not available')
+    return density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs)
+
+
 @jit(nopython=True, nogil=True)
 def density_flux_task(a, kernel, i_pad, j_pad):
     """
     Reallocate mass based on density gradients over the kernel
     :param a: 3d array with the following expected dimensionality
-        axis (2, 0): mass to be redistributed (a subset of total mass)
-        axis (2, 1): total mass
-        axis (2, 2): total capacity (calculations are masked where capacity is 0)
+        last axis 0: mass to be redistributed (a subset of total mass)
+        last axis 1: total mass
+        last axis 2: total capacity (calculations are masked where capacity is 0)
+        last axis 3: normalized mask
     :param kernel: Kernel index offset in the shape (m, n)
     :param i_pad: padding in the y-direction
     :param j_pad: padding in the x-direction
@@ -113,18 +151,19 @@ def density_flux_task(a, kernel, i_pad, j_pad):
     for i in range(i_pad, m - i_pad):
         for j in range(j_pad, n - j_pad):
             # Carry over mass to output
-            out[i, j] += a[i, j, 0]
+            out[i, j, 0] += a[i, j, 0]
 
             if a[i, j, 2] == 0 or a[i, j, 0] == 0:
                 continue
 
             # Calculate a mean density
-            _mean = modals = 0
+            _mean = 0.
+            modals = 0.
             for k_i in range(k):
                 if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
                     _mean += a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
                              a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2]
-                    modals += 1
+                    modals += 1.
             _mean /= modals
 
             # Evaluate gradient and skip if it is negative
@@ -135,7 +174,7 @@ def density_flux_task(a, kernel, i_pad, j_pad):
             loss = (a[i, j, 0] / a[i, j, 1]) * (a[i, j, 2] * min(1., grad))
 
             # Find candidate locations based on their gradient
-            _sum = 0
+            _sum = 0.
             values = []
             locations = []
             for k_i in range(k):
@@ -149,7 +188,10 @@ def density_flux_task(a, kernel, i_pad, j_pad):
                         else:
                             destination_proportion = (a[i + kernel[k_i, 0], j + kernel[k_i, 1], 0] /
                                                       a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1])
-                        N = (destination_proportion * a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] * min(1., grad))
+                        N = (destination_proportion *
+                             a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] *
+                             min(1., grad) *
+                             min(1., a[i + kernel[k_i, 0], j + kernel[k_i, 1], 3]))  # mask
                         _sum += N
                         values.append(N)
 
@@ -160,8 +202,9 @@ def density_flux_task(a, kernel, i_pad, j_pad):
                 # Disperse the source mass to candidate locations linearly
                 for l_i, k_i in enumerate(locations):
                     N = loss * (values[l_i] / _sum)
-                    out[i + kernel[k_i, 0], j + kernel[k_i, 1]] += N
-                    out[i, j] -= N
+                    out[i + kernel[k_i, 0], j + kernel[k_i, 1], 0] += N
+                    out[i, j, 0] -= N
+
     return out
 
 
@@ -171,7 +214,7 @@ minimum density at a specified distance and moves populations in attempt to flat
 =======================================================================================================
 """
 
-def distance_propagation(population, total_population, carrying_capacity, distance, csx, csy):
+def distance_propagation(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
     # Check the inputs
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
@@ -213,9 +256,10 @@ def distance_propagation_task(a, kernel, i_pad, j_pad):
     """
     Reallocate mass to the best habitat at a specified distance
     :param a: 3d array with the following expected dimensionality
-        axis (2, 0): mass to be redistributed (a subset of total mass)
-        axis (2, 1): total mass
-        axis (2, 2): total capacity (calculations are masked where capacity is 0)
+        last axis 0: mass to be redistributed (a subset of total mass)
+        last axis 1: total mass
+        last axis 2: total capacity (calculations are masked where capacity is 0)
+        last axis 3: normalized mask
     :param kernel: Kernel index offset in the shape (m, n)
     :param i_pad: padding in the y-direction
     :param j_pad: padding in the x-direction
@@ -331,6 +375,8 @@ def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=3)
 
 
 def convolve(a, kernel):
+    import numexpr as ne
+
     kernel = np.atleast_2d(kernel)
 
     if kernel.size == 1:
@@ -391,4 +437,5 @@ def window_local_dict(views, prefix='a'):
 
 
 METHODS = {'density-based dispersion': density_flux,
-           'distance propagation': distance_propagation}
+           'distance propagation': distance_propagation,
+           'masked density-based dispersion': masked_density_flux}
