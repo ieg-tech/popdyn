@@ -1081,6 +1081,9 @@ class Domain(object):
             for _sex in sexes:
                 groups += [key for key in self.carrying_capacity[species_key][_sex].keys() if key is not None]
 
+        # Duplicate group names may exist for males and females
+        groups = np.unique(groups)
+
         cc = []
         for _sex in sexes:
             for group in groups:
@@ -1138,6 +1141,9 @@ class Domain(object):
         if group_key is None:
             for _sex in sexes:
                 groups += [key for key in self.population[species_key][_sex].keys() if key is not None]
+
+        # Duplicate group names may exist for males and females
+        groups = np.unique(groups)
 
         keys = []
         for _sex in sexes:

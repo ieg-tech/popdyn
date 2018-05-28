@@ -711,29 +711,64 @@ def write_xlsx(domain, output_directory):
                   )
 
         # Block 9
-
         afw.write(90, 3, 'Morphometric-based inputs', bold)
 
+        afw.write(92, 3, 'Liveweight (Kilograms)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 93, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(93, col + 4, gp, black)
+
+
         # Block 10
+        afw.write(98, 3, 'Carcass Weight (Kilograms)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 99, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(99, col + 4, gp, black)
 
 
         # Block 11
+        afw.write(104, 3, 'Trophy Metrics (Relative Scale)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 105, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(105, col + 4, gp, black)
 
 
         # Block 12
-
         afw.write(111, 3, 'Economic-based inputs', bold)
 
+        afw.write(113, 3, 'Cost of General License ($/license)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 114, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(114, col + 4, gp, black)
+
+
         # Block 13
+        afw.write(119, 3, 'Cost of Outifitter License ($/license)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
+            afw.write(row + 120, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(120, col + 4, gp, black)
 
 
         # Block 14
+        afw.write(125, 3, 'General License Revenue ($)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Sum']):
+            afw.write(row + 126, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(126, col + 4, gp, black)
 
 
         # Block 15
+        afw.write(131, 3, 'Outfitter License Revenue ($)', bold)
+        for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Sum']):
+            afw.write(row + 132, 3, heading, black)
+        for col, gp in enumerate(male_age_groups):
+            afw.write(132, col + 4, gp, black)
 
-
-        # Block 16
 
 
         afw.set_column(2, 2, 40)
