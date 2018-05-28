@@ -680,15 +680,17 @@ class discrete_explicit(object):
                     )
 
                     if existing_pop is not None:
-                        output[other_species_key] = (
+                        other_species_data = (
                                 da.from_array(self.D[existing_pop], self.D.chunks) + mort_fluxes[-1]
                         )
                     else:
-                        output[other_species_key] = mort_fluxes[-1]
+                        other_species_data = mort_fluxes[-1]
 
-                    self.D.population[
-                        other_species.name_key][other_species.sex][other_species.group_key][time][age] = \
-                        other_species_key
+                    # If multiple species are contributing to the recipient, they must be added
+                    try:
+                        output[other_species_key] += other_species_data
+                    except KeyError:
+                        output[other_species_key] = other_species_data
 
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:

@@ -710,6 +710,32 @@ def write_xlsx(domain, output_directory):
             index_to_char(4), index_to_char(len(male_age_groups) + 3)), green
                   )
 
+        # Block 9
+
+        afw.write(90, 3, 'Morphometric-based inputs', bold)
+
+        # Block 10
+
+
+        # Block 11
+
+
+        # Block 12
+
+        afw.write(111, 3, 'Economic-based inputs', bold)
+
+        # Block 13
+
+
+        # Block 14
+
+
+        # Block 15
+
+
+        # Block 16
+
+
         afw.set_column(2, 2, 40)
         afw.set_column(3, 3, 13)
         for col in range(len(male_age_groups)):
