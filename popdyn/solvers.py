@@ -347,7 +347,7 @@ class discrete_explicit(object):
                 # -----------------------------------
                 # Collect all carrying capacity keys
                 cc = self.D.all_carrying_capacity(species, time)
-                self.carrying_capacity_arrays[species]['total'] =  self.carrying_capacity_total(species, cc)
+                self.carrying_capacity_arrays[species]['total'] = self.carrying_capacity_total(species, cc)
 
             # Calculate species-wide male and female populations that reproduce
             # Note: Species that do not contribute to density contribute to the reproduction totals

@@ -630,6 +630,17 @@ class Domain(object):
         time = self.get_time_input(time)
 
         del getattr(self, ds_type)[species_key][sex][group][time][name]
+
+        # Remove loose ends
+        if len(getattr(self, ds_type)[species_key][sex][group][time]) == 0:
+            del getattr(self, ds_type)[species_key][sex][group][time]
+            if len(getattr(self, ds_type)[species_key][sex][group]) == 0:
+                del getattr(self, ds_type)[species_key][sex][group]
+                if len(getattr(self, ds_type)[species_key][sex]) == 0:
+                    del getattr(self, ds_type)[species_key][sex]
+                    if len(getattr(self, ds_type)[species_key]) == 0:
+                        del getattr(self, ds_type)[species_key]
+
         key = '{}/{}/{}/{}/{}'.format(species_key, sex, group, time, name)
         try:
             del self.file[key]
