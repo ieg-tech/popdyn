@@ -27,6 +27,14 @@ def rec_dd():
     return defaultdict(rec_dd)
 
 
+def dstack(dsts):
+    """dask.array.dstack with one array is slow"""
+    if len(dsts) > 1:
+        return da.dstack(dsts)
+    else:
+        return da.atleast_3d(dsts[0])
+
+
 class Domain(object):
     """
     Population dynamics simulation domain. A domain instance is used to:
@@ -345,7 +353,7 @@ class Domain(object):
 
     @time_this
     @save
-    def domain_compute(self, datasets):
+    def domain_compute(self, first_datasets, delayed_datasets):
         """
         Takes dask arrays and dataset pointers and computes/writes to the file
 
@@ -354,20 +362,40 @@ class Domain(object):
         :param dict datasets: dataset pointers (keys) and respective dask arrays
         :return: None
         """
-        # Force all data to float32...
-        datasets = {key: val.astype(np.float32) if val.dtype != np.float32 else val for key, val in datasets.items()}
+        for datasets in [first_datasets, delayed_datasets]:
+            if len(datasets) == 0:
+                continue
 
-        # Compute and dump the datasets (adapted from da.to_hdf5 to avoid opening file again)
-        dsets = [self.file.require_dataset(dp, shape=x.shape, dtype=x.dtype,
-                                           chunks=tuple([c[0] for c in x.chunks]), **{'compression': 'lzf'})
-                 for dp, x in datasets.items()]
-        da.store(list(datasets.values()), dsets)
+            # Force all data to float32, and place in a delayed location first
+            datasets = {key: val.astype(np.float32) if val.dtype != np.float32 else val
+                        for key, val in datasets.items()}
 
-        # Add population keys to domain
-        for key in datasets.keys():
-            species, sex, group, time, age = self.deconstruct_key(key)[:5]
-            if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
-                self.population[species][sex][group][time][age] = key
+            # Compute and dump the datasets (adapted from da.to_hdf5 to avoid opening file again)
+            dsets = [self.file.require_dataset(dp, shape=x.shape, dtype=x.dtype,
+                                               chunks=tuple([c[0] for c in x.chunks]), **{'compression': 'lzf'})
+                     for dp, x in datasets.items()]
+
+            #### FOR DEBUGGING
+            # for key, dset in datasets.items():
+            #     try:
+            #         dset.compute()
+            #     except:
+            #         import pdb, traceback, sys
+            #         try:
+            #             dset.compute(scheduler='single')
+            #         except:
+            #             type, value, tb = sys.exc_info()
+            #             traceback.print_exc()
+            #             pdb.post_mortem(tb)
+            # ###
+
+            da.store(list(datasets.values()), dsets)
+
+            for key in list(datasets.keys()):
+                # Add population keys to domain
+                species, sex, group, time, age = self.deconstruct_key(key)[:5]
+                if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
+                    self.population[species][sex][group][time][age] = key
 
     @time_this
     def get_data_type(self, data):
@@ -851,7 +879,7 @@ class Domain(object):
 
             # Use dask to aggregate data because this could be memory-heavy
             if len(co) > 0:
-                co = da.dstack([da.from_array(ds, ds.chunks) for ds in co]).sum(axis=-1).compute()
+                co = dstack([da.from_array(ds, ds.chunks) for ds in co]).sum(axis=-1).compute()
 
             # Compute the sum. If no data are available or the dataset is empty, the sum will be 0
             co_sum = np.sum(co)
@@ -1314,10 +1342,10 @@ class Parameter(object):
         :param kwargs: :param tuple args: parameters for the variance algorithm (variable)
         :return: None
         """
-        if type not in dynamic.RANDOM_METHODS.keys():
-            raise PopdynError('Unsupported random distribution generator "{}". Choose from:\n{}'.format(
-                type, '\n'.join(dynamic.RANDOM_METHODS.keys()))
-            )
+        if type not in dir(np.random):
+            raise PopdynError('Unsupported random distribution generator "{}"'.format(type))
+
+        self.apply_using_mean = kwargs.pop('apply_using_mean', True)
 
         self.random_method = type
         self.random_args = kwargs

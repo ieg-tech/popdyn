@@ -10,12 +10,6 @@ import dask.array as da
 from numba import jit
 
 
-RANDOM_METHODS = {'normal': np.random.normal,
-                  'uniform': np.random.uniform,
-                  'chi-square': np.random.chisquare,
-                  'weibull': np.random.weibull}
-
-
 class DynamicError(Exception):
     pass
 
@@ -53,8 +47,7 @@ def apply_random(a, method, **kwargs):
     :return: randomly generated values
     """
     # Array should implicitly come from dask
-
-    return RANDOM_METHODS[method](a, **kwargs).astype(np.float32)
+    return getattr(np.random, method)(a, **kwargs).astype(np.float32)
 
 
 def collect_lookup(input_table):
@@ -108,7 +101,11 @@ def collect(data, **kwargs):
     if random_method is not None:
         if random_args is None:
             raise DynamicError('If a random method is supplied, random arguments may not be NoneType')
-        random_args.update({'dtype': 'float32'})
-        data = data.map_blocks(apply_random, random_method, **random_args)
+        if kwargs.get('apply_using_mean'):
+            data = data + (getattr(da.random,
+                                   random_method)(data.mean(), chunks=kwargs.get('chunks'), **random_args) - data)
+            data = da.where(data < 0, 0, data)
+        else:
+            data = data.map_blocks(apply_random, random_method, **random_args)
 
     return data

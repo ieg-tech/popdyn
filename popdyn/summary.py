@@ -50,7 +50,7 @@ def total_population(domain, species=None, time=None, sex=None, group=None, age=
     if len(populations) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return da.dstack(populations).sum(axis=-1).compute()
+        return pd.dstack(populations).sum(axis=-1).compute()
 
 
 def average_age(domain, species=None, time=None, sex=None, group=None):
@@ -89,7 +89,7 @@ def average_age(domain, species=None, time=None, sex=None, group=None):
         raise pd.PopdynError('No ages were found using the given query')
     else:
         # Population-weighted mean
-        pops = da.dstack(ages.values())
+        pops = pd.dstack(ages.values())
         pops_sum = pops.sum(axis=-1, keepdims=True)
         return da.where(pops_sum > 0, ages.keys() * (pops / pops_sum), np.inf).sum(axis=-1).compute()
 
@@ -137,7 +137,7 @@ def total_carrying_capacity(domain, species=None, time=None, sex=None, group=Non
     if len(carrying_capacity) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return da.dstack(carrying_capacity).sum(axis=-1).compute()
+        return pd.dstack(carrying_capacity).sum(axis=-1).compute()
 
 
 def list_mortality_types(domain, species=None, time=None, sex=None, group=None):
@@ -207,7 +207,7 @@ def total_mortality(domain, species=None, time=None, sex=None, group=None, morta
     if len(mortality) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return da.dstack(mortality).sum(axis=-1).compute()
+        return pd.dstack(mortality).sum(axis=-1).compute()
 
 
 def total_offspring(domain, species=None, time=None, sex=None, group=None, offspring_sex=None):
@@ -242,7 +242,7 @@ def total_offspring(domain, species=None, time=None, sex=None, group=None, offsp
     if len(offspring) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return da.dstack(offspring).sum(axis=-1).compute()
+        return pd.dstack(offspring).sum(axis=-1).compute()
 
 
 def fecundity(domain, species=None, time=None, sex=None, group=None):
@@ -271,7 +271,7 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
     if len(_fecundity) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return da.dstack(_fecundity).sum(axis=-1).compute()
+        return pd.dstack(_fecundity).sum(axis=-1).compute()
 
 
 def model_summary(domain):

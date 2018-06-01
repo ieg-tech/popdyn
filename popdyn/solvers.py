@@ -261,6 +261,7 @@ class discrete_explicit(object):
         # Iterate time. The first time step cannot be solved and serves to provide initial parameters
         for time in self.simulation_range:
             self.current_time = time
+
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
             # -------------------------------------------------------------------------------------------
@@ -272,7 +273,7 @@ class discrete_explicit(object):
             # Collect totals for entire species-based calculations, and dicts to store all output and offspring
             self.totals(all_species, time)
             self.age_zero_population = {}
-            output = {}
+            output, _delayed = {}, {}
 
             for species in all_species:
                 # Collect sex keys
@@ -289,7 +290,9 @@ class discrete_explicit(object):
                 # Iterate sexes and groups and calculate each individually
                 for sex in sex_keys:
                     for group in self.D.species[species][sex].keys():  # Group - may not exist and will be None
-                        output.update(self.propagate(species, sex, group, time))
+                        _output, __delayed = self.propagate(species, sex, group, time)
+                        output.update(_output)
+                        _delayed.update(__delayed)
 
                 # Update the output with the age 0 populations
                 for _sex in self.age_zero_population[species].keys():
@@ -322,7 +325,7 @@ class discrete_explicit(object):
                         output[key] = self.age_zero_population[species][_sex]
 
             # Compute this time slice and write to the domain file
-            self.D.domain_compute(output)
+            self.D.domain_compute(output, _delayed)
 
     @time_this
     def totals(self, all_species, time):
@@ -400,8 +403,10 @@ class discrete_explicit(object):
 
         # Include random parameters (except not if carrying capacity is another species)
         if getattr(param, 'random_method', False) and not (isinstance(param, CarryingCapacity) and data is None):
-            kwargs.update({'random_method': param.random_method, 'random_args': param.random_args})
+            kwargs.update({'random_method': param.random_method, 'random_args': param.random_args,
+                           'apply_using_mean': param.apply_using_mean})
 
+        kwargs.update({'chunks': self.D.chunks})
         return dynamic.collect(data, **kwargs)
 
     @time_this
@@ -450,7 +455,8 @@ class discrete_explicit(object):
                 p, d = density[param.species]['p'], density[param.species]['d']
                 kwargs = {
                     'lookup_data': da.where(d > 0, p / d, np.inf),
-                    'lookup_table': param.species_table
+                    'lookup_table': param.species_table,
+                    'chunks': self.D.chunks
                 }
 
                 self.carrying_capacity_arrays[parent_species][param] = dynamic.collect(None, **kwargs)
@@ -498,9 +504,11 @@ class discrete_explicit(object):
                 self.population_arrays[species][key] = da_array
 
         if len(pop_arrays) > 0:
-            return da.dstack(pop_arrays).sum(axis=-1)
+            out = dstack(pop_arrays).sum(axis=-1)
         else:
-            return da_zeros(self.D.shape, self.D.chunks)
+            out = da_zeros(self.D.shape, self.D.chunks)
+
+        return out
 
     @time_this
     def carrying_capacity_total(self, species, datasets):
@@ -535,13 +543,13 @@ class discrete_explicit(object):
         if len(cc_arrays) == 0:
             array = da_zeros(self.D.shape, self.D.chunks)
         else:
-            array = da.dstack(cc_arrays).sum(axis=-1)
+            array = dstack(cc_arrays).sum(axis=-1)
 
         if len(cc_coeff) == 0:
             coeff = 1.
         else:
             # Use the mean of the coefficients to avoid compounding perturbation
-            coeff = da.dstack(cc_coeff).mean(axis=-1)
+            coeff = dstack(cc_coeff).mean(axis=-1)
 
         return da.where(array > 0, array * coeff, 0)
 
@@ -561,6 +569,14 @@ class discrete_explicit(object):
         :param time:
         :return:
         """
+
+        # try:
+        #     test = self.D.file['cwdpos/female/oldadults/2011/6'][:]
+        #     print('{} {} {} {} {}'.format(species, sex, group, time, test.min()))
+        # except KeyError:
+        #     pass
+
+
         # Collect some meta on the species
         # -----------------------------------------------------------------
         species_instance = self.D.species[species][sex][group]
@@ -574,7 +590,7 @@ class discrete_explicit(object):
         # Ensure there are populations to propagate
         # -----------------------------------------------------------------
         if all([self.D.get_population(species, time - 1, sex, group, age) is None for age in ages]):
-            return {}
+            return {}, {}
 
         # Collect parameters from the current time step.
         # All dynamic modifications are also applied in this step
@@ -585,7 +601,7 @@ class discrete_explicit(object):
         mort_types = [mort_type[0] for mort_type in self.D.get_mortality(species, time, sex, group)]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
-        output = {}
+        output, _delayed = {}, {}
         for mort_type in mort_types:
             mort_name = mort_type.name
             output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
@@ -655,10 +671,10 @@ class discrete_explicit(object):
             # Use population total to avoid re-read from disk
             population = self.population_total(species, {population: self.D[population]}, False)
 
-            # Mortaliy is applied on each age, as they need to be removed from the population
+            # Mortality is applied on each age, as they need to be removed from the population
             # Aggregate mortality must be scaled so as to not exceed 1.
             if len(mort_types) > 0:
-                agg_mort = da.dstack([params[mort_type.name] for mort_type in mort_types]).sum(axis=-1)
+                agg_mort = dstack([params[mort_type.name] for mort_type in mort_types]).sum(axis=-1)
                 mort_coeff = da.where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
 
             mort_fluxes = []
@@ -675,6 +691,12 @@ class discrete_explicit(object):
                         other_species.name_key, time, other_species.sex, other_species.group_key, age
                     )
 
+                    if age not in other_species.age_range:
+                        raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
+                                          'does not exist for the group {}'.format(
+                            other_species.name, age, other_species.group_name)
+                        )
+
                     other_species_key = '{}/{}/{}/{}/{}'.format(
                         other_species.name_key, other_species.sex, other_species.group_key, time, age
                     )
@@ -686,11 +708,11 @@ class discrete_explicit(object):
                     else:
                         other_species_data = mort_fluxes[-1]
 
-                    # If multiple species are contributing to the recipient, they must be added
+                    # If multiple species are contributing to the recipient, they must be added in a delayed fashion
                     try:
-                        output[other_species_key] += other_species_data
+                        _delayed[other_species_key] += other_species_data
                     except KeyError:
-                        output[other_species_key] = other_species_data
+                        _delayed[other_species_key] = other_species_data
 
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
@@ -699,79 +721,79 @@ class discrete_explicit(object):
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
             if not species_instance.live_past_max and max_age is not None and age == max_age:
                 output['{}/mortality/{}'.format(flux_prefix, 'Old Age')] += population
+                # All done with this population
+                continue
 
+            # Apply dispersal
+            # TODO: Do children receive dispersal of any parent species classes?
+
+            static_population = population
+
+            for dispersal_method, args in species_instance.dispersal:
+                args = args + (self.D.csx, self.D.csy)
+                # Gather a mask if it exists
+                mask_ds = self.D.get_mask(species, self.current_time, sex, group)
+                if mask_ds is not None:
+                    mask_ds = da.from_array(self.D[mask_ds], self.D.chunks)
+                disp_kwargs = {'mask': mask_ds}
+                population = dispersal.apply(population,
+                                             self.population_arrays[species]['total'],
+                                             self.carrying_capacity_arrays[species]['total'],
+                                             dispersal_method, args, **disp_kwargs)
+
+            if species_instance.contributes_to_density:
+                # Avoid density-dependent mortality when dispersal has occurred
+                # NOTE: This may still leave a higher density than the threshold if dispersal has exceeded the
+                #  carrying capacity, as the DDM rate does not increase (only decreases to ensure dispersal
+                #  results in populations being allowed to live where their density has become lower).
+                #  Increasing the rate to account for dispersed populations may result in excessive
+                #  population reduction to below the carrying capacity. Leave those to the next time step.
+                new_ddm_rate = da.where(
+                    population < static_population, ddm_rate - (1 - (population / static_population)),
+                    ddm_rate
+                )
+
+                ddm = da.where(new_ddm_rate > 0., population * new_ddm_rate, 0)
+
+                output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] += ddm
+
+                population -= ddm
+
+            # Propagate age by one increment and save to the current time step.
+            # If the input age is None, the population will simply propagate
+            if age is not None:
+                new_age = age + 1
             else:
-                # Apply dispersal to remaining population
-
-                # TODO: Do children receive dispersal of any parent species classes?
-
-                static_population = population
-
-                for dispersal_method, args in species_instance.dispersal:
-                    args = args + (self.D.csx, self.D.csy)
-                    # Gather a mask if it exists
-                    mask_ds = self.D.get_mask(species, self.current_time, sex, group)
-                    if mask_ds is not None:
-                        mask_ds = da.from_array(self.D[mask_ds], self.D.chunks)
-                    disp_kwargs = {'mask': mask_ds}
-                    population = dispersal.apply(population,
-                                                 self.population_arrays[species]['total'],
-                                                 self.carrying_capacity_arrays[species]['total'],
-                                                 dispersal_method, args, **disp_kwargs)
-
-                if species_instance.contributes_to_density:
-                    # Avoid density-dependent mortality when dispersal has occurred
-                    # NOTE: This may still leave a higher density than the threshold if dispersal has exceeded the
-                    #  carrying capacity, as the DDM rate does not increase (only decreases to ensure dispersal
-                    #  results in populations being allowed to live where their density has become lower).
-                    #  Increasing the rate to account for dispersed populations may result in excessive
-                    #  population reduction to below the carrying capacity. Leave those to the next time step.
-                    new_ddm_rate = da.where(
-                        population < static_population, ddm_rate - (1 - (population / static_population)),
-                        ddm_rate
-                    )
-
-                    ddm = da.where(new_ddm_rate > 0., population * new_ddm_rate, 0)
-
-                    output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] += ddm
-
-                    population -= ddm
-
-                # Propagate age by one increment and save to the current time step.
-                # If the input age is None, the population will simply propagate
-                if age is not None:
-                    new_age = age + 1
+                new_age = age
+            new_group = self.D.group_from_age(species, sex, new_age)
+            if new_group is None:
+                # No group past this point. If there is a legitimate age, this means that live_past_max is True
+                if max_age is not None and age == max_age:
+                    # Need to add an age sequentially to the current group
+                    self.D.species[species][sex][group].max_age += 1
+                    new_group = group
                 else:
-                    new_age = age
-                new_group = self.D.group_from_age(species, sex, new_age)
-                if new_group is None:
-                    # No group past this point. If there is a legitimate age, this means that live_past_max is True
-                    if max_age is not None and age == max_age:
-                        # Need to add an age sequentially to the current group
-                        self.D.species[species][sex][group].max_age += 1
-                        new_group = group
-                    else:
-                        new_age = None
+                    new_age = None
 
-                # Lastly, apply minimum viable population calculations if necessary
-                if species_instance.minimum_viable_population > 0:
-                    population = dispersal.minimum_viable_population(
-                        population, species_instance.minimum_viable_population, species_instance.minimum_viable_area,
-                        self.D.csx, self.D.csy
-                    )
+            # Lastly, apply minimum viable population calculations if necessary
+            if species_instance.minimum_viable_population > 0:
+                population = dispersal.minimum_viable_population(
+                    population, species_instance.minimum_viable_population, species_instance.minimum_viable_area,
+                    self.D.csx, self.D.csy
+                )
 
-                key = '{}/{}/{}/{}/{}'.format(species, sex, new_group, time, new_age)
-                try:
-                    # In case a duplicate key exists, addition is first attempted at the
-                    # current time step for immigration/emigration
-                    output[key] = da.from_array(self.D[key], chunks=self.D.chunks) + population
-                    # Do not allow negative populations
-                    output[key] = da.where(output[key] < 0, 0, output[key])
-                except KeyError:
-                    output[key] = population
+            key = '{}/{}/{}/{}/{}'.format(species, sex, new_group, time, new_age)
+            try:
+                # In case a duplicate key exists, addition is first attempted at the
+                # current time step for immigration/emigration
+                _delayed[key] = da.from_array(self.D[key], chunks=self.D.chunks) + population
+                # Do not allow negative populations
+                _delayed[key] = da.where(_delayed[key] < 0, 0, _delayed[key])
+            except KeyError:
+                output[key] = da.where(population < 0, 0, population)
 
         # Return output so that it may be included in the final compute call
-        return output
+        return output, _delayed
 
     @time_this
     def calculate_parameters(self, species, sex, group, time):
@@ -837,7 +859,7 @@ class discrete_explicit(object):
                 fec = self.collect_parameter(instance, data)
                 fec *= dynamic.collect(
                     None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
-                    lookup_table=instance.fecundity_lookup
+                    lookup_table=instance.fecundity_lookup, **{'chunks': self.D.chunks}
                 )
                 # Fecundity scales from a low threshold to high and is reduced linearly using a specified rate
                 density_fecundity_threshold = getattr(instance, 'density_fecundity_threshold')
@@ -859,7 +881,8 @@ class discrete_explicit(object):
                 # Apply randomness
                 if getattr(instance, 'random_method', False):
                     fec = dynamic.collect(
-                        fec, random_method=instance.random_method, random_args=instance.random_args
+                        fec, random_method=instance.random_method, random_args=instance.random_args,
+                        **{'chunks': self.D.chunks}
                     )
 
                 fec = da.where(fec > 0, fec, 0)
@@ -880,6 +903,6 @@ class discrete_explicit(object):
             # Defaults to 0
             parameters['Fecundity'] = da_zeros(self.D.shape, self.D.chunks)
         else:
-            parameters['Fecundity'] = da.dstack(fec_arrays).sum(axis=-1)
+            parameters['Fecundity'] = dstack(fec_arrays).sum(axis=-1)
 
         return parameters
