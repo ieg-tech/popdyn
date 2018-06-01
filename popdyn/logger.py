@@ -190,12 +190,13 @@ def write_xlsx(domain, output_directory):
                 for col, _time in enumerate(map(str, file_dict['Time'])):
                     tb.write(0, col + 2, float(_time), bold)
                 _row = 0
-                for species, itemList in species_dict.items():
+                for species, cc_dict in species_dict.items():
                     _row += 1
                     tb.write(_row, 0, species)
-                    tb.write(_row, 1, 'Total')
-                    for _col, item in enumerate(itemList):
-                        wb_write(_row, _col + 2, str(item))
+                    for ds_type, itemList in cc_dict.items():
+                        tb.write(_row, 1, ds_type)
+                        for _col, item in enumerate(itemList):
+                            wb_write(_row, _col + 2, str(item))
                 tb.set_column(0, 0, max([len(sp) for sp in species_dict.keys()] + [len('Species')]))
                 tb.set_column(1, 1, len('Carrying Capacity'))
                 continue
@@ -281,7 +282,7 @@ def write_xlsx(domain, output_directory):
                                     chartRows['{} Total'.format(gp)][0]),
                                  '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population'][1])),
                                  'Population', '{} Total Population By Age Class'.format(species))
-                                for gp in male_age_groups + female_age_groups],
+                                for gp in np.unique(male_age_groups + female_age_groups)],
                               [('Total Females', '=Population!$D${}:${}${}'.format(
                                     chartRows['Total Females'][0],
                                     index_to_char(chartRows['Total Females'][1]),
@@ -337,7 +338,7 @@ def write_xlsx(domain, output_directory):
                                   chartRows['{} Total offspring'.format(gp)][0]),
                                 '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
                                 'New Population', '{} New Offspring from each Female Age Class'.format(species))
-                               for gp in male_age_groups + female_age_groups],
+                               for gp in np.unique(male_age_groups + female_age_groups)],
                               [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                                   chartRows['All deaths'][0],
                                   index_to_char(chartRows['All deaths'][1]),
@@ -368,7 +369,7 @@ def write_xlsx(domain, output_directory):
                                   chartRows['{} Total deaths'.format(gp)][0]),
                                 '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
                                 'Deaths', '{} Total Mortality by Age Class'.format(species))
-                               for gp in male_age_groups + female_age_groups],
+                               for gp in np.unique(male_age_groups + female_age_groups)],
                               [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                                   chartRows['All deaths'][0],
                                   index_to_char(chartRows['All deaths'][1]),
@@ -492,9 +493,8 @@ def write_xlsx(domain, output_directory):
 
         afw.write(0, 3, 'Computing "Harvest Permits" in Alces Online Population Dynamics', bold)
 
-        # **
-        # Note: it is assumed that age group names are identical
-        # **
+        # Add female age groups to males to be inclusive for the remainder of writing
+        male_age_groups = list(np.unique(male_age_groups + female_age_groups))
 
         # Block 1
         afw.write(3, 3, 'Current Pre-Hunting Season Population Size and Composition', bold)
@@ -718,7 +718,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 93, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(93, col + 4, gp, black)
-
+            afw.write(94, col + 4, 0, yellow)
+            afw.write(95, col + 4, 0, yellow)
+            afw.write(96, col + 4, '=AVERAGE({0}95:{0}96)'.format(index_to_char(col + 4)), green)
+        afw.write(93, len(male_age_groups) + 4, 'Average', black)
+        for row in range(94, 97):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 10
         afw.write(98, 3, 'Carcass Weight (Kilograms)', bold)
@@ -726,7 +733,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 99, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(99, col + 4, gp, black)
-
+            afw.write(100, col + 4, 0, yellow)
+            afw.write(101, col + 4, 0, yellow)
+            afw.write(102, col + 4, '=AVERAGE({0}101:{0}102)'.format(index_to_char(col + 4)), green)
+        afw.write(99, len(male_age_groups) + 4, 'Average', black)
+        for row in range(100, 103):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 11
         afw.write(104, 3, 'Trophy Metrics (Relative Scale)', bold)
@@ -734,7 +748,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 105, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(105, col + 4, gp, black)
-
+            afw.write(106, col + 4, 0, yellow)
+            afw.write(107, col + 4, 0, yellow)
+            afw.write(108, col + 4, '=AVERAGE({0}107:{0}108)'.format(index_to_char(col + 4)), green)
+        afw.write(105, len(male_age_groups) + 4, 'Average', black)
+        for row in range(106, 109):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 12
         afw.write(111, 3, 'Economic-based inputs', bold)
@@ -744,7 +765,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 114, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(114, col + 4, gp, black)
-
+            afw.write(115, col + 4, 0, yellow)
+            afw.write(116, col + 4, 0, yellow)
+            afw.write(117, col + 4, '=AVERAGE({0}116:{0}117)'.format(index_to_char(col + 4)), green)
+        afw.write(114, len(male_age_groups) + 4, 'Average', black)
+        for row in range(115, 118):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 13
         afw.write(119, 3, 'Cost of Outifitter License ($/license)', bold)
@@ -752,7 +780,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 120, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(120, col + 4, gp, black)
-
+            afw.write(121, col + 4, 0, yellow)
+            afw.write(122, col + 4, 0, yellow)
+            afw.write(123, col + 4, '=AVERAGE({0}122:{0}123)'.format(index_to_char(col + 4)), green)
+        afw.write(120, len(male_age_groups) + 4, 'Average', black)
+        for row in range(121, 124):
+            afw.write(row, len(male_age_groups) + 4, '=AVERAGE({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 14
         afw.write(125, 3, 'General License Revenue ($)', bold)
@@ -760,7 +795,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 126, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(126, col + 4, gp, black)
-
+            afw.write(127, col + 4, 0, yellow)
+            afw.write(128, col + 4, 0, yellow)
+            afw.write(129, col + 4, '=SUM({0}128:{0}129)'.format(index_to_char(col + 4)), green)
+        afw.write(126, len(male_age_groups) + 4, 'Sum', black)
+        for row in range(127, 130):
+            afw.write(row, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         # Block 15
         afw.write(131, 3, 'Outfitter License Revenue ($)', bold)
@@ -768,8 +810,14 @@ def write_xlsx(domain, output_directory):
             afw.write(row + 132, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
             afw.write(132, col + 4, gp, black)
-
-
+            afw.write(133, col + 4, 0, yellow)
+            afw.write(134, col + 4, 0, yellow)
+            afw.write(135, col + 4, '=SUM({0}134:{0}135)'.format(index_to_char(col + 4)), green)
+        afw.write(132, len(male_age_groups) + 4, 'Sum', black)
+        for row in range(133, 136):
+            afw.write(row, len(male_age_groups) + 4, '=SUM({0}{2}:{1}{2})'.format(
+                index_to_char(4), index_to_char(len(male_age_groups) + 3), row + 1
+            ), green)
 
         afw.set_column(2, 2, 40)
         afw.set_column(3, 3, 13)

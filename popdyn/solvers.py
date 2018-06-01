@@ -569,14 +569,6 @@ class discrete_explicit(object):
         :param time:
         :return:
         """
-
-        # try:
-        #     test = self.D.file['cwdpos/female/oldadults/2011/6'][:]
-        #     print('{} {} {} {} {}'.format(species, sex, group, time, test.min()))
-        # except KeyError:
-        #     pass
-
-
         # Collect some meta on the species
         # -----------------------------------------------------------------
         species_instance = self.D.species[species][sex][group]
@@ -625,6 +617,8 @@ class discrete_explicit(object):
             # The total population of this group is used, as fecundity will be 0
             # within groups that do not reproduce
             output['{}/fecundity/{}'.format(param_prefix, 'Fecundity')] = params['Fecundity']
+            output['{}/fecundity/{}'.format(param_prefix, 'Density-Based Fecundity Reduction Rate')] = \
+                params['Density-Based Fecundity Reduction Rate']
             births = params['Population'] * params['Fecundity']
             male_births = births * params.get('Birth Ratio', 0.5)
             female_births = births - male_births
@@ -755,6 +749,7 @@ class discrete_explicit(object):
 
                 ddm = da.where(new_ddm_rate > 0., population * new_ddm_rate, 0)
 
+                output['{}/mortality/{}'.format(param_prefix, 'Density Dependent Rate')] = new_ddm_rate
                 output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] += ddm
 
                 population -= ddm
@@ -854,6 +849,7 @@ class discrete_explicit(object):
         fec_arrays = []
         for instance, data in fecundity:
             # First, check if the species multiplies
+            avg_mod = 0
             if getattr(instance, 'multiplies'):
                 # Filtered through its density lookup table
                 fec = self.collect_parameter(instance, data)
@@ -877,6 +873,8 @@ class discrete_explicit(object):
                     )
 
                 fec -= fec * fec_mod
+
+                avg_mod += fec_mod
 
                 # Apply randomness
                 if getattr(instance, 'random_method', False):
@@ -902,7 +900,9 @@ class discrete_explicit(object):
         if len(fec_arrays) == 0:
             # Defaults to 0
             parameters['Fecundity'] = da_zeros(self.D.shape, self.D.chunks)
+            parameters['Density-Based Fecundity Reduction Rate'] = da_zeros(self.D.shape, self.D.chunks)
         else:
             parameters['Fecundity'] = dstack(fec_arrays).sum(axis=-1)
+            parameters['Density-Based Fecundity Reduction Rate'] = avg_mod / len(fec_arrays)
 
         return parameters

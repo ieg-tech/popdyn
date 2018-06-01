@@ -245,7 +245,7 @@ def total_offspring(domain, species=None, time=None, sex=None, group=None, offsp
         return pd.dstack(offspring).sum(axis=-1).compute()
 
 
-def fecundity(domain, species=None, time=None, sex=None, group=None):
+def fecundity(domain, species=None, time=None, sex=None, group=None, coeff=False):
     """
     Collect the total fecundity using the given query
     :param Domain domain: Domain object
@@ -257,12 +257,18 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
     """
     species, time, sex, group = collect_iterables(domain, species, time, sex, group)
 
+    # Determine whether the fecundity value, or the density-based coefficient should be return
+    if coeff:
+        _type = 'Density-Based Fecundity Reduction Rate'
+    else:
+        _type = 'Fecundity'
+
     _fecundity = []
     for t in time:
         for sp in species:
             for s in sex:
                 for gp in group:
-                    fec = '{}/{}/{}/{}/params/fecundity/Fecundity'.format(sp, s, gp, t)
+                    fec = '{}/{}/{}/{}/params/fecundity/{}'.format(sp, s, gp, t, _type)
                     try:
                         _fecundity.append(da.from_array(domain[fec], domain.chunks))
                     except KeyError:
@@ -271,7 +277,10 @@ def fecundity(domain, species=None, time=None, sex=None, group=None):
     if len(_fecundity) == 0:
         return np.zeros(shape=domain.shape, dtype=np.float32)
     else:
-        return pd.dstack(_fecundity).sum(axis=-1).compute()
+        if coeff:
+            return pd.dstack(_fecundity).mean(axis=-1).compute()
+        else:
+            return pd.dstack(_fecundity).sum(axis=-1).compute()
 
 
 def model_summary(domain):
@@ -315,9 +324,21 @@ def model_summary(domain):
 
         # Carrying Capacity NOTE: This should be summarized by group in the future
         ds = []
+        change_ds = []
         for time in model_times:
-            ds.append(total_carrying_capacity(domain, species, time).sum())
+            cc_a = total_carrying_capacity(domain, species, time)
+            total_cc = cc.sum()
+            if time == model_times[0]:
+                change_ds.append(1.)
+                first_cc = cc_a.max()
+            else:
+                if first_cc > 0:
+                    change_ds.append(cc_a.max() / first_cc)
+                else:
+                    change_ds.append(0.)
+            ds.append(total_cc)
         sp_log['Habitat'][species_name] = ds
+        sp_log['Habitat'][species_name] = change_ds
 
         # Collect average ages
         ave_ages = []
@@ -355,6 +376,12 @@ def model_summary(domain):
             for time in model_times:
                 ds.append(total_mortality(domain, species, time, mortality_name=mort_type).sum())
             sp_log['Mortality'][species_name]['NA']['Total deaths from {}'.format(mort_type)] = ds
+
+        # Density coefficient
+        dd_fec_ds = []
+        for time in model_times:
+            dd_fec_ds.append(fecundity(domain, species, time, coeff=True).sum())
+        sp_log['Natality'][species_name]['NA']['Density-Based Fecundity Reduction Rate'] = dd_fec_ds
 
         # Iterate groups and populate data
         for sex in ['male', 'female']:
