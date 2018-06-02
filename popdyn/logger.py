@@ -191,9 +191,9 @@ def write_xlsx(domain, output_directory):
                     tb.write(0, col + 2, float(_time), bold)
                 _row = 0
                 for species, cc_dict in species_dict.items():
-                    _row += 1
-                    tb.write(_row, 0, species)
                     for ds_type, itemList in cc_dict.items():
+                        _row += 1
+                        tb.write(_row, 0, species)
                         tb.write(_row, 1, ds_type)
                         for _col, item in enumerate(itemList):
                             wb_write(_row, _col + 2, str(item))
