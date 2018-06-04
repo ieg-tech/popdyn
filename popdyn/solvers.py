@@ -860,12 +860,10 @@ class discrete_explicit(object):
                 # Fecundity scales from a low threshold to high and is reduced linearly using a specified rate
                 density_fecundity_threshold = getattr(instance, 'density_fecundity_threshold')
                 density_fecundity_max = getattr(instance, 'density_fecundity_max')
-                fecundity_reduction_rate = max(1., getattr(instance, 'fecundity_reduction_rate'))
+                fecundity_reduction_rate = min(1., getattr(instance, 'fecundity_reduction_rate'))
 
                 input_range = max(0., density_fecundity_max - density_fecundity_threshold)
                 density_range = parameters['Density'] - density_fecundity_threshold
-
-                print('{}: {} {} {} fecundity_reduction_rate: {}'.format(time, species, sex, group, fecundity_reduction_rate))
 
                 if input_range == 0:
                     fec_mod = da.where(density_range > 0, fecundity_reduction_rate, 0.)
