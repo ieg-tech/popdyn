@@ -407,9 +407,10 @@ def model_summary(domain):
             ] = ave_ages
 
             # Offspring by sex
+            offspring_sex = sex[0].upper() + sex[1:] + ' Offspring'
             ds = []
             for time in model_times:
-                ds.append(total_offspring(domain, species, time, sex).sum())
+                ds.append(total_offspring(domain, species, time, sex, offspring_sex=offspring_sex).sum())
             sp_log['Natality'][species_name]['NA']['{} offspring'.format(sex_str[0].upper() + sex_str[1:])] = ds
 
             # Collect deaths by sex
@@ -464,22 +465,29 @@ def model_summary(domain):
                 ] = gp_sex_pop
 
                 # Natality
-                # Fecundity rate
-                ds = []
-                for time in model_times:
-                    ds.append(fecundity(domain, species, time, sex, gp).mean())
-                sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex_str)] = ds
                 # Offspring
+                offspring_sex = sex[0].upper() + sex[1:] + ' Offspring'
                 ds = []
                 for time in model_times:
                     ds.append(total_offspring(domain, species, time, sex, gp).sum())
                 sp_log['Natality'][species_name][group_name]['Total offspring'] = ds
-                # Density coefficient
+                ds = []
+                for time in model_times:
+                    ds.append(total_offspring(domain, species, time, sex, gp, offspring_sex=offspring_sex).sum())
+                sp_log['Natality'][species_name][group_name]['{} offspring'.format(sex_str[0].upper() + sex_str[1:])] = ds
+
                 if sex == 'female':
+                    # Density coefficient
                     dd_fec_ds = []
                     for time in model_times:
-                        dd_fec_ds.append(fecundity(domain, species, time, sex, gp, coeff=True).sum())
+                        dd_fec_ds.append(fecundity(domain, species, time, sex, gp, coeff=True).mean())
                     sp_log['Natality'][species_name][group_name]['Density-Based Fecundity Reduction Rate'] = dd_fec_ds
+
+                    # Fecundity rate
+                    ds = []
+                    for time in model_times:
+                        ds.append(fecundity(domain, species, time, sex, gp).mean())
+                    sp_log['Natality'][species_name][group_name]['{} mean fecundity'.format(sex_str)] = ds
 
                 # Mortality
                 # Male/Female by group

@@ -847,9 +847,9 @@ class discrete_explicit(object):
         # Calculate the fecundity values]
         # Fecundity is collected then aggregated
         fec_arrays = []
+        avg_mod = 0
         for instance, data in fecundity:
             # First, check if the species multiplies
-            avg_mod = 0
             if getattr(instance, 'multiplies'):
                 # Filtered through its density lookup table
                 fec = self.collect_parameter(instance, data)
