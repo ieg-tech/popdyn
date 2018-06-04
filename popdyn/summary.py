@@ -378,12 +378,6 @@ def model_summary(domain):
                 ds.append(total_mortality(domain, species, time, mortality_name=mort_type).sum())
             sp_log['Mortality'][species_name]['NA']['Total deaths from {}'.format(mort_type)] = ds
 
-        # # Density coefficient
-        # dd_fec_ds = []
-        # for time in model_times:
-        #     dd_fec_ds.append(fecundity(domain, species, time, coeff=True).sum())
-        # sp_log['Natality'][species_name]['NA']['Density-Based Fecundity Reduction Rate'] = dd_fec_ds
-
         # Iterate groups and populate data
         for sex in ['male', 'female']:
             sp_log['Parameterization']['Age Groups'][sex] = []
@@ -480,6 +474,12 @@ def model_summary(domain):
                 for time in model_times:
                     ds.append(total_offspring(domain, species, time, sex, gp).sum())
                 sp_log['Natality'][species_name][group_name]['Total offspring'] = ds
+                # Density coefficient
+                if sex == 'female':
+                    dd_fec_ds = []
+                    for time in model_times:
+                        dd_fec_ds.append(fecundity(domain, species, time, sex, gp, coeff=True).sum())
+                    sp_log['Natality'][species_name][group_name]['Density-Based Fecundity Reduction Rate'] = dd_fec_ds
 
                 # Mortality
                 # Male/Female by group

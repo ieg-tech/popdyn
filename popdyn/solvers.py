@@ -880,7 +880,7 @@ class discrete_explicit(object):
                 if getattr(instance, 'random_method', False):
                     fec = dynamic.collect(
                         fec, random_method=instance.random_method, random_args=instance.random_args,
-                        **{'chunks': self.D.chunks}
+                        apply_using_mean=instance.apply_using_mean, **{'chunks': self.D.chunks}
                     )
 
                 fec = da.where(fec > 0, fec, 0)

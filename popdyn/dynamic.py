@@ -102,10 +102,11 @@ def collect(data, **kwargs):
         if random_args is None:
             raise DynamicError('If a random method is supplied, random arguments may not be NoneType')
         if kwargs.get('apply_using_mean'):
-            data = data + (getattr(da.random,
-                                   random_method)(data.mean(), chunks=kwargs.get('chunks'), **random_args) - data)
+            data = data + (getattr(da.random, random_method)(data[data != 0].mean(),
+                                                             chunks=kwargs.get('chunks'), **random_args) - data)
             data = da.where(data < 0, 0, data)
         else:
             data = data.map_blocks(apply_random, random_method, **random_args)
+            data = da.where(data < 0, 0, data)
 
     return data
