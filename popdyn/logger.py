@@ -144,7 +144,7 @@ def write_xlsx(domain, output_directory):
             if val == 0:
                 tb.write(row, col, val, grey)
             else:
-                tb.write(row, col, val)
+                tb.write(row, col, val, normal_num)
         except ValueError:
             tb.write(row, col, val)
 
@@ -166,6 +166,9 @@ def write_xlsx(domain, output_directory):
         grey = wb.add_format()
         grey.set_pattern(1)  # This is optional when using a solid fill.
         grey.set_bg_color('#D3D3D3')
+        grey.set_num_format('#,##0.0000')
+        normal_num = wb.add_format()
+        normal_num.set_num_format('#,##0.0000')
 
         male_age_groups = file_dict['Parameterization']['Age Groups']['male']
         female_age_groups = file_dict['Parameterization']['Age Groups']['female']

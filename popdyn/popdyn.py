@@ -389,6 +389,7 @@ class Domain(object):
             #             pdb.post_mortem(tb)
             # ###
 
+            # Operations are optimized in this function
             da.store(list(datasets.values()), dsets)
 
             for key in list(datasets.keys()):

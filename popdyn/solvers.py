@@ -853,10 +853,20 @@ class discrete_explicit(object):
             if getattr(instance, 'multiplies'):
                 # Filtered through its density lookup table
                 fec = self.collect_parameter(instance, data)
+
+                # Apply random perturbation first
+                # Apply randomness
+                if getattr(instance, 'random_method', False):
+                    fec = dynamic.collect(
+                        fec, random_method=instance.random_method, random_args=instance.random_args,
+                        apply_using_mean=instance.apply_using_mean, **{'chunks': self.D.chunks}
+                    )
+
                 fec *= dynamic.collect(
                     None, lookup_data=self.population_arrays[species]['Female to Male Ratio'],
                     lookup_table=instance.fecundity_lookup, **{'chunks': self.D.chunks}
                 )
+
                 # Fecundity scales from a low threshold to high and is reduced linearly using a specified rate
                 density_fecundity_threshold = getattr(instance, 'density_fecundity_threshold')
                 density_fecundity_max = getattr(instance, 'density_fecundity_max')
@@ -875,13 +885,6 @@ class discrete_explicit(object):
                 fec -= fec * fec_mod
 
                 avg_mod += fec_mod
-
-                # Apply randomness
-                if getattr(instance, 'random_method', False):
-                    fec = dynamic.collect(
-                        fec, random_method=instance.random_method, random_args=instance.random_args,
-                        apply_using_mean=instance.apply_using_mean, **{'chunks': self.D.chunks}
-                    )
 
                 fec = da.where(fec > 0, fec, 0)
 

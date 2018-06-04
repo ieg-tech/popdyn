@@ -326,20 +326,26 @@ def model_summary(domain):
         ds = []
         change_ds = []
         first_cc = None
+        cc_mean_zero = []
+        cc_mean_nonzero = []
         for time in model_times:
             cc_a = total_carrying_capacity(domain, species, time)
             total_cc = cc_a.sum()
             if time == model_times[0]:
                 change_ds.append(1.)
             else:
+                cc_a_mean = cc_a.mean()
+                cc_mean_zero.append(cc_a_mean)
+                cc_mean_nonzero.append(cc_a[cc_a != 0].mean() if not np.all(cc_a == 0) else 0)
                 if first_cc is None:
-                    first_cc = cc_a.max()
+                    first_cc = cc_a.mean()
                 if first_cc > 0:
-                    change_ds.append(cc_a.max() / first_cc)
+                    change_ds.append(cc_a_mean / first_cc)
                 else:
                     change_ds.append(0.)
             ds.append(total_cc)
-        sp_log['Habitat'][species_name] = {'Total': ds, 'Relative Change': change_ds}
+        sp_log['Habitat'][species_name] = {'Total': ds, 'Relative Change': change_ds,
+                                           'Mean (including zeros)': cc_mean_zero, 'Mean (no zeros)': cc_mean_nonzero}
 
         # Collect average ages
         ave_ages = []
