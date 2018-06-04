@@ -865,6 +865,8 @@ class discrete_explicit(object):
                 input_range = max(0., density_fecundity_max - density_fecundity_threshold)
                 density_range = parameters['Density'] - density_fecundity_threshold
 
+                print('{}: {} {} {} fecundity_reduction_rate: {}'.format(time, species, sex, group, fecundity_reduction_rate))
+
                 if input_range == 0:
                     fec_mod = da.where(density_range > 0, fecundity_reduction_rate, 0.)
                 else:
