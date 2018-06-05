@@ -691,7 +691,12 @@ class discrete_explicit(object):
                             other_species.name, age, other_species.group_name)
                         )
 
-                    output['{}/mortality/Converted to {}'.format(flux_prefix, other_species.name)] = mort_fluxes[-1]
+                    try:
+                        output['{}/mortality/Converted to {}'.format(
+                            flux_prefix, other_species.name)] += mort_fluxes[-1]
+                    except KeyError:
+                        output['{}/mortality/Converted to {}'.format(
+                            flux_prefix, other_species.name)] = mort_fluxes[-1]
 
                     other_species_key = '{}/{}/{}/{}/{}'.format(
                         other_species.name_key, other_species.sex, other_species.group_key, time, age

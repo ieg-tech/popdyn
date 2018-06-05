@@ -123,7 +123,10 @@ def write_xlsx(domain, output_directory):
     # Create the output directory based on time
     if not os.path.isdir(output_directory):
         raise LoggerError('The output directory must be a directory')
-    path = os.path.join(output_directory, datetime.now(tzlocal()).strftime('popdyn_%d%B%Y_%I%M%p'))
+
+    strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
+
+    path = os.path.join(output_directory, 'popdyn_{}'.format(strftime))
 
     # In case two model summaries occur within the same minute...
     second = 0
@@ -159,7 +162,7 @@ def write_xlsx(domain, output_directory):
 
         species_name = list(file_dict['Population'].keys())[0]
 
-        species_path = os.path.join(path, '{}.xlsx'.format(species_key))
+        species_path = os.path.join(path, '{}_{}.xlsx'.format(species_key, strftime))
 
         wb = xlsxwriter.Workbook(species_path)
         bold = wb.add_format({'bold': True})
@@ -173,6 +176,9 @@ def write_xlsx(domain, output_directory):
         male_age_groups = file_dict['Parameterization']['Age Groups']['male']
         female_age_groups = file_dict['Parameterization']['Age Groups']['female']
 
+        col_width = 0
+        col_count = None
+
         chartRowIndex = {}
         for tab_key, species_dict in file_dict.items():
             if tab_key == 'Time':
@@ -180,6 +186,7 @@ def write_xlsx(domain, output_directory):
             tb = wb.add_worksheet(tab_key)
             if tab_key == 'Parameterization':
                 _row = -1
+                col_count = len(species_dict)
                 for col_1, col_2 in species_dict.items():
                     _row += 1
                     tb.write(_row, 0, col_1, bold)
@@ -193,6 +200,7 @@ def write_xlsx(domain, output_directory):
                 for col, _time in enumerate(map(str, file_dict['Time'])):
                     tb.write(0, col + 2, float(_time), bold)
                 _row = 0
+                col_count = len(species_dict)
                 for species, cc_dict in species_dict.items():
                     for ds_type, itemList in cc_dict.items():
                         _row += 1
@@ -209,6 +217,7 @@ def write_xlsx(domain, output_directory):
                 tb.write(2, 0, 'Function', bold)
                 tb.write(2, 1, 'Cumulative time (seconds)', bold)
                 _row = 2
+                col_count = len(species_dict)
                 for col_1 in species_dict[1:]:
                     _row += 1
                     items = col_1.split(',')
@@ -245,11 +254,16 @@ def write_xlsx(domain, output_directory):
                         tb.write(row, 0, str(species))
                         tb.write(row, 1, str(group))
                         tb.write(row, 2, str(name))
+                        col_count = len(itemList)
                         for col, item in enumerate(itemList):
-                            wb_write(row, col + 3, str(item))
+                            str_item = str(item)
+                            wb_write(row, col + 3, str(str_item))
+                            if len(str_item) > col_width:
+                                col_width = len(str_item)
             tb.set_column(0, 0, spLen)
             tb.set_column(1, 1, gpLen)
             tb.set_column(2, 2, nameLen)
+            tb.set_column('{}:{}'.format(index_to_char(3), index_to_char(col_count + 3)), col_width)
 
         try:
             # Add charts
@@ -443,7 +457,51 @@ def write_xlsx(domain, output_directory):
                                  'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))\
                                 for mm in summary.list_mortality_types(
                                    domain, name_key(species), None, 'female'
-                               ).tolist()]
+                               ).tolist()],
+                               # Lambda
+                               [('Total', '=Population!$D${}:${}${}'.format(
+                                   chartRows['Total Population Lambda'][0],
+                                   index_to_char(chartRows['Total Population Lambda'][1]),
+                                   chartRows['Total Population Lambda'][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['Total Population Lambda'][1])),
+                                 'Lambda (t+1/t)', '{} Population Lambda'.format(species))] +
+                               [('{}'.format(gp), '=Population!$D${}:${}${}'.format(
+                                   chartRows['{} Lambda'.format(gp)][0],
+                                   index_to_char(chartRows['{} Lambda'.format(gp)][1]),
+                                   chartRows['{} Lambda'.format(gp)][0]),
+                                 '=Population!$D$1:${}$1'.format(index_to_char(chartRows['{} Lambda'.format(gp)][1])),
+                                 'Lambda (t+1/t)', '{} Population Lambda'.format(species))
+                                for gp in np.unique(male_age_groups + female_age_groups)],
+                               # Sex Ratio
+                               [('Total', '=Natality!$D${}:${}${}'.format(
+                                   chartRows['F:M Ratio'][0],
+                                   index_to_char(chartRows['F:M Ratio'][1]),
+                                   chartRows['F:M Ratio'][0]),
+                                 '=Natality!$D$1:${}$1'.format(
+                                     index_to_char(chartRows['F:M Ratio'][1])),
+                                 'Sex Ratio', '{} F:M Sex Ratio'.format(species))] +
+                               [('{}'.format(gp), '=Natality!$D${}:${}${}'.format(
+                                   chartRows['{} F:M Ratio'.format(gp)][0],
+                                   index_to_char(chartRows['{} F:M Ratio'.format(gp)][1]),
+                                   chartRows['{} F:M Ratio'.format(gp)][0]),
+                                 '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['{} F:M Ratio'.format(gp)][1])),
+                                 'Sex Ratio', '{} F:M Sex Ratio'.format(species))
+                                for gp in np.unique(male_age_groups + female_age_groups)],
+                               # Fecundity
+                               [('Total', '=Natality!$D${}:${}${}'.format(
+                                   chartRows['Total offspring per female'][0],
+                                   index_to_char(chartRows['Total offspring per female'][1]),
+                                   chartRows['Total offspring per female'][0]),
+                                 '=Natality!$D$1:${}$1'.format(
+                                     index_to_char(chartRows['Total offspring per female'][1])),
+                                 'Offspring/Female', '{} Number of offspring per female'.format(species))] +
+                               [('{}'.format(gp), '=Natality!$D${}:${}${}'.format(
+                                   chartRows['{} offspring per female'.format(gp)][0],
+                                   index_to_char(chartRows['{} offspring per female'.format(gp)][1]),
+                                   chartRows['{} offspring per female'.format(gp)][0]),
+                                 '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['{} offspring per female'.format(gp)][1])),
+                                 'Offspring/Female', '{} Number of offspring per female'.format(species))
+                                for gp in np.unique(male_age_groups + female_age_groups)]
                               ]
 
             positions = []
