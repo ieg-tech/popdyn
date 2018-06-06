@@ -389,8 +389,11 @@ class Domain(object):
             #             pdb.post_mortem(tb)
             # ###
 
-            # Operations are optimized in this function
-            da.store(list(datasets.values()), dsets)
+            for ds, dset in zip(datasets.values(), dsets):
+                dset[:] = ds.compute()
+
+            # # Operations are optimized in this function
+            # da.store(list(datasets.values()), dsets)
 
             for key in list(datasets.keys()):
                 # Add population keys to domain
