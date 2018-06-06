@@ -728,7 +728,7 @@ class discrete_explicit(object):
             # Apply dispersal
             # TODO: Do children receive dispersal of any parent species classes?
 
-            static_population = population
+            static_population = population.copy()
 
             for dispersal_method, args in species_instance.dispersal:
                 args = args + (self.D.csx, self.D.csy)

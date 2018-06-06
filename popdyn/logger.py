@@ -210,6 +210,7 @@ def write_xlsx(domain, output_directory):
                             wb_write(_row, _col + 2, str(item))
                 tb.set_column(0, 0, max([len(sp) for sp in species_dict.keys()] + [len('Species')]))
                 tb.set_column(1, 1, len('Carrying Capacity'))
+                tb.set_column('{}:{}'.format(index_to_char(3), index_to_char(col_count + 3)), col_width)
                 continue
             elif tab_key == 'Solver':
                 tb.write(0, 0, 'Run Date', bold)
