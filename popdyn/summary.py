@@ -358,7 +358,7 @@ class ModelSummary(object):
         :return: dict of species and their parameters
         """
         lcl_cmp = {}  # Custom compute tree
-        model_times = self.model_times[1:]
+        model_times = self.model_times
 
         for species in self.summary.keys():
             # Collect the species name
@@ -390,9 +390,9 @@ class ModelSummary(object):
             lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
             key = 'Habitat/{}/Relative Change'.format(species_name)
             lcl_cmp[key] = da.concatenate(map(da.atleast_1d, change_ds))
-            key = 'Habitat/{}/Mean [including zeros] (n/km^2)'.format(species_name)
+            key = 'Habitat/{}/Mean [including zeros] (n per km. sq.)'.format(species_name)
             lcl_cmp[key] = da.concatenate(map(da.atleast_1d, cc_mean_zero))
-            key = 'Habitat/{}/Mean [excluding zeros] (n/km^2)'.format(species_name)
+            key = 'Habitat/{}/Mean [excluding zeros] (n per km. sq.)'.format(species_name)
             lcl_cmp[key] = da.concatenate(map(da.atleast_1d, cc_mean_nonzero))
 
             # Collect average ages
