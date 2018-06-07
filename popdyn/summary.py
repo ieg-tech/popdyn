@@ -357,10 +357,11 @@ class ModelSummary(object):
         :param domain: Domain instance
         :return: dict of species and their parameters
         """
-        lcl_cmp = {}  # Custom compute tree
         model_times = self.model_times
 
         for species in self.summary.keys():
+            lcl_cmp = {}  # Custom compute tree
+
             # Collect the species name
             try:
                 species_name = [name for name in self.domain.species_names if species == pd.name_key(name)][0]
