@@ -428,8 +428,8 @@ def write_xlsx(domain, output_directory):
                                    chartRows['Total deaths from {}'.format(mm)][0]),
                                  '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
                                  'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))
-                                for mm in summary.list_mortality_types(
-                                   domain, name_key(species), None
+                                for mm in ms.list_mortality_types(
+                                   name_key(species), None
                                ).tolist()],
                                [('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
                                    chartRows['Total male deaths'][0],
@@ -443,8 +443,8 @@ def write_xlsx(domain, output_directory):
                                    chartRows['Male deaths from {}'.format(mm)][0]),
                                  '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
                                  'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))
-                                for mm in summary.list_mortality_types(
-                                   domain, name_key(species), None, 'male'
+                                for mm in ms.list_mortality_types(
+                                   name_key(species), None, 'male'
                                ).tolist()],
                                [('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
                                    chartRows['Total female deaths'][0],
@@ -457,9 +457,9 @@ def write_xlsx(domain, output_directory):
                                    index_to_char(chartRows['Female deaths from {}'.format(mm)][1]),
                                    chartRows['Female deaths from {}'.format(mm)][0]),
                                  '=Mortality!$D$1:${}$1'.format(index_to_char(chartRows['All deaths'][1])),
-                                 'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))\
-                                for mm in summary.list_mortality_types(
-                                   domain, name_key(species), None, 'female'
+                                 'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))
+                                for mm in ms.list_mortality_types(
+                                   name_key(species), None, 'female'
                                ).tolist()],
                                # Lambda
                                [('Total', '=Population!$D${}:${}${}'.format(
@@ -591,7 +591,7 @@ def write_xlsx(domain, output_directory):
                                 file_dict['Population'][species_name][gp]['Males'][0]
                 else:
                     male_rate = 0
-            except TypeError:
+            except (TypeError, KeyError):
                 male_rate = 0
             try:
                 if file_dict['Population'][species_name][gp]['Females'][0] > 0:
@@ -599,7 +599,7 @@ def write_xlsx(domain, output_directory):
                                   file_dict['Population'][species_name][gp]['Females'][0]
                 else:
                     female_rate = 0
-            except TypeError:
+            except (TypeError, KeyError):
                 female_rate = 0
 
             female_rate = round(female_rate, 1)

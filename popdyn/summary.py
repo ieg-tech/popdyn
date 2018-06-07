@@ -41,7 +41,7 @@ class ModelSummary(object):
         self.model_times = self.all_times
 
         log = {'Time': self.model_times,
-               'Habitat': pd.rec_dd(), 'Population': pd.rec_dd(), 'Natality': pd.rec_dd(), 'Mortality': pd.rec_dd(),
+               'Habitat': {}, 'Population': {}, 'Natality': {}, 'Mortality': {},
                'Parameterization': {'Domain size': str(domain.shape),
                                     'Cell size (x)': domain.csx,
                                     'Cell size (y)': domain.csy,
@@ -465,7 +465,7 @@ class ModelSummary(object):
                 if sex == 'female':
                     # Collect offspring / female
                     key = 'Natality/{}/NA/Total offspring per female'.format(species_name)
-                    sp_log[key] = da.where(lcl_cmp['Population/{}/NA/Total Females'.format(species_name)] > 0,
+                    lcl_cmp[key] = da.where(lcl_cmp['Population/{}/NA/Total Females'.format(species_name)] > 0,
                                            lcl_cmp['Natality/{}/NA/Total new offspring'.format(species_name)] /
                                            lcl_cmp['Population/{}/NA/Total Females'.format(species_name)], np.inf)
 
@@ -672,9 +672,19 @@ class ModelSummary(object):
             # Populate the species log
             for target in targets:
                 _keys = target.key.split('/')
-                d = sp_log[_keys[0]]
+                try:
+                    d = sp_log[_keys[0]]
+                except KeyError:
+                    sp_log[_keys[0]] = {}
+                    d = sp_log[_keys[0]]
+
                 for key in _keys[1:-1]:
-                    d = d[key]
+                    try:
+                        d = d[key]
+                    except KeyError:
+                        d[key] = {}
+                        d = d[key]
+
                 d[_keys[-1]] = target.value.tolist()
 
     @property
