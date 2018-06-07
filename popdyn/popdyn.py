@@ -9,30 +9,17 @@ import os
 import pickle
 from string import punctuation
 import numpy as np
-from collections import defaultdict
 import dask.array as da
 import h5py
 from osgeo import gdal, osr
 import dispersal
 import dynamic
 from logger import time_this
+from util import *
 
 
 class PopdynError(Exception):
     pass
-
-
-def rec_dd():
-    """Recursively update defaultdicts to avoid key errors"""
-    return defaultdict(rec_dd)
-
-
-def dstack(dsts):
-    """dask.array.dstack with one array is slow"""
-    if len(dsts) > 1:
-        return da.dstack(dsts)
-    else:
-        return da.atleast_3d(dsts[0])
 
 
 class Domain(object):
@@ -366,15 +353,6 @@ class Domain(object):
             if len(datasets) == 0:
                 continue
 
-            # Force all data to float32, and place in a delayed location first
-            datasets = {key: val.astype(np.float32) if val.dtype != np.float32 else val
-                        for key, val in datasets.items()}
-
-            # Compute and dump the datasets (adapted from da.to_hdf5 to avoid opening file again)
-            dsets = [self.file.require_dataset(dp, shape=x.shape, dtype=x.dtype,
-                                               chunks=tuple([c[0] for c in x.chunks]), **{'compression': 'lzf'})
-                     for dp, x in datasets.items()]
-
             #### FOR DEBUGGING
             # for key, dset in datasets.items():
             #     try:
@@ -389,11 +367,15 @@ class Domain(object):
             #             pdb.post_mortem(tb)
             # ###
 
-            for ds, dset in zip(datasets.values(), dsets):
-                dset[:] = ds.compute()
+            # Force all data to float32, and place in a delayed location first
+            sources = list(ds.astype(np.float32) for ds in datasets.values())
 
-            # # Operations are optimized in this function
-            # da.store(list(datasets.values()), dsets)
+            # Create all necessary datasets in the file
+            targets = [self.file.require_dataset(dp, shape=self.shape, dtype=np.float32,
+                                                 chunks=self.chunks, **{'compression': 'lzf'})
+                       for dp in datasets.keys()]
+
+            store(sources, targets)
 
             for key in list(datasets.keys()):
                 # Add population keys to domain

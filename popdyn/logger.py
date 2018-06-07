@@ -137,7 +137,9 @@ def write_xlsx(domain, output_directory):
     os.mkdir(path)
 
     # Collect the summarize information from the domain
-    domain_dict = summary.model_summary(domain)
+    ms = summary.ModelSummary(domain)
+    ms.model_summary()
+    domain_dict = ms.summary
 
     def wb_write(row, col, val):
         try:

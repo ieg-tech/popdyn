@@ -12,11 +12,6 @@ class SolverError(Exception):
     pass
 
 
-def da_zeros(shape, chunks):
-    """Create a dask array of broadcasted zeros"""
-    return da.from_array(np.broadcast_to(np.float32(0), shape), chunks)
-
-
 def error_check(domain):
     """
     Make sure there are no conflicts within a domain.
