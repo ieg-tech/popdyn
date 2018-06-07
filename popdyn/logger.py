@@ -218,6 +218,8 @@ def write_xlsx(domain, output_directory):
                 tb.set_column(0, 0, max([len(sp) for sp in species_dict.keys()] + [len('Species')]))
                 tb.set_column(1, 1, len('Mean [excluding zeros] (n per km. sq.)'))
                 tb.set_column('{}:{}'.format(index_to_char(3), index_to_char(hb_col_cnt + 3)), hb_width)
+                tb.freeze_panes(0, 1)
+                tb.freeze_panes(0, 2)
                 continue
             elif tab_key == 'Solver':
                 tb.write(0, 0, 'Run Date', bold)
@@ -237,6 +239,9 @@ def write_xlsx(domain, output_directory):
             tb.write(0, 0, 'Species', bold)
             tb.write(0, 1, 'Group', bold)
             tb.write(0, 2, 'Item', bold)
+            tb.freeze_panes(0, 1)
+            tb.freeze_panes(0, 2)
+            tb.freeze_panes(0, 3)
             for col, _time in enumerate(map(str, file_dict['Time'])):
                 tb.write(0, col + 3, float(_time), bold)
             row = 0
