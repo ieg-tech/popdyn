@@ -31,12 +31,12 @@ def store(sources, targets):
     :param targets: target data store locations
     :return: None
     """
-    # For debugging
-    # -------------
-    for source, target in zip(sources, targets):
-        target[:] = source.compute()
-    return
-    # -------------
+    # # For debugging
+    # # -------------
+    # for source, target in zip(sources, targets):
+    #     target[:] = source.compute()
+    # return
+    # # -------------
 
     # Optimize all sources together
     sources_dsk = sharedict.merge(*[e.__dask_graph__() for e in sources])

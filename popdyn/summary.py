@@ -380,11 +380,11 @@ class ModelSummary(object):
                 self.total_carrying_capacity(species, time)
                 cc_a = self.to_compute[-1]
                 total_cc = cc_a.sum()
-                cc_a_mean = cc_a.mean() / (self.domain.csx * self.domain.csy * 1E6)  # Assuming metres
+                cc_a_mean = (cc_a.mean() / (self.domain.csx * self.domain.csy)) * 1E6  # Assuming metres
                 cc_mean_zero.append(cc_a_mean)
-                cc_mean_nonzero.append(cc_a[cc_a != 0].mean() / (self.domain.csx * self.domain.csy * 1E6))
+                cc_mean_nonzero.append((cc_a[cc_a != 0].mean() / (self.domain.csx * self.domain.csy)) * 1E6)
                 if first_cc is None:
-                    first_cc = cc_a.mean() / (self.domain.csx * self.domain.csy * 1E6)
+                    first_cc = (cc_a.mean() / (self.domain.csx * self.domain.csy)) * 1E6
                 change_ds.append(da.where(first_cc > 0, cc_a_mean / first_cc, 0.))
                 ds.append(total_cc)
             key = 'Habitat/{}/Total n'.format(species_name)
@@ -467,9 +467,13 @@ class ModelSummary(object):
                 if sex == 'female':
                     # Collect offspring / female
                     key = 'Natality/{}/NA/Total offspring per female'.format(species_name)
-                    lcl_cmp[key] = da.where(lcl_cmp['Population/{}/NA/Total Females'.format(species_name)] > 0,
-                                           lcl_cmp['Natality/{}/NA/Total new offspring'.format(species_name)] /
-                                           lcl_cmp['Population/{}/NA/Total Females'.format(species_name)], np.inf)
+                    lcl_cmp[key] = da.concatenate(
+                        [np.array([0.]), da.where(
+                            lcl_cmp['Population/{}/NA/Total Females'.format(species_name)][:-1] > 0,
+                            lcl_cmp['Natality/{}/NA/Total new offspring'.format(species_name)][1:] /
+                            lcl_cmp['Population/{}/NA/Total Females'.format(species_name)][:-1], np.inf
+                        )]
+                    )
 
                 # Calculate the F:M ratio if both sexes present
                 if ('Population/{}/NA/Total Males'.format(species_name) in lcl_cmp.keys() and
@@ -497,7 +501,7 @@ class ModelSummary(object):
                     for time in model_times:
                         self.total_offspring(species, time, sex, offspring_sex=offspring_sex)
                         ds.append(self.to_compute[-1].sum())
-                    key = 'Natality/{}/NA/{} from offspring {}s'.format(species_name, __sex[0].upper() + __sex[1:],
+                    key = 'Natality/{}/NA/{} offspring from {}s'.format(species_name, __sex[0].upper() + __sex[1:],
                                                                         sex_str[0].upper() + sex_str[1:])
                     lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
@@ -617,10 +621,12 @@ class ModelSummary(object):
 
                         # Offspring per female
                         key = 'Natality/{}/{}/offspring per female'.format(species_name, group_name)
-                        lcl_cmp[key] = da.where(
-                            lcl_cmp['Population/{}/{}/Females'.format(species_name, group_name)] > 0,
-                            lcl_cmp['Natality/{}/{}/Total offspring'.format(species_name, group_name)] /
-                            lcl_cmp['Population/{}/{}/Females'.format(species_name, group_name)], np.inf
+                        lcl_cmp[key] = da.concatenate(
+                            [np.array([0.]), da.where(
+                                lcl_cmp['Population/{}/{}/Females'.format(species_name, group_name)][:-1] > 0,
+                                lcl_cmp['Natality/{}/{}/Total offspring'.format(species_name, group_name)][1:] /
+                                lcl_cmp['Population/{}/{}/Females'.format(species_name, group_name)][:-1], np.inf
+                            )]
                         )
 
                     # Mortality
