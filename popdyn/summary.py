@@ -58,6 +58,8 @@ class ModelSummary(object):
 
         self.summary = {sp: deepcopy(log) for sp in domain.species.keys()}
 
+
+
         # TODO: Make this an HDF5 file to avoid loading all computations into memory
         self.to_compute = []
 
@@ -388,13 +390,17 @@ class ModelSummary(object):
                 change_ds.append(da.where(first_cc > 0, cc_a_mean / first_cc, 0.))
                 ds.append(total_cc)
             key = 'Habitat/{}/Total n'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+            ds[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
             key = 'Habitat/{}/Relative Change'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, change_ds[1:]))
+            change_ds[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, change_ds))
             key = 'Habitat/{}/Mean [including zeros] (n per km. sq.)'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, cc_mean_zero[1:]))
+            cc_mean_zero[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, cc_mean_zero))
             key = 'Habitat/{}/Mean [excluding zeros] (n per km. sq.)'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, cc_mean_nonzero[1:]))
+            cc_mean_nonzero[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, cc_mean_nonzero))
 
             # Collect average ages
             ave_ages = []
@@ -404,7 +410,8 @@ class ModelSummary(object):
                 not_inf = ~da.isinf(m)
                 ave_ages.append(m[not_inf].mean())
             key = 'Population/{}/NA/Average Age'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ave_ages[1:]))
+            ave_ages[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ave_ages))
 
             # Add total population and lambda population for species
             total_pop = []
@@ -430,7 +437,8 @@ class ModelSummary(object):
                 self.total_offspring(species, time)
                 tot_new_off.append(self.to_compute[-1].sum())
             key = 'Natality/{}/NA/Total new offspring'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, tot_new_off[1:]))
+            tot_new_off = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, tot_new_off))
 
             # Collect all deaths
             all_deaths = []
@@ -438,7 +446,8 @@ class ModelSummary(object):
                 self.total_mortality(species, time)
                 all_deaths.append(self.to_compute[-1].sum())
             key = 'Mortality/{}/NA/All deaths'.format(species_name)
-            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, all_deaths[1:]))
+            all_deaths[0] = np.nan
+            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, all_deaths))
 
             # Collect deaths by type
             mort_types = self.list_mortality_types(species, None)
@@ -449,7 +458,8 @@ class ModelSummary(object):
                         self.total_mortality(species, time, mortality_name=mort_type)
                         ds.append(self.to_compute[-1].sum())
                     key = 'Mortality/{}/NA/Total deaths from {}'.format(species_name, mort_type)
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                    ds[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
             # Iterate groups and populate data
             for sex in ['male', 'female']:
@@ -492,7 +502,8 @@ class ModelSummary(object):
                     m = self.to_compute[-1]
                     ave_ages.append(m[~da.isinf(m)].mean())
                 key = 'Population/{}/NA/Average {} Age'.format(species_name, sex_str[0].upper() + sex_str[1:])
-                lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ave_ages[1:]))
+                ave_ages[0] = np.nan
+                lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ave_ages))
 
                 # Offspring by sex
                 for __sex in ['male', 'female']:
@@ -503,7 +514,8 @@ class ModelSummary(object):
                         ds.append(self.to_compute[-1].sum())
                     key = 'Natality/{}/NA/{} offspring from {}s'.format(species_name, __sex[0].upper() + __sex[1:],
                                                                         sex_str[0].upper() + sex_str[1:])
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                    ds[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                 # Collect deaths by sex
                 sex_death = []
@@ -511,7 +523,8 @@ class ModelSummary(object):
                     self.total_mortality(species, time, sex)
                     sex_death.append(self.to_compute[-1].sum())
                 key = 'Mortality/{}/NA/Total {} deaths'.format(species_name, sex)
-                lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, sex_death[1:]))
+                sex_death[0] = np.nan
+                lcl_cmp[key] = da.concatenate(map(da.atleast_1d, sex_death))
 
                 # Collect deaths by type/sex
                 mort_types = self.list_mortality_types(species, None, sex)
@@ -523,7 +536,8 @@ class ModelSummary(object):
                             ds.append(self.to_compute[-1].sum())
                         key = 'Mortality/{}/NA/{} deaths from {}'.format(species_name, sex_str[0].upper() + sex_str[1:],
                                                                          mort_type)
-                        lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                        ds[0] = np.nan
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                 for gp in self.domain.group_keys(species):
 
@@ -563,7 +577,8 @@ class ModelSummary(object):
                         m = self.to_compute[-1]
                         ave_ages.append(m[~da.isinf(m)].mean())
                     key = 'Population/{}/{}/Average {} Age'.format(species_name, gp, sex_str[0].upper() + sex_str[1:])
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ave_ages[1:]))
+                    ave_ages[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ave_ages))
 
                     # Collect the population of this group and sex
                     gp_sex_pop = []
@@ -590,7 +605,8 @@ class ModelSummary(object):
                         self.total_offspring(species, time, sex, gp)
                         ds.append(self.to_compute[-1].sum())
                     key = 'Natality/{}/{}/Total offspring'.format(species_name, group_name)
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                    ds[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
                     for __sex in ['male', 'female']:
                         offspring_sex = __sex[0].upper() + __sex[1:] + ' Offspring'
                         ds = []
@@ -600,7 +616,8 @@ class ModelSummary(object):
                         key = 'Natality/{}/{}/{} offspring from {}s'.format(species_name, group_name,
                                                                             __sex[0].upper() + __sex[1:],
                                                                             sex_str[0].upper() + sex_str[1:])
-                        lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                        ds[0] = np.nan
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                     if sex == 'female':
                         # Density coefficient
@@ -609,7 +626,8 @@ class ModelSummary(object):
                             self.fecundity(species, time, sex, gp, coeff=True)
                             dd_fec_ds.append(self.to_compute[-1].mean())
                         key = 'Natality/{}/{}/Density-Based Fecundity Reduction Rate'.format(species_name, group_name)
-                        lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, dd_fec_ds[1:]))
+                        dd_fec_ds[0] = np.nan
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, dd_fec_ds))
 
                         # Fecundity rate
                         ds = []
@@ -617,7 +635,8 @@ class ModelSummary(object):
                             self.fecundity(species, time, sex, gp)
                             ds.append(self.to_compute[-1].mean())
                         key = 'Natality/{}/{}/{} mean fecundity'.format(species_name, group_name, sex_str)
-                        lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                        ds[0] = np.nan
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                         # Offspring per female
                         key = 'Natality/{}/{}/offspring per female'.format(species_name, group_name)
@@ -637,7 +656,8 @@ class ModelSummary(object):
                         mort_ds.append(self.to_compute[-1].sum())
                     key = 'Mortality/{}/{}/{} deaths'.format(species_name, group_name,
                                                              sex_str[0].upper() + sex_str[1:])
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, mort_ds[1:]))
+                    mort_ds[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, mort_ds))
 
                     # All for group
                     ds = []
@@ -645,7 +665,8 @@ class ModelSummary(object):
                         self.total_mortality(species, time, None, gp)
                         ds.append(self.to_compute[-1].sum())
                     key = 'Mortality/{}/{}/Total deaths'.format(species_name, group_name)
-                    lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                    ds[0] = np.nan
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                     mort_types = self.list_mortality_types(species, None, sex, gp)
                     for mort_type in mort_types:
@@ -660,7 +681,8 @@ class ModelSummary(object):
                             else:
                                 mort_str = '{} {} deaths'.format(sex_str, mort_type)
                             key = 'Mortality/{}/{}/{}'.format(species_name, group_name, mort_str)
-                            lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                            ds[0] = np.nan
+                            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                         # Skip the implicit mortality types, as they will not be included in the params
                         if mort_type in ['Old Age', 'Density Dependent'] or 'Converted to ' in mort_type:
@@ -675,7 +697,8 @@ class ModelSummary(object):
                                                                        sex_str, mort_type)
                         if 'Density Dependent Rate' in key:
                             key = key[:-4]
-                        lcl_cmp[key] = da.concatenate([np.nan] + map(da.atleast_1d, ds[1:]))
+                        ds[0] = np.nan
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
             # Compute the summary
             keys, values = lcl_cmp.keys(), lcl_cmp.values()
