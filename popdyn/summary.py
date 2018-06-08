@@ -490,13 +490,15 @@ class ModelSummary(object):
                 lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ave_ages))
 
                 # Offspring by sex
-                offspring_sex = sex[0].upper() + sex[1:] + ' Offspring'
-                ds = []
-                for time in model_times:
-                    self.total_offspring(species, time, sex, offspring_sex=offspring_sex)
-                    ds.append(self.to_compute[-1].sum())
-                key = 'Natality/{}/NA/{} offspring'.format(species_name, sex_str[0].upper() + sex_str[1:])
-                lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                for __sex in ['male', 'female']:
+                    offspring_sex = __sex[0].upper() + __sex[1:] + ' Offspring'
+                    ds = []
+                    for time in model_times:
+                        self.total_offspring(species, time, sex, offspring_sex=offspring_sex)
+                        ds.append(self.to_compute[-1].sum())
+                    key = 'Natality/{}/NA/{} {} offspring'.format(species_name, sex_str[0].upper() + sex_str[1:],
+                                                                  __sex[0].upper() + __sex[1:])
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                 # Collect deaths by sex
                 sex_death = []
@@ -577,20 +579,22 @@ class ModelSummary(object):
 
                     # Natality
                     # Offspring
-                    offspring_sex = sex[0].upper() + sex[1:] + ' Offspring'
                     ds = []
                     for time in model_times:
                         self.total_offspring(species, time, sex, gp)
                         ds.append(self.to_compute[-1].sum())
                     key = 'Natality/{}/{}/Total offspring'.format(species_name, group_name)
                     lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
-                    ds = []
-                    for time in model_times:
-                        self.total_offspring(species, time, sex, gp, offspring_sex=offspring_sex)
-                        ds.append(self.to_compute[-1].sum())
-                    key = 'Natality/{}/{}/{} offspring'.format(species_name, group_name,
-                                                               sex_str[0].upper() + sex_str[1:])
-                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                    for __sex in ['male', 'female']:
+                        offspring_sex = __sex[0].upper() + __sex[1:] + ' Offspring'
+                        ds = []
+                        for time in model_times:
+                            self.total_offspring(species, time, sex, gp, offspring_sex=offspring_sex)
+                            ds.append(self.to_compute[-1].sum())
+                        key = 'Natality/{}/{}/{} {} offspring'.format(species_name, group_name,
+                                                                      sex_str[0].upper() + sex_str[1:],
+                                                                      __sex[0].upper() + __sex[1:])
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                     if sex == 'female':
                         # Density coefficient
@@ -637,31 +641,33 @@ class ModelSummary(object):
 
                     mort_types = self.list_mortality_types(species, None, sex, gp)
                     for mort_type in mort_types:
-                        ds = []
-                        for time in model_times:
-                            self.total_mortality(species, time, sex, gp, mort_type)
-                            ds.append(self.to_compute[-1].sum())
+                        if mort_type != 'Density Dependent Rate':
+                            ds = []
+                            for time in model_times:
+                                self.total_mortality(species, time, sex, gp, mort_type)
+                                ds.append(self.to_compute[-1].sum())
 
-                        if 'Converted to ' in mort_type:
-                            mort_str = '{} {}'.format(sex_str, mort_type)
-                        else:
-                            mort_str = '{} {} deaths'.format(sex_str, mort_type)
-                        key = 'Mortality/{}/{}/{}'.format(species_name, group_name, mort_str)
-                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                            if 'Converted to ' in mort_type:
+                                mort_str = '{} {}'.format(sex_str, mort_type)
+                            else:
+                                mort_str = '{} {} deaths'.format(sex_str, mort_type)
+                            key = 'Mortality/{}/{}/{}'.format(species_name, group_name, mort_str)
+                            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                         # Skip the implicit mortality types, as they will not be included in the params
                         if mort_type in ['Old Age', 'Density Dependent'] or 'Converted to ' in mort_type:
                             continue
 
                         # Collect the parameter
-                        if 'Converted to ' not in mort_type:
-                            ds = []
-                            for time in model_times:
-                                self.total_mortality(species, time, sex, gp, mort_type, False)
-                                ds.append(self.to_compute[-1].mean())
-                            key = 'Mortality/{}/{}/{} mean {} rate'.format(species_name, group_name,
-                                                                           sex_str, mort_type)
-                            lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                        ds = []
+                        for time in model_times:
+                            self.total_mortality(species, time, sex, gp, mort_type, False)
+                            ds.append(self.to_compute[-1].mean())
+                        key = 'Mortality/{}/{}/{} mean {} rate'.format(species_name, group_name,
+                                                                       sex_str, mort_type)
+                        if 'Density Dependent Rate' in key:
+                            key = key[:-4]
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
             # Compute the summary
             keys, values = lcl_cmp.keys(), lcl_cmp.values()
