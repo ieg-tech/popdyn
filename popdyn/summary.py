@@ -497,8 +497,8 @@ class ModelSummary(object):
                     for time in model_times:
                         self.total_offspring(species, time, sex, offspring_sex=offspring_sex)
                         ds.append(self.to_compute[-1].sum())
-                    key = 'Natality/{}/NA/{} {} offspring'.format(species_name, sex_str[0].upper() + sex_str[1:],
-                                                                  __sex[0].upper() + __sex[1:])
+                    key = 'Natality/{}/NA/{} from offspring {}s'.format(species_name, __sex[0].upper() + __sex[1:],
+                                                                        sex_str[0].upper() + sex_str[1:])
                     lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                 # Collect deaths by sex
@@ -593,9 +593,9 @@ class ModelSummary(object):
                         for time in model_times:
                             self.total_offspring(species, time, sex, gp, offspring_sex=offspring_sex)
                             ds.append(self.to_compute[-1].sum())
-                        key = 'Natality/{}/{}/{} {} offspring'.format(species_name, group_name,
-                                                                      sex_str[0].upper() + sex_str[1:],
-                                                                      __sex[0].upper() + __sex[1:])
+                        key = 'Natality/{}/{}/{} offspring from {}s'.format(species_name, group_name,
+                                                                            __sex[0].upper() + __sex[1:],
+                                                                            sex_str[0].upper() + sex_str[1:])
                         lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                     if sex == 'female':
