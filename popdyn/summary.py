@@ -443,12 +443,13 @@ class ModelSummary(object):
             # Collect deaths by type
             mort_types = self.list_mortality_types(species, None)
             for mort_type in mort_types:
-                ds = []
-                for time in model_times:
-                    self.total_mortality(species, time, mortality_name=mort_type)
-                    ds.append(self.to_compute[-1].sum())
-                key = 'Mortality/{}/NA/Total deaths from {}'.format(species_name, mort_type)
-                lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                if not ('Density Dependent Rate' in mort_type or 'Converted to ' in mort_type):
+                    ds = []
+                    for time in model_times:
+                        self.total_mortality(species, time, mortality_name=mort_type)
+                        ds.append(self.to_compute[-1].sum())
+                    key = 'Mortality/{}/NA/Total deaths from {}'.format(species_name, mort_type)
+                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
             # Iterate groups and populate data
             for sex in ['male', 'female']:
@@ -511,13 +512,14 @@ class ModelSummary(object):
                 # Collect deaths by type/sex
                 mort_types = self.list_mortality_types(species, None, sex)
                 for mort_type in mort_types:
-                    ds = []
-                    for time in model_times:
-                        self.total_mortality(species, time, sex, mortality_name=mort_type)
-                        ds.append(self.to_compute[-1].sum())
-                    key = 'Mortality/{}/NA/{} deaths from {}'.format(species_name, sex_str[0].upper() + sex_str[1:],
-                                                                     mort_type)
-                    lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
+                    if not ('Density Dependent Rate' in mort_type or 'Converted to ' in mort_type):
+                        ds = []
+                        for time in model_times:
+                            self.total_mortality(species, time, sex, mortality_name=mort_type)
+                            ds.append(self.to_compute[-1].sum())
+                        key = 'Mortality/{}/NA/{} deaths from {}'.format(species_name, sex_str[0].upper() + sex_str[1:],
+                                                                         mort_type)
+                        lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
                 for gp in self.domain.group_keys(species):
 
