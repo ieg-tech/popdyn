@@ -91,27 +91,6 @@ def visualize(domain, output_file, time=None):
         output_file = output_file[:-4]
     graph.render(filename=output_file)
 
-# Pasted from simulation:
-# self.formalLog = {'Parameterization': {'Domain size': str(self.shape),
-#                                            'Cell size (x)': self.csx,
-#                                            'Cell size (y)': self.csy,
-#                                            'Start time': self.start_time,
-#                                            'Time step': self.time_step,
-#                                            'Age groups': str(zip(self.ages, self.durations))},
-#                       'Habitat': {},
-#                       'Population': {},
-#                       'Natality': {},
-#                       'Mortality': {},
-#                       'Time': [],
-#                       'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')]}
-
-
-# def log_item(self, message, period):
-#     message = (message[:250] + '...') if len(message) > 250 else message  # truncate really long messages
-#     ScenarioLog.objects.create(
-#         scenario_run=self.scenario_run,
-#         message=message,
-#         period=period)
 
 def write_xlsx(domain, output_directory):
     """
@@ -220,7 +199,6 @@ def write_xlsx(domain, output_directory):
                 tb.set_column('{}:{}'.format(index_to_char(3), index_to_char(hb_col_cnt + 3)), hb_width)
                 tb.freeze_panes(0, 1)
                 tb.freeze_panes(0, 2)
-                tb.freeze_panes(1, 0)
                 continue
             elif tab_key == 'Solver':
                 tb.write(0, 0, 'Run Date', bold)
@@ -243,7 +221,6 @@ def write_xlsx(domain, output_directory):
             tb.freeze_panes(0, 1)
             tb.freeze_panes(0, 2)
             tb.freeze_panes(0, 3)
-            tb.freeze_panes(1, 0)
             for col, _time in enumerate(map(str, file_dict['Time'])):
                 tb.write(0, col + 3, float(_time), bold)
             row = 0
@@ -363,13 +340,13 @@ def write_xlsx(domain, output_directory):
                                   index_to_char(chartRows['Total new offspring'][1]),
                                   chartRows['Total new offspring'][0]),
                                 '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
-                                'New Population', '{} New Offspring from each Female Age Class'.format(species))] +
+                                'New Offspring', '{} New Offspring from each Female Age Class'.format(species))] +
                               [('{} New Offspring'.format(gp), '=Natality!$D${}:${}${}'.format(
                                   chartRows['{} Total offspring'.format(gp)][0],
                                   index_to_char(chartRows['{} Total offspring'.format(gp)][1]),
                                   chartRows['{} Total offspring'.format(gp)][0]),
                                 '=Natality!$D$1:${}$1'.format(index_to_char(chartRows['Total new offspring'][1])),
-                                'New Population', '{} New Offspring from each Female Age Class'.format(species))
+                                'New Offspring', '{} New Offspring from each Female Age Class'.format(species))
                                for gp in np.unique(male_age_groups + female_age_groups)],
                               [('Total Deaths', '=Mortality!$D${}:${}${}'.format(
                                   chartRows['All deaths'][0],
