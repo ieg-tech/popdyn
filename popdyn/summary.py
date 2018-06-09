@@ -437,7 +437,7 @@ class ModelSummary(object):
                 self.total_offspring(species, time)
                 tot_new_off.append(self.to_compute[-1].sum())
             key = 'Natality/{}/NA/Total new offspring'.format(species_name)
-            tot_new_off = np.nan
+            tot_new_off[0] = np.nan
             lcl_cmp[key] = da.concatenate(map(da.atleast_1d, tot_new_off))
 
             # Collect all deaths
