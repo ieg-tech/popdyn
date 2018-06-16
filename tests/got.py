@@ -306,7 +306,12 @@ def single_species_dispersion():
             seed_population[(np.random.randint(0, shape[0], 10), np.random.randint(0, shape[1], 10))] = 100
             domain.add_population(starks, seed_population, 0, distribute=False)
 
-            pd.solvers.discrete_explicit(domain, 0, 2).execute()
+            try:
+                pd.solvers.discrete_explicit(domain, 0, 2).execute()
+            except NotImplementedError:
+                domain.file.close()
+                os.remove('seven_kingdoms.popdyn')
+                continue
 
             prv_pop = seed_population
             for i in range(1, 3):
@@ -318,7 +323,10 @@ def single_species_dispersion():
                 prv_pop = _pop
 
         if _iter != len(dispersal.METHODS.keys()) - 1:
-            os.remove('seven_kingdoms.popdyn')
+            try:
+                os.remove('seven_kingdoms.popdyn')
+            except OSError:
+                pass
 
 
 def single_species_agegroups():

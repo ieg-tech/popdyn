@@ -32,10 +32,15 @@ class SummaryDataset(object):
 
 class ModelSummary(object):
     """
-    Collect summarized results from the model domain
+    Collect summarized results from the model domain. With each summary function call, no computations take place.
+    Rather, the ``to_compute`` attribute is appended with the output ``dask`` object, all of which are optimized and
+    computed only when the :func:`compute` method is called.
     """
 
     def __init__(self, domain):
+        """
+        :param domain: A Domain instance
+        """
         # Create a log dictionary to populate with values
         self.domain = domain
         self.model_times = self.all_times
@@ -77,7 +82,11 @@ class ModelSummary(object):
             load_ds(key)
 
     def compute(self):
-        """Compute all loaded summaries"""
+        """
+        Compute all loaded summaries in the ``to_compute`` attribute
+
+        :returns: list of computed objects from ``to_compute`` attribute
+        """
         # Create output summary dataset objects as store locations
         targets = [SummaryDataset(ds.shape) for ds in self.to_compute]
 
@@ -92,7 +101,6 @@ class ModelSummary(object):
         """
         Collect the sum of populations from a domain, filtering by sub-populations
 
-        :param Domain domain: Domain object
         :param str species: Species name - may be an iterable
         :param time: time slice: int or iterable
         :param sex: Sex (one of 'male' or 'female') - may be an iterable
@@ -130,12 +138,11 @@ class ModelSummary(object):
         """
         Collect the average age from a domain, filtering by sub-populations
 
-        :param Domain domain: Domain object
         :param str species: Species name - may be an iterable
         :param time: time slice: int or iterable
         :param sex: Sex (one of 'male' or 'female') - may be an iterable
         :param group: group name - may be an iterable\
-        :return: ndarray with the total population
+        :return: ndarray with the average age
         """
         species, time, sex, group = self.collect_iterables(species, time, sex, group)
 
@@ -170,17 +177,17 @@ class ModelSummary(object):
         """
         Collect the total carrying capacity in the domain for the given query.
 
-        Note, carrying capacity for individual sexes or species may be collected for the species as a whole,
+        .. Attention:: Carrying capacity may be calculated for an entire species in the solver (see :ref:`solvers`).
+            As such, query results that are filtered by sex or age group will include carrying capacity for the entire species.
 
-        # TODO: Raise exception if specified group or sex does not exist, as it will still return results with typos
-        which will result in species-wide carrying capacity being returned.
-        :param Domain domain: Domain object
         :param str species: Species name
         :param time: time slice - may be an iterable or int
         :param str sex: Sex ('male' or 'female') - may be an iterable
         :param str group: Group name - may be an iterable
         :return: ndarray of total carrying capacity
         """
+
+        # TODO: Raise exception if specified group or sex does not exist, as it will still return results with typos
 
         def retrieve(species, time, sex, group):
             species, time, sex, group = self.collect_iterables(species, time, sex, group)
@@ -214,12 +221,12 @@ class ModelSummary(object):
     def list_mortality_types(self, species=None, time=None, sex=None, group=None):
         """
         List the mortality names in the domain for the given query
-        :param Domain domain: Domain object
+
         :param str species: Species name
         :param time: time slice - may be an iterable or int
         :param str sex: Sex ('male' or 'female') - may be an iterable
         :param str group: Group name - may be an iterable
-        :return: 1D str array of unique names
+        :return: list of mortality names
         """
         species, time, sex, group = self.collect_iterables(species, time, sex, group)
 
@@ -239,13 +246,14 @@ class ModelSummary(object):
     def total_mortality(self, species=None, time=None, sex=None, group=None, mortality_name=None, as_population=True):
         """
         Collect either the total population or the mortality parameter value for the given query
-        :param Domain domain: Domain object
+
         :param str species: Species name
         :param time: time slice - may be an iterable or int
         :param str sex: Sex ('male' or 'female') - may be an iterable
         :param str group: Group name - may be an iterable
-        :param bool as_population: Determines whether a population killed, or the mortality parameter is returned
-        :return: ndarray of total population or the mortality parameter value depending on as_population
+        :param bool as_population: Use to determine whether the query output is the population that succumbs to the
+            mortality, or the mortality rate
+        :return: ndarray of the mortality population or parameter
         """
         species, time, sex, group = self.collect_iterables(species, time, sex, group)
 
@@ -281,7 +289,7 @@ class ModelSummary(object):
     def total_offspring(self, species=None, time=None, sex=None, group=None, offspring_sex=None):
         """
         Collect the total offspring using the given query
-        :param Domain domain: Domain object
+
         :param str species: Species name
         :param time: time slice - may be an iterable or int
         :param str sex: Sex ('male' or 'female') - may be an iterable
@@ -315,11 +323,12 @@ class ModelSummary(object):
     def fecundity(self, species=None, time=None, sex=None, group=None, coeff=False):
         """
         Collect the total fecundity using the given query
-        :param Domain domain: Domain object
+
         :param str species: Species name
         :param time: time slice - may be an iterable or int
         :param str sex: Sex ('male' or 'female') - may be an iterable
         :param str group: Group name - may be an iterable
+        :param bool coeff: If True, the average fecundity reduction rate based on density is returned
         :return: ndarray of total offspring
         """
         species, time, sex, group = self.collect_iterables(species, time, sex, group)
@@ -351,14 +360,14 @@ class ModelSummary(object):
 
     def model_summary(self):
         """
-        Summarize totals of each species and their parameters in the domain
+        Summarize totals of each species and their parameters in the domain. This is used primarily to service the
+        data requirements of an excel output in ``logger.write_xlsx``
 
-        TODO: This is built to service the requirements of popdyn.logger.write_xlsx, and could use
-        TODO: a substantial amount of optimization
-
-        :param domain: Domain instance
         :return: dict of species and their parameters
         """
+        # TODO: This is built to service the requirements of popdyn.logger.write_xlsx, and could use
+        # TODO: a substantial amount of optimization
+
         model_times = self.model_times
 
         for species in self.summary.keys():
@@ -539,7 +548,7 @@ class ModelSummary(object):
                         ds[0] = np.nan
                         lcl_cmp[key] = da.concatenate(map(da.atleast_1d, ds))
 
-                for gp in self.domain.group_keys(species):
+                for gp in self.domain._group_keys(species):
 
                     if gp is None:
                         continue
@@ -786,9 +795,47 @@ class ModelSummary(object):
         if all([gp is None for gp in group]):
             group = []
             for sp in species:
-                group += list(self.domain.group_keys(sp))
+                group += list(self.domain._group_keys(sp))
 
         if age == 'not provided':
             return species, time, sex, group
         else:
             return species, time, sex, group, [age for age in make_iter(age) if age is not None]
+
+
+def total_population(domain, species=None, time=None, sex=None, group=None, age=None):
+    ms = ModelSummary(domain)
+    ms.total_population(species, time, sex, group, age)
+    return ms.compute()[-1]
+
+
+def average_age(domain, species=None, time=None, sex=None, group=None):
+    ms = ModelSummary(domain)
+    ms.average_age(species, time, sex, group)
+    return ms.compute()[-1]
+
+
+def total_carrying_capacity(domain, species=None, time=None, sex=None, group=None):
+    ms = ModelSummary(domain)
+    ms.total_carrying_capacity(species, time, sex, group)
+    return ms.compute()[-1]
+
+
+def total_mortality(domain, species=None, time=None, sex=None, group=None, mortality_name=None, as_population=True):
+    ms = ModelSummary(domain)
+    ms.total_mortality(species, time, sex, group, mortality_name, as_population)
+    return ms.compute()[-1]
+
+
+def total_offspring(domain, species=None, time=None, sex=None, group=None, offspring_sex=None):
+    ms = ModelSummary(domain)
+    ms.total_offspring(species, time, sex, group, offspring_sex)
+    return ms.compute()[-1]
+
+
+def fecundity(domain, species=None, time=None, sex=None, group=None, coeff=False):
+    ms = ModelSummary(domain)
+    ms.fecundity(species, time, sex, group, coeff)
+    return ms.compute()[-1]
+
+

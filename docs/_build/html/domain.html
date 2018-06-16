@@ -1,0 +1,554 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  
+  <!-- Licensed under the Apache 2.0 License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
+  <!-- Licensed under the SIL Open Font License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/source-serif-pro/source-serif-pro.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+    <title>Model Domain &mdash; Popdyn  documentation</title>
+    
+    <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="next" title="Numerical Solvers" href="solvers.html" />
+    <link rel="prev" title="Parameters" href="parameters.html" />
+  
+   
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="solvers.html" title="Numerical Solvers"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="parameters.html" title="Parameters"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="container-wrapper">
+
+      <div id="mobile-toggle">
+        <a href="#"><span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span></a>
+      </div>
+  <div id="left-column">
+    <div class="sphinxsidebar"><a href="
+    index.html" class="text-logo">Popdyn  documentation</a>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Table Of Contents</h2>
+  </div>
+  <div class="sidebar-toc">
+    
+    
+      <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Model Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+</ul>
+
+    
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+        <div id="right-column">
+          
+          <div role="navigation" aria-label="breadcrumbs navigation">
+            <ol class="breadcrumb">
+              <li><a href="index.html">Docs</a></li>
+              
+              <li>Model Domain</li>
+            </ol>
+          </div>
+          
+          <div class="document clearer body">
+            
+  <div class="section" id="model-domain">
+<span id="domain"></span><h1>Model Domain<a class="headerlink" href="#model-domain" title="Permalink to this headline">¶</a></h1>
+<p>A popdyn model <a class="reference internal" href="#domain"><span>Model Domain</span></a> provides a framework for simulations so they may be spatially and temporally discretized,
+and parameterized. The primary purposes of a <a class="reference internal" href="#domain"><span>Model Domain</span></a> are to:</p>
+<ul class="simple">
+<li>Manage a file to store study area data in HDF5 format, and act as a quasi-database for the model domain attributes. The file will be automatically created with the extension <code class="docutils literal"><span class="pre">.popdyn</span></code>, and can be used to instantiate <a class="reference internal" href="#popdyn.Domain" title="popdyn.Domain"><code class="xref py py-class docutils literal"><span class="pre">Domain</span></code></a> instances.</li>
+<li>The <a class="reference internal" href="#domain"><span>Model Domain</span></a> has a consistent spatial extent and anisotropic grid resolution</li>
+<li>Data added to a domain are automatically read, spatially transformed, converted, and stored on the disk.</li>
+<li>Data are commonly added with <a class="reference internal" href="species.html#species"><span>Species</span></a> or <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> instances to add them and corresponding data to the <a class="reference internal" href="#domain"><span>Model Domain</span></a></li>
+<li>Domain instances are provided to selected <a class="reference internal" href="solvers.html#solvers"><span>Numerical Solvers</span></a> to calculate derived parameters and simulate populations in the model</li>
+</ul>
+<p>Species are added to a model domain using parameters or population data using one of the following methods:</p>
+<ul class="simple">
+<li><code class="xref py py-meth docutils literal"><span class="pre">add_population()</span></code></li>
+<li><code class="xref py py-meth docutils literal"><span class="pre">add_mortality()</span></code></li>
+<li><code class="xref py py-meth docutils literal"><span class="pre">add_carrying_capacity()</span></code></li>
+<li><code class="xref py py-meth docutils literal"><span class="pre">add_fecundity()</span></code></li>
+</ul>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">All parameters or data that are added to a model domain must be in the same spatial and temporal units</p>
+</div>
+<p>Once added to a domain, species with the same name automatically become stratified by their name, sex, and age groups,
+and are able to inherit mortality and fecundity based on a species - sex - age group hierarchy.</p>
+<dl class="class">
+<dt id="popdyn.Domain">
+<em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Domain</code><span class="sig-paren">(</span><em>popdyn_path</em>, <em>domain_raster=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Population dynamics simulation domain, which is used to define a study area for a popdyn simulation</p>
+<p>Species, Parameters, and datasets are added to the model domain, which creates a file to _save and store all information</p>
+<p>To create a Model Domain, one of either an existing <code class="docutils literal"><span class="pre">.popdyn</span></code> file, a raster, or construct the domain
+using the keyword arguments</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>path</strong> (<em>str</em>) &#8211; Path to a new (new Domain) or existing (existing Domain) <code class="docutils literal"><span class="pre">.popdyn</span></code> file on the disk</li>
+<li><strong>domain_raster</strong> (<em>str</em>) &#8211; Path to an existing raster on the disk that defines the domain extent and resolution</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>shape</strong> (<em>tuple</em>) &#8211;</dt>
+<dd><p class="first last">Number of rows and columns of the study area [<code class="docutils literal"><span class="pre">(rows,</span> <span class="pre">cols)</span></code>]</p>
+</dd>
+<dt><strong>csx</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">Grid spacing (cell size) in the x-direction</p>
+</dd>
+<dt><strong>csy</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">Grid spacing (cell size) in the y-direction</p>
+</dd>
+<dt><strong>top</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The northernmost coordinate of the study area</p>
+</dd>
+<dt><strong>left</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The westernmost coordinate of the study area</p>
+</dd>
+<dt><strong>projection</strong> (<em>int</em>) &#8211;</dt>
+<dd><p class="first last">Spatial Reference of the study area, which must be an EPSG code</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="popdyn.Domain.age_from_group">
+<code class="descname">age_from_group</code><span class="sig-paren">(</span><em>species_key</em>, <em>sex</em>, <em>gp</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.age_from_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all ages from a group</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> &#8211; sex (&#8216;male&#8217; or &#8216;female&#8217;)</li>
+<li><strong>gp</strong> &#8211; group name</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return list:</th><td class="field-body"><p class="first last">All ages</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.all_carrying_capacity">
+<code class="descname">all_carrying_capacity</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex=None</em>, <em>group_key=None</em>, <em>snap_to_time=True</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.all_carrying_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all carrying capacity for all children in the given query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>snap_to_time</strong> (<em>bool</em>) &#8211; If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">all Carrying Capacity dataset keys</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.all_population">
+<code class="descname">all_population</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex=None</em>, <em>group_key=None</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.all_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the population keys of a species at a given time. Datasets from all children keys are returned.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>age</strong> (<em>int</em>) &#8211; Absolute age</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">dict of key - :class:&#8217;h5py.Dataset` pairs</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.discrete_ages">
+<code class="descname">discrete_ages</code><span class="sig-paren">(</span><em>species_key</em>, <em>sex</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.discrete_ages" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all discrete ages for a species in the model domain</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> &#8211; sex (&#8216;male&#8217; or &#8216;female&#8217;)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return list:</th><td class="field-body"><p class="first last">Ordered sequence of ages</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_carrying_capacity">
+<code class="descname">get_carrying_capacity</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex=None</em>, <em>group_key=None</em>, <em>snap_to_time=True</em>, <em>inherit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_carrying_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the carrying capacity instance - key pairs</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>snap_to_time</strong> &#8211; If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset</li>
+<li><strong>inherit</strong> (<em>bool</em>) &#8211; Collect data from parent species if they do not exist for the input. Used primarily for distributing by a covariate,
+and should not be used during simulations (the values may change during pre-solving inheritance)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">list of instance - <code class="xref py py-class docutils literal"><span class="pre">h5py.dataset</span></code> pairs</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_fecundity">
+<code class="descname">get_fecundity</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex</em>, <em>group_key</em>, <em>snap_to_time=True</em>, <em>inherit=True</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_fecundity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the fecundity instance - HDF5 Dataset pairs</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>snap_to_time</strong> &#8211; If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset</li>
+<li><strong>avoid_inheritance</strong> &#8211; Do not inherit a dataset from the sex or species</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">list of instance - <code class="xref py py-class docutils literal"><span class="pre">h5py.dataset</span></code> pairs</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_mask">
+<code class="descname">get_mask</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex</em>, <em>group_key</em>, <em>snap_to_time=True</em>, <em>inherit=True</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the key associated with the mask query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>snap_to_time</strong> &#8211; If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset</li>
+<li><strong>avoid_inheritance</strong> &#8211; Do not inherit a dataset from the sex or species</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Dataset key</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_mortality">
+<code class="descname">get_mortality</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex</em>, <em>group_key</em>, <em>snap_to_time=True</em>, <em>inherit=True</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_mortality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the mortality instance - dataset pairs</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>snap_to_time</strong> &#8211; If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset</li>
+<li><strong>avoid_inheritance</strong> &#8211; Do not inherit a dataset from the sex or species</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">list of instance - <code class="xref py py-class docutils literal"><span class="pre">h5py.dataset</span></code> pairs</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_population">
+<code class="descname">get_population</code><span class="sig-paren">(</span><em>species_key</em>, <em>time</em>, <em>sex=None</em>, <em>group_key=None</em>, <em>age=None</em>, <em>inherit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the population key of a species/sex/group at a given time if it exists</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; sex (&#8216;male&#8217;, or &#8216;female&#8217;)</li>
+<li><strong>group_key</strong> (<em>str</em>) &#8211; AgeGroup.group_key</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+<li><strong>age</strong> (<em>int</em>) &#8211; Absolute age</li>
+<li><strong>inherit</strong> (<em>bool</em>) &#8211; Collect data from parent species if they do not exist for the input. Used primarily for distributing by a covariate,
+and should not be used during simulations (the values may change during pre-solving inheritance)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Dataset key or None if non-existent</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.get_species_instance">
+<code class="descname">get_species_instance</code><span class="sig-paren">(</span><em>species_key</em>, <em>sex</em>, <em>gp</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.get_species_instance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect a species instance</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> &#8211; sex (&#8216;male&#8217; or &#8216;female&#8217;)</li>
+<li><strong>gp</strong> &#8211; group name</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return Species:</th><td class="field-body"><p class="first last">instance</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.group_from_age">
+<code class="descname">group_from_age</code><span class="sig-paren">(</span><em>species</em>, <em>sex</em>, <em>age</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.group_from_age" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the group of a discrete age</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> &#8211; sex (&#8216;male&#8217; or &#8216;female&#8217;)</li>
+<li><strong>age</strong> (<em>int</em>) &#8211; Age within a group age range</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return str:</th><td class="field-body"><p class="first last">group name</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.group_names">
+<code class="descname">group_names</code><span class="sig-paren">(</span><em>species_key</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.group_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all group names within a specific species</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return list:</th><td class="field-body">Strings of group names</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="popdyn.Domain.species_instances">
+<code class="descname">species_instances</code><a class="headerlink" href="#popdyn.Domain.species_instances" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all species instances added to the model domain</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return list:</th><td class="field-body">Species instances</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="popdyn.Domain.species_names">
+<code class="descname">species_names</code><a class="headerlink" href="#popdyn.Domain.species_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property of all species names in the Domain</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return list:</th><td class="field-body">Sorted strings of all species names</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.youngest_group">
+<code class="descname">youngest_group</code><span class="sig-paren">(</span><em>species</em>, <em>sex</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.youngest_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the group with the youngest age in the domain</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_key</strong> (<em>str</em>) &#8211; Species.name_key</li>
+<li><strong>sex</strong> &#8211; sex (&#8216;male&#8217; or &#8216;female&#8217;)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return str:</th><td class="field-body"><p class="first last">group name</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+            
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="parameters.html" title="previous chapter (use the left arrow)">Parameters</a>
+      </div>
+    
+      <div class="pull-right">
+        <a class="btn btn-default" href="solvers.html" title="next chapter (use the right arrow)">Numerical Solvers</a>
+      </div>
+    </div>
+    <div class="clearer"></div>
+  
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="solvers.html" title="Numerical Solvers"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="parameters.html" title="Parameters"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+<script type="text/javascript">
+  $("#mobile-toggle a").click(function () {
+    $("#left-column").toggle();
+  });
+</script>
+<script type="text/javascript" src="_static/js/bootstrap.js"></script>
+  <div class="footer">
+    &copy; Copyright 2018. Devin Cairns. Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+  </div>
+  </body>
+</html>

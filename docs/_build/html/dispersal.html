@@ -1,0 +1,318 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  
+  <!-- Licensed under the Apache 2.0 License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
+  <!-- Licensed under the SIL Open Font License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/source-serif-pro/source-serif-pro.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+    <title>Dispersal &mdash; Popdyn  documentation</title>
+    
+    <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="next" title="Parameters" href="parameters.html" />
+    <link rel="prev" title="Species" href="species.html" />
+  
+   
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="parameters.html" title="Parameters"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="species.html" title="Species"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="container-wrapper">
+
+      <div id="mobile-toggle">
+        <a href="#"><span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span></a>
+      </div>
+  <div id="left-column">
+    <div class="sphinxsidebar"><a href="
+    index.html" class="text-logo">Popdyn  documentation</a>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Table Of Contents</h2>
+  </div>
+  <div class="sidebar-toc">
+    
+    
+      <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+</ul>
+
+    
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+        <div id="right-column">
+          
+          <div role="navigation" aria-label="breadcrumbs navigation">
+            <ol class="breadcrumb">
+              <li><a href="index.html">Docs</a></li>
+              
+              <li>Dispersal</li>
+            </ol>
+          </div>
+          
+          <div class="document clearer body">
+            
+  <div class="section" id="dispersal">
+<span id="id1"></span><h1>Dispersal<a class="headerlink" href="#dispersal" title="Permalink to this headline">¶</a></h1>
+<p>Species may move independently in a model domain using any number of available dispersal methods. They are added to a
+species using the <a class="reference internal" href="species.html#species"><span>Species</span></a> <code class="xref py py-func docutils literal"><span class="pre">add_dispersal()</span></code> method, which is specified using one of the available methods listed in
+<code class="docutils literal"><span class="pre">popdyn.dispersal.METHODS</span></code>. These methods, and their keys are used to add each to a species are listed below:</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#dispersal.density_flux" title="dispersal.density_flux"><code class="xref py py-obj docutils literal"><span class="pre">density_flux</span></code></a>(population,&nbsp;total_population,&nbsp;...)</td>
+<td>&#8216;density-based dispersion&#8217;</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#dispersal.distance_propagation" title="dispersal.distance_propagation"><code class="xref py py-obj docutils literal"><span class="pre">distance_propagation</span></code></a>(population,&nbsp;...)</td>
+<td>&#8216;distance propagation&#8217;</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#dispersal.masked_density_flux" title="dispersal.masked_density_flux"><code class="xref py py-obj docutils literal"><span class="pre">masked_density_flux</span></code></a>(population,&nbsp;...)</td>
+<td>&#8216;masked density-based dispersion&#8217;</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#dispersal.density_network" title="dispersal.density_network"><code class="xref py py-obj docutils literal"><span class="pre">density_network</span></code></a>(args)</td>
+<td>&#8216;density network dispersal&#8217;</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#dispersal.fixed_network" title="dispersal.fixed_network"><code class="xref py py-obj docutils literal"><span class="pre">fixed_network</span></code></a>(args)</td>
+<td>&#8216;fixed network movement&#8217;</td>
+</tr>
+</tbody>
+</table>
+<p>Dispersal methods are described as follows:</p>
+<dl class="function">
+<dt id="dispersal.density_flux">
+<code class="descclassname">dispersal.</code><code class="descname">density_flux</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.density_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;density-based dispersion&#8217;</p>
+<p>Dispersal is calculated using a density gradient based on the mean within a neighbourhood dictated by the specified
+distance. The mean density over grid nodes within a radius determined by the input distance is calculated to evaluate
+the gradient between the mean and the node at the centre. This gradient is used to determine whether a population is
+above the mean, thus able to distribute a portion of the population outwards. Populations above the mean are distributed
+to nodes with populations below the mean within the radius proportional to their gradient.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>population</strong> (<em>array</em>) &#8211; Sub-population to redistribute (subset of the <code class="docutils literal"><span class="pre">total_population</span></code>)</li>
+<li><strong>total_population</strong> (<em>array</em>) &#8211; Total population</li>
+<li><strong>carrying_capacity</strong> (<em>array</em>) &#8211; Total Carrying Capacity (n)</li>
+<li><strong>distance</strong> (<em>float</em>) &#8211; Maximum dispersal distance</li>
+<li><strong>csx</strong> (<em>float</em>) &#8211; Cell size of the domain in the x-direction</li>
+<li><strong>csy</strong> (<em>float</em>) &#8211; Cell size of the domain in the y-direction</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">Ensure the cell sizes are in the same units as the specified direction</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-odd field"><td>&nbsp;</td><td class="field-body"><dl class="first docutils">
+<dt><strong>mask</strong> (<em>array</em>) &#8211;</dt>
+<dd><p class="first last">A weighting mask that scales dispersal based on the normalized mask value (default: None)</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Redistributed population</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="dispersal.distance_propagation">
+<code class="descclassname">dispersal.</code><code class="descname">distance_propagation</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.distance_propagation" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;distance propagation&#8217;</p>
+<p>Distance propagation is used to redistribute populations to distal locations based on density gradients. The node at
+or near the specified distance with the minimum density is selected to redistribute a fraction of the population
+proportional to the density gradient between the two nodes. In the case that all distal nodes have a homogeneous
+density, the target node is chosen at random.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>population</strong> (<em>array</em>) &#8211; Sub-population to redistribute (subset of the <code class="docutils literal"><span class="pre">total_population</span></code>)</li>
+<li><strong>total_population</strong> (<em>array</em>) &#8211; Total population</li>
+<li><strong>carrying_capacity</strong> (<em>array</em>) &#8211; Total Carrying Capacity (n)</li>
+<li><strong>distance</strong> (<em>float</em>) &#8211; Maximum dispersal distance</li>
+<li><strong>csx</strong> (<em>float</em>) &#8211; Cell size of the domain in the x-direction</li>
+<li><strong>csy</strong> (<em>float</em>) &#8211; Cell size of the domain in the y-direction</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">Ensure the cell sizes are in the same units as the specified direction</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">Redistributed population</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="dispersal.masked_density_flux">
+<code class="descclassname">dispersal.</code><code class="descname">masked_density_flux</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.masked_density_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;masked density-based dispersion&#8217;</p>
+<p>See <a class="reference internal" href="#dispersal.density_flux" title="dispersal.density_flux"><code class="xref py py-func docutils literal"><span class="pre">density_flux()</span></code></a>. The dispersal logic is identical to that of <code class="docutils literal"><span class="pre">density_flux</span></code>, however a mask is specified
+as a keyword argument to scale the dispersal. When populations are transferred between grid nodes, they are first
+multiplied by the value presented in the mask. The mask is normalized within <code class="docutils literal"><span class="pre">density_flux</span></code> to ensure all values
+are between 0 and 1.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="dispersal.density_network">
+<code class="descclassname">dispersal.</code><code class="descname">density_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.density_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;density network dispersal&#8217;</p>
+<p>FUTURE: Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">NotImplementedError</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> &#8211; </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="dispersal.fixed_network">
+<code class="descclassname">dispersal.</code><code class="descname">fixed_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.fixed_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;fixed network movement&#8217;</p>
+<p>FUTURE: Compute dispersal based on a least cost path network analysis using a cost surface.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">NotImplementedError</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> &#8211; </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+
+
+          </div>
+            
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="species.html" title="previous chapter (use the left arrow)">Species</a>
+      </div>
+    
+      <div class="pull-right">
+        <a class="btn btn-default" href="parameters.html" title="next chapter (use the right arrow)">Parameters</a>
+      </div>
+    </div>
+    <div class="clearer"></div>
+  
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="parameters.html" title="Parameters"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="species.html" title="Species"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+<script type="text/javascript">
+  $("#mobile-toggle a").click(function () {
+    $("#left-column").toggle();
+  });
+</script>
+<script type="text/javascript" src="_static/js/bootstrap.js"></script>
+  <div class="footer">
+    &copy; Copyright 2018. Devin Cairns. Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+  </div>
+  </body>
+</html>

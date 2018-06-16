@@ -77,7 +77,30 @@ reallocates populations within the neighbourhood in attempt to flatten the gradi
 """
 
 def density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
-    # Check the inputs
+    """
+    'density-based dispersion'
+
+    Dispersal is calculated using a density gradient based on the mean within a neighbourhood dictated by the specified
+    distance. The mean density over grid nodes within a radius determined by the input distance is calculated to evaluate
+    the gradient between the mean and the node at the centre. This gradient is used to determine whether a population is
+    above the mean, thus able to distribute a portion of the population outwards. Populations above the mean are distributed
+    to nodes with populations below the mean within the radius proportional to their gradient.
+
+
+    :param array population: Sub-population to redistribute (subset of the ``total_population``)
+    :param array total_population: Total population
+    :param array carrying_capacity: Total Carrying Capacity (n)
+    :param float distance: Maximum dispersal distance
+    :param float csx: Cell size of the domain in the x-direction
+    :param float csy: Cell size of the domain in the y-direction
+
+    .. Attention:: Ensure the cell sizes are in the same units as the specified direction
+
+    :Keyword Arguments:
+        **mask** (*array*) --
+            A weighting mask that scales dispersal based on the normalized mask value (default: None)
+    :return: Redistributed population
+    """
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
 
@@ -123,7 +146,14 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
 
 
 def masked_density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
-    """wraps density flux, adds a mask"""
+    """
+    'masked density-based dispersion'
+
+    See :func:`density_flux`. The dispersal logic is identical to that of ``density_flux``, however a mask is specified
+    as a keyword argument to scale the dispersal. When populations are transferred between grid nodes, they are first
+    multiplied by the value presented in the mask. The mask is normalized within ``density_flux`` to ensure all values
+    are between 0 and 1.
+    """
     # Check that there is a mask
     if kwargs.get('mask', None) is None:
         raise DispersalError('Masked Density Flux requires a mask, which is not available')
@@ -215,6 +245,25 @@ minimum density at a specified distance and moves populations in attempt to flat
 """
 
 def distance_propagation(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
+    """
+    'distance propagation'
+
+    Distance propagation is used to redistribute populations to distal locations based on density gradients. The node at
+    or near the specified distance with the minimum density is selected to redistribute a fraction of the population
+    proportional to the density gradient between the two nodes. In the case that all distal nodes have a homogeneous
+    density, the target node is chosen at random.
+
+    :param array population: Sub-population to redistribute (subset of the ``total_population``)
+    :param array total_population: Total population
+    :param array carrying_capacity: Total Carrying Capacity (n)
+    :param float distance: Maximum dispersal distance
+    :param float csx: Cell size of the domain in the x-direction
+    :param float csy: Cell size of the domain in the y-direction
+
+    .. Attention:: Ensure the cell sizes are in the same units as the specified direction
+
+    :return: Redistributed population
+    """
     # Check the inputs
     if any([not isinstance(a, da.Array) for a in [population, total_population, carrying_capacity]]):
         raise DispersalError('Inputs must be a dask arrays')
@@ -318,11 +367,26 @@ def distance_propagation_task(a, kernel, i_pad, j_pad):
 
 
 def density_network(args):
-    pass
+    """
+    'density network dispersal'
 
+    FUTURE: Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.
+
+    :raises: NotImplementedError
+    :param args:
+    """
+    raise NotImplementedError('Not implemented yet')
 
 def fixed_network(args):
-    pass
+    """
+    'fixed network movement'
+
+    FUTURE: Compute dispersal based on a least cost path network analysis using a cost surface.
+
+    :raises: NotImplementedError
+    :param args:
+    """
+    raise NotImplementedError('Not implemented yet')
 
 
 def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=3):
@@ -438,4 +502,6 @@ def window_local_dict(views, prefix='a'):
 
 METHODS = {'density-based dispersion': density_flux,
            'distance propagation': distance_propagation,
-           'masked density-based dispersion': masked_density_flux}
+           'masked density-based dispersion': masked_density_flux,
+           'density network dispersal': density_network,
+           'fixed network movement': fixed_network}

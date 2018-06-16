@@ -233,8 +233,8 @@ class discrete_explicit(object):
         :return: None
         """
         # Prepare time
-        start_time = Domain.get_time_input(start_time)
-        end_time = Domain.get_time_input(end_time)
+        start_time = Domain._get_time_input(start_time)
+        end_time = Domain._get_time_input(end_time)
         self.simulation_range = range(start_time + 1, end_time + 1)
 
         self.D = domain
@@ -320,7 +320,7 @@ class discrete_explicit(object):
                         output[key] = self.age_zero_population[species][_sex]
 
             # Compute this time slice and write to the domain file
-            self.D.domain_compute(output, _delayed)
+            self.D._domain_compute(output, _delayed)
 
     @time_this
     def totals(self, all_species, time):
@@ -480,13 +480,13 @@ class discrete_explicit(object):
         pop_arrays = []
 
         for key, d in datasets.items():
-            instance = self.D.instance_from_key(key)
+            instance = self.D._instance_from_key(key)
 
             if honor_density and not instance.contributes_to_density:
                 continue
             if honor_reproduction:
                 # Collect fecundity to see if it is present
-                species_key, sex, group_key, time = self.D.deconstruct_key(key)[:4]
+                species_key, sex, group_key, time = self.D._deconstruct_key(key)[:4]
 
                 if len(self.D.get_fecundity(species_key, time, sex, group_key)) == 0:
                     continue
@@ -756,7 +756,7 @@ class discrete_explicit(object):
 
                 population -= ddm
 
-            # Propagate age by one increment and save to the current time step.
+            # Propagate age by one increment and _save to the current time step.
             # If the input age is None, the population will simply propagate
             if age is not None:
                 new_age = age + 1

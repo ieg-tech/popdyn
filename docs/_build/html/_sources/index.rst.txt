@@ -1,0 +1,25 @@
+.. Population Dynamics Model documentation master file, created by
+   sphinx-quickstart on Wed Jun 13 13:14:42 2018
+
+======
+popdyn
+======
+
+*Population Dynamics Modelling toolset*
+
+The popdyn module is comprised of four main components:
+
+1.  **Species** - which possess individual traits
+2.  **Parameters** - which affect species through various means
+3.  **Domain** - which defines a study area through spatial discretization
+4.  **Solvers** - which provides modular numerical solvers to compute systems of species and parameters within a domain
+
+Popdyn allows multiple species to reproduce, die, move around the landscape, and interact with one another
+
+.. toctree::
+    :hidden:
+
+    species
+    parameters
+    domain
+    solvers

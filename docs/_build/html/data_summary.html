@@ -1,0 +1,364 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  
+  <!-- Licensed under the Apache 2.0 License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
+  <!-- Licensed under the SIL Open Font License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/source-serif-pro/source-serif-pro.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+    <title>Domain Data Summary &mdash; Popdyn  documentation</title>
+    
+    <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="prev" title="Numerical Solvers" href="solvers.html" />
+  
+   
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="solvers.html" title="Numerical Solvers"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="container-wrapper">
+
+      <div id="mobile-toggle">
+        <a href="#"><span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span></a>
+      </div>
+  <div id="left-column">
+    <div class="sphinxsidebar"><a href="
+    index.html" class="text-logo">Popdyn  documentation</a>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Table Of Contents</h2>
+  </div>
+  <div class="sidebar-toc">
+    
+    
+      <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Domain Data Summary</a></li>
+</ul>
+
+    
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+        <div id="right-column">
+          
+          <div role="navigation" aria-label="breadcrumbs navigation">
+            <ol class="breadcrumb">
+              <li><a href="index.html">Docs</a></li>
+              
+              <li>Domain Data Summary</li>
+            </ol>
+          </div>
+          
+          <div class="document clearer body">
+            
+  <div class="section" id="domain-data-summary">
+<span id="summary"></span><h1>Domain Data Summary<a class="headerlink" href="#domain-data-summary" title="Permalink to this headline">¶</a></h1>
+<p>Data in a model domain are easily queried and aggregated using the <a class="reference internal" href="#summary.ModelSummary" title="summary.ModelSummary"><code class="xref py py-class docutils literal"><span class="pre">ModelSummary</span></code></a> class:</p>
+<dl class="class">
+<dt id="summary.ModelSummary">
+<em class="property">class </em><code class="descclassname">summary.</code><code class="descname">ModelSummary</code><span class="sig-paren">(</span><em>domain</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect summarized results from the model domain. With each summary function call, no computations take place.
+Rather, the <code class="docutils literal"><span class="pre">to_compute</span></code> attribute is appended with the output <code class="docutils literal"><span class="pre">dask</span></code> object, all of which are optimized and
+computed only when the <a class="reference internal" href="#summary.ModelSummary.compute" title="summary.ModelSummary.compute"><code class="xref py py-func docutils literal"><span class="pre">compute()</span></code></a> method is called.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>domain</strong> &#8211; A Domain instance</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="summary.ModelSummary.average_age">
+<code class="descname">average_age</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.average_age" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the average age from a domain, filtering by sub-populations</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name - may be an iterable</li>
+<li><strong>time</strong> &#8211; time slice: int or iterable</li>
+<li><strong>sex</strong> &#8211; Sex (one of &#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> &#8211; group name - may be an iterable        :return: ndarray with the average age</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.compute">
+<code class="descname">compute</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.compute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute all loaded summaries in the <code class="docutils literal"><span class="pre">to_compute</span></code> attribute</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">list of computed objects from <code class="docutils literal"><span class="pre">to_compute</span></code> attribute</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.fecundity">
+<code class="descname">fecundity</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em>, <em>coeff=False</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.fecundity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the total fecundity using the given query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name</li>
+<li><strong>time</strong> &#8211; time slice - may be an iterable or int</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (&#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group name - may be an iterable</li>
+<li><strong>coeff</strong> (<em>bool</em>) &#8211; If True, the average fecundity reduction rate based on density is returned</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">ndarray of total offspring</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.list_mortality_types">
+<code class="descname">list_mortality_types</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.list_mortality_types" title="Permalink to this definition">¶</a></dt>
+<dd><p>List the mortality names in the domain for the given query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name</li>
+<li><strong>time</strong> &#8211; time slice - may be an iterable or int</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (&#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group name - may be an iterable</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">list of mortality names</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.model_summary">
+<code class="descname">model_summary</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.model_summary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Summarize totals of each species and their parameters in the domain. This is used primarily to service the
+data requirements of an excel output in <code class="docutils literal"><span class="pre">logger.write_xlsx</span></code></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">dict of species and their parameters</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.total_carrying_capacity">
+<code class="descname">total_carrying_capacity</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.total_carrying_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the total carrying capacity in the domain for the given query.</p>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">Carrying capacity may be calculated for an entire species in the solver (see <a class="reference internal" href="solvers.html#solvers"><span>Numerical Solvers</span></a>).
+As such, query results that are filtered by sex or age group will include carrying capacity for the entire species.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name</li>
+<li><strong>time</strong> &#8211; time slice - may be an iterable or int</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (&#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group name - may be an iterable</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">ndarray of total carrying capacity</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.total_mortality">
+<code class="descname">total_mortality</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em>, <em>mortality_name=None</em>, <em>as_population=True</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.total_mortality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect either the total population or the mortality parameter value for the given query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name</li>
+<li><strong>time</strong> &#8211; time slice - may be an iterable or int</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (&#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group name - may be an iterable</li>
+<li><strong>as_population</strong> (<em>bool</em>) &#8211; Use to determine whether the query output is the population that succumbs to the
+mortality, or the mortality rate</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">ndarray of the mortality population or parameter</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.total_offspring">
+<code class="descname">total_offspring</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em>, <em>offspring_sex=None</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.total_offspring" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the total offspring using the given query</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name</li>
+<li><strong>time</strong> &#8211; time slice - may be an iterable or int</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (&#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group name - may be an iterable</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">ndarray of total offspring</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="summary.ModelSummary.total_population">
+<code class="descname">total_population</code><span class="sig-paren">(</span><em>species=None</em>, <em>time=None</em>, <em>sex=None</em>, <em>group=None</em>, <em>age=None</em><span class="sig-paren">)</span><a class="headerlink" href="#summary.ModelSummary.total_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect the sum of populations from a domain, filtering by sub-populations</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species name - may be an iterable</li>
+<li><strong>time</strong> &#8211; time slice: int or iterable</li>
+<li><strong>sex</strong> &#8211; Sex (one of &#8216;male&#8217; or &#8216;female&#8217;) - may be an iterable</li>
+<li><strong>group</strong> &#8211; group name - may be an iterable</li>
+<li><strong>age</strong> &#8211; discrete Age - may be an iterable</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">ndarray with the total population</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+            
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="solvers.html" title="previous chapter (use the left arrow)">Numerical Solvers</a>
+      </div>
+    
+    </div>
+    <div class="clearer"></div>
+  
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="solvers.html" title="Numerical Solvers"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+<script type="text/javascript">
+  $("#mobile-toggle a").click(function () {
+    $("#left-column").toggle();
+  });
+</script>
+<script type="text/javascript" src="_static/js/bootstrap.js"></script>
+  <div class="footer">
+    &copy; Copyright 2018. Devin Cairns. Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+  </div>
+  </body>
+</html>

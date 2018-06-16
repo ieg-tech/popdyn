@@ -1,0 +1,218 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  
+  <!-- Licensed under the Apache 2.0 License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
+  <!-- Licensed under the SIL Open Font License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/source-serif-pro/source-serif-pro.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+    <title>Numerical Solvers &mdash; Popdyn  documentation</title>
+    
+    <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="next" title="Domain Data Summary" href="data_summary.html" />
+    <link rel="prev" title="Model Domain" href="domain.html" />
+  
+   
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="data_summary.html" title="Domain Data Summary"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="domain.html" title="Model Domain"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="container-wrapper">
+
+      <div id="mobile-toggle">
+        <a href="#"><span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span></a>
+      </div>
+  <div id="left-column">
+    <div class="sphinxsidebar"><a href="
+    index.html" class="text-logo">Popdyn  documentation</a>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Table Of Contents</h2>
+  </div>
+  <div class="sidebar-toc">
+    
+    
+      <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Numerical Solvers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#species-inheritance">Species Inheritance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#discrete-explicit">Discrete Explicit</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+</ul>
+
+    
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Contents</h2>
+    <div class="sidebar-localtoc">
+      <ul>
+<li><a class="reference internal" href="#">Numerical Solvers</a><ul>
+<li><a class="reference internal" href="#species-inheritance">Species Inheritance</a></li>
+<li><a class="reference internal" href="#discrete-explicit">Discrete Explicit</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+        <div id="right-column">
+          
+          <div role="navigation" aria-label="breadcrumbs navigation">
+            <ol class="breadcrumb">
+              <li><a href="index.html">Docs</a></li>
+              
+              <li>Numerical Solvers</li>
+            </ol>
+          </div>
+          
+          <div class="document clearer body">
+            
+  <div class="section" id="numerical-solvers">
+<span id="solvers"></span><h1>Numerical Solvers<a class="headerlink" href="#numerical-solvers" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#species-inheritance" id="id1">Species Inheritance</a></li>
+<li><a class="reference internal" href="#discrete-explicit" id="id2">Discrete Explicit</a></li>
+</ul>
+</div>
+<div class="section" id="species-inheritance">
+<h2><a class="toc-backref" href="#id1">Species Inheritance</a><a class="headerlink" href="#species-inheritance" title="Permalink to this headline">¶</a></h2>
+<p>Prior to commencing population calculations over time, solvers must perform error check and species inheritance:</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">solvers.error_check</span></code>(domain)</td>
+<td>Make sure there are no conflicts within a domain.</td>
+</tr>
+<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">solvers.inherit</span></code>(domain,&nbsp;start_time,&nbsp;end_time)</td>
+<td>Divide population and carrying capacity among children of species if they exist</td>
+</tr>
+</tbody>
+</table>
+<p>Both population and carrying capacity data in the domain are distributed evenly among their children species.</p>
+</div>
+<div class="section" id="discrete-explicit">
+<h2><a class="toc-backref" href="#id2">Discrete Explicit</a><a class="headerlink" href="#discrete-explicit" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="solvers.discrete_explicit">
+<code class="descclassname">solvers.</code><code class="descname">discrete_explicit</code><span class="sig-paren">(</span><em>domain</em>, <em>start_time</em>, <em>end_time</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the domain from a start time to an end time on a discrete time step associated with the Domain</p>
+<p>The total populations from the previous year are used to calculate derived
+parameters (density, fecundity, inter-species relationships, etc.).</p>
+<p>To run the simulation, use .execute()</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+            
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="domain.html" title="previous chapter (use the left arrow)">Model Domain</a>
+      </div>
+    
+      <div class="pull-right">
+        <a class="btn btn-default" href="data_summary.html" title="next chapter (use the right arrow)">Domain Data Summary</a>
+      </div>
+    </div>
+    <div class="clearer"></div>
+  
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="data_summary.html" title="Domain Data Summary"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="domain.html" title="Model Domain"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+<script type="text/javascript">
+  $("#mobile-toggle a").click(function () {
+    $("#left-column").toggle();
+  });
+</script>
+<script type="text/javascript" src="_static/js/bootstrap.js"></script>
+  <div class="footer">
+    &copy; Copyright 2018. Devin Cairns. Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+  </div>
+  </body>
+</html>

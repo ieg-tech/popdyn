@@ -1,0 +1,394 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+  
+  <!-- Licensed under the Apache 2.0 License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
+  <!-- Licensed under the SIL Open Font License -->
+  <link rel="stylesheet" type="text/css" href="_static/fonts/source-serif-pro/source-serif-pro.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap.min.css" />
+  <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+    <title>Species &mdash; Popdyn  documentation</title>
+    
+    <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="next" title="Dispersal" href="dispersal.html" />
+    <link rel="prev" title="Popdyn" href="index.html" />
+  
+   
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="dispersal.html" title="Dispersal"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Popdyn"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="container-wrapper">
+
+      <div id="mobile-toggle">
+        <a href="#"><span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span></a>
+      </div>
+  <div id="left-column">
+    <div class="sphinxsidebar"><a href="
+    index.html" class="text-logo">Popdyn  documentation</a>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Table Of Contents</h2>
+  </div>
+  <div class="sidebar-toc">
+    
+    
+      <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="">Species</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-species-class">The Species Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sexes">Sexes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#age-groups">Age Groups</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+</ul>
+
+    
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Contents</h2>
+    <div class="sidebar-localtoc">
+      <ul>
+<li><a class="reference internal" href="#">Species</a><ul>
+<li><a class="reference internal" href="#the-species-class">The Species Class</a></li>
+<li><a class="reference internal" href="#sexes">Sexes</a></li>
+<li><a class="reference internal" href="#age-groups">Age Groups</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
+  </div>
+</div>
+      
+    </div>
+  </div>
+        <div id="right-column">
+          
+          <div role="navigation" aria-label="breadcrumbs navigation">
+            <ol class="breadcrumb">
+              <li><a href="index.html">Docs</a></li>
+              
+              <li>Species</li>
+            </ol>
+          </div>
+          
+          <div class="document clearer body">
+            
+  <div class="section" id="species">
+<span id="id1"></span><h1>Species<a class="headerlink" href="#species" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#the-species-class" id="id2">The Species Class</a></li>
+<li><a class="reference internal" href="#sexes" id="id3">Sexes</a></li>
+<li><a class="reference internal" href="#age-groups" id="id4">Age Groups</a></li>
+</ul>
+</div>
+<p>Popdyn species are created independently (without any regard for parameters or a domain), and possess unique traits
+which are specified using the Species Classes:</p>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#popdyn.Species" title="popdyn.Species"><code class="xref py py-obj docutils literal"><span class="pre">Species</span></code></a>(name,&nbsp;**kwargs)</td>
+<td>Top-level species customization</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#popdyn.Sex" title="popdyn.Sex"><code class="xref py py-obj docutils literal"><span class="pre">Sex</span></code></a>(name,&nbsp;sex,&nbsp;**kwargs)</td>
+<td>Child of Species, containing sex-based attributes</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#popdyn.AgeGroup" title="popdyn.AgeGroup"><code class="xref py py-obj docutils literal"><span class="pre">AgeGroup</span></code></a>(species_name,&nbsp;group_name,&nbsp;sex,&nbsp;...)</td>
+<td>Child of Sex, containing age information</td>
+</tr>
+</tbody>
+</table>
+<p>Species may possess attributes in a hierarchy, whereby the entire species, an individual sex, or range of ages can be
+customized separately. For convenience, species attributes in a model domain are inherited using the hierarchy outlined
+in the figure below. Species are linked in the model domain using their name, which is the minimum requirement to
+create a species.</p>
+<img alt="_images/species_inheritance.png" class="align-center" src="_images/species_inheritance.png" />
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For inheritance to Sex and Age Ranges to work, the species names must align</p>
+</div>
+<div class="section" id="the-species-class">
+<h2><a class="toc-backref" href="#id2">The Species Class</a><a class="headerlink" href="#the-species-class" title="Permalink to this headline">¶</a></h2>
+<p>Attributes related to a specific species are specified in the Species Class. These attributes are inherited by Sexes
+or Age Groups of species with the same name if they are added to a model domain.</p>
+<p><strong>Dispersal</strong> is also applied through the <a class="reference internal" href="#popdyn.Species.add_dispersal" title="popdyn.Species.add_dispersal"><code class="xref py py-meth docutils literal"><span class="pre">add_dispersal()</span></code></a> method, see <a class="reference internal" href="dispersal.html#dispersal"><span>Dispersal</span></a> for further information
+on these methods.</p>
+<dl class="class">
+<dt id="popdyn.Species">
+<em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Species</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Species" title="Permalink to this definition">¶</a></dt>
+<dd><p>Top-level species customization</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> (<em>str</em>) &#8211; Name of the species (example &#8220;Moose&#8221;), which is limited to 25 characters. The Species name is
+transformed into a unique key that is utilized to determine inheritance between Species, Sex, and Age
+Groups in the model domain.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>contributes_to_density</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This species contributes to density calculations (default: True)</p>
+</dd>
+<dt><strong>density_threshold</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The density at which density-dependent mortality has an effect  (default: 1.)</p>
+</dd>
+<dt><strong>density_scale</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">This is the rate of density dependent mortality, applied linearly between the <code class="docutils literal"><span class="pre">density_threshold</span></code> and
+the maxmum density  (default: 1.)</p>
+</dd>
+<dt><strong>minimum_viable_population</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum population that may exist within a statistically-derived region. All of the population
+will not be allowed to exist if below this value  (default: 0.)</p>
+</dd>
+<dt><strong>minimum_viable_area</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum statistically-derived area to apply the <code class="docutils literal"><span class="pre">minimum_viable_population</span></code> to (default: 0.)</p>
+</dd>
+<dt><strong>live_past_max</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This is a swtich that determines whether a species may live past the oldest age group maximum age.
+(default: False)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="popdyn.Species.add_dispersal">
+<code class="descname">add_dispersal</code><span class="sig-paren">(</span><em>dispersal_type</em>, <em>args=()</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Species.add_dispersal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sequentially add disperal methods to the species</p>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">Current solvers apply dispersal in the order that they are applied through these calls</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>dispersal_type</strong> (<em>str</em>) &#8211; One of the <code class="docutils literal"><span class="pre">dispersal.METHODS</span></code> keywords</li>
+<li><strong>args</strong> (<em>tuple</em>) &#8211; Arguments to accompany the dispersal method</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="sexes">
+<h2><a class="toc-backref" href="#id3">Sexes</a><a class="headerlink" href="#sexes" title="Permalink to this headline">¶</a></h2>
+<p>A species that has information related to Sex, but is agnostic to age may be created using the <code class="docutils literal"><span class="pre">Sex</span></code> Class:</p>
+<dl class="class">
+<dt id="popdyn.Sex">
+<em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Sex</code><span class="sig-paren">(</span><em>name</em>, <em>sex</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Sex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Child of Species, containing sex-based attributes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>name</strong> (<em>str</em>) &#8211; Name of the species (example &#8220;Moose&#8221;), which is limited to 25 characters. The Species name is
+transformed into a unique key that is utilized to determine inheritance between Species, Sex, and Age
+Groups in the model domain.</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Name of sex, must be one of &#8216;male&#8217; or &#8216;female&#8217;. Case is not important.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>contributes_to_density</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This species contributes to density calculations (default: True)</p>
+</dd>
+<dt><strong>density_threshold</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The density at which density-dependent mortality has an effect  (default: 1.)</p>
+</dd>
+<dt><strong>density_scale</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">This is the rate of density dependent mortality, applied linearly between the <code class="docutils literal"><span class="pre">density_threshold</span></code> and
+the maxmum density  (default: 1.)</p>
+</dd>
+<dt><strong>minimum_viable_population</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum population that may exist within a statistically-derived region. All of the population
+will not be allowed to exist if below this value  (default: 0.)</p>
+</dd>
+<dt><strong>minimum_viable_area</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum statistically-derived area to apply the <code class="docutils literal"><span class="pre">minimum_viable_population</span></code> to (default: 0.)</p>
+</dd>
+<dt><strong>live_past_max</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This is a swtich that determines whether a species may live past the oldest age group maximum age.
+(default: False)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="age-groups">
+<h2><a class="toc-backref" href="#id4">Age Groups</a><a class="headerlink" href="#age-groups" title="Permalink to this headline">¶</a></h2>
+<p>A species that has both sex and age information is created using the <code class="docutils literal"><span class="pre">AgeGroup</span></code> class:</p>
+<dl class="class">
+<dt id="popdyn.AgeGroup">
+<em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">AgeGroup</code><span class="sig-paren">(</span><em>species_name</em>, <em>group_name</em>, <em>sex</em>, <em>min_age</em>, <em>max_age</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.AgeGroup" title="Permalink to this definition">¶</a></dt>
+<dd><p>Child of Sex, containing age information</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species_name</strong> (<em>str</em>) &#8211; Name of the species (example &#8220;Moose&#8221;), which is limited to 25 characters. The Species name is
+transformed into a unique key that is utilized to determine inheritance between Species, Sex, and Age
+Groups in the model domain.</li>
+<li><strong>group_name</strong> (<em>str</em>) &#8211; Name of the group associated with the age range (example &#8220;newborn&#8221;), which is limited to
+25 characters. The group name is transformed into a unique key.</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Name of sex, must be one of &#8216;male&#8217; or &#8216;female&#8217;. Case is not important.</li>
+<li><strong>min_age</strong> &#8211; The minimum age included in this group.</li>
+<li><strong>max_age</strong> &#8211; The maximum age included in this group.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>contributes_to_density</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This species contributes to density calculations (default: True)</p>
+</dd>
+<dt><strong>density_threshold</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The density at which density-dependent mortality has an effect  (default: 1.)</p>
+</dd>
+<dt><strong>density_scale</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">This is the rate of density dependent mortality, applied linearly between the <code class="docutils literal"><span class="pre">density_threshold</span></code> and
+the maxmum density  (default: 1.)</p>
+</dd>
+<dt><strong>minimum_viable_population</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum population that may exist within a statistically-derived region. All of the population
+will not be allowed to exist if below this value  (default: 0.)</p>
+</dd>
+<dt><strong>minimum_viable_area</strong> (<em>float</em>) &#8211;</dt>
+<dd><p class="first last">The minimum statistically-derived area to apply the <code class="docutils literal"><span class="pre">minimum_viable_population</span></code> to (default: 0.)</p>
+</dd>
+<dt><strong>live_past_max</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">This is a swtich that determines whether a species may live past the oldest age group maximum age.
+(default: False)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+            
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="index.html" title="previous chapter (use the left arrow)">Popdyn</a>
+      </div>
+    
+      <div class="pull-right">
+        <a class="btn btn-default" href="dispersal.html" title="next chapter (use the right arrow)">Dispersal</a>
+      </div>
+    </div>
+    <div class="clearer"></div>
+  
+        </div>
+        <div class="clearfix"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="dispersal.html" title="Dispersal"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Popdyn"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+<script type="text/javascript">
+  $("#mobile-toggle a").click(function () {
+    $("#left-column").toggle();
+  });
+</script>
+<script type="text/javascript" src="_static/js/bootstrap.js"></script>
+  <div class="footer">
+    &copy; Copyright 2018. Devin Cairns. Created using <a href="http://sphinx.pocoo.org/">Sphinx</a>.
+  </div>
+  </body>
+</html>
