@@ -35,7 +35,7 @@
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Popdyn  documentation" href="index.html" />
     <link rel="next" title="Parameters" href="parameters.html" />
-    <link rel="prev" title="Species" href="species.html" />
+    <link rel="prev" title="Species (Populations)" href="species.html" />
   
    
 
@@ -51,7 +51,7 @@
           <a href="parameters.html" title="Parameters"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="species.html" title="Species"
+          <a href="species.html" title="Species (Populations)"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
       </ul>
@@ -72,8 +72,15 @@
     
     
       <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Dispersal</a></li>
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Dispersal</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#interhabitat-dispersal">Interhabitat Dispersal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#max-dispersal">Max Dispersal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#masked-dispersal">Masked Dispersal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#density-network-dispersal">Density Network Dispersal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fixed-network-dispersal">Fixed Network Dispersal</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
@@ -81,6 +88,24 @@
 </ul>
 
     
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <h2>Contents</h2>
+    <div class="sidebar-localtoc">
+      <ul>
+<li><a class="reference internal" href="#">Dispersal</a><ul>
+<li><a class="reference internal" href="#interhabitat-dispersal">Interhabitat Dispersal</a></li>
+<li><a class="reference internal" href="#max-dispersal">Max Dispersal</a></li>
+<li><a class="reference internal" href="#masked-dispersal">Masked Dispersal</a></li>
+<li><a class="reference internal" href="#density-network-dispersal">Density Network Dispersal</a></li>
+<li><a class="reference internal" href="#fixed-network-dispersal">Fixed Network Dispersal</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
   </div>
 </div>
 <div class="sidebar-block">
@@ -113,9 +138,24 @@
             
   <div class="section" id="dispersal">
 <span id="id1"></span><h1>Dispersal<a class="headerlink" href="#dispersal" title="Permalink to this headline">¶</a></h1>
+<div class="contents local topic" id="table-of-contents">
+<p class="topic-title first">Table of contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#interhabitat-dispersal" id="id2">Interhabitat Dispersal</a></li>
+<li><a class="reference internal" href="#max-dispersal" id="id3">Max Dispersal</a></li>
+<li><a class="reference internal" href="#masked-dispersal" id="id4">Masked Dispersal</a></li>
+<li><a class="reference internal" href="#density-network-dispersal" id="id5">Density Network Dispersal</a></li>
+<li><a class="reference internal" href="#fixed-network-dispersal" id="id6">Fixed Network Dispersal</a></li>
+</ul>
+</div>
 <p>Species may move independently in a model domain using any number of available dispersal methods. They are added to a
-species using the <a class="reference internal" href="species.html#species"><span>Species</span></a> <code class="xref py py-func docutils literal"><span class="pre">add_dispersal()</span></code> method, which is specified using one of the available methods listed in
-<code class="docutils literal"><span class="pre">popdyn.dispersal.METHODS</span></code>. These methods, and their keys are used to add each to a species are listed below:</p>
+species using the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> <code class="xref py py-func docutils literal"><span class="pre">add_dispersal()</span></code> method, which is specified using one of the available methods listed in
+<code class="docutils literal"><span class="pre">popdyn.dispersal.METHODS</span></code>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Poplulation is never moved outside of the model domain or to where carrying capacity is 0</p>
+</div>
+<p>These methods, and their keys are used to add each to a species are listed below:</p>
 <table border="1" class="longtable docutils">
 <colgroup>
 <col width="10%" />
@@ -140,15 +180,46 @@ species using the <a class="reference internal" href="species.html#species"><spa
 </tbody>
 </table>
 <p>Dispersal methods are described as follows:</p>
+<div class="section" id="interhabitat-dispersal">
+<h2><a class="toc-backref" href="#id2">Interhabitat Dispersal</a><a class="headerlink" href="#interhabitat-dispersal" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
 <dt id="dispersal.density_flux">
 <code class="descclassname">dispersal.</code><code class="descname">density_flux</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.density_flux" title="Permalink to this definition">¶</a></dt>
 <dd><p>&#8216;density-based dispersion&#8217;</p>
-<p>Dispersal is calculated using a density gradient based on the mean within a neighbourhood dictated by the specified
-distance. The mean density over grid nodes within a radius determined by the input distance is calculated to evaluate
-the gradient between the mean and the node at the centre. This gradient is used to determine whether a population is
-above the mean, thus able to distribute a portion of the population outwards. Populations above the mean are distributed
-to nodes with populations below the mean within the radius proportional to their gradient.</p>
+<p>Dispersal is calculated using the following sequence of methods:</p>
+<p>Portions of populations at each element (node, or grid cell) in the study area array (raster) are moved to
+surrounding elements (a neighbourhood) within a radius that is defined by the input distance (<span class="math">\(d\)</span>), as
+presented in the conceptual figure below.</p>
+<blockquote>
+<div><img alt="_images/density_flux_neighbourhood.png" class="align-center" src="_images/density_flux_neighbourhood.png" />
+</div></blockquote>
+<p>The mean density (<span class="math">\(\rho\)</span>) of all elements in the neighbourhood is calculated as:</p>
+<div class="math">
+\[\rho=\frac{\sum_{i=1}^{n} \frac{pop_T(i)}{k_T(i)}}{n}\]</div>
+<p>where,</p>
+<p><span class="math">\(pop_T\)</span> is the total population (of the entire species) at each element (<span class="math">\(i\)</span>); and</p>
+<p><span class="math">\(k_T\)</span> is the total carrying capacity for the species</p>
+<p>The density gradient at each element (<span class="math">\(\Delta\)</span>) with respect to the mean is calculated as:</p>
+<div class="math">
+\[\Delta(i)=\frac{pop_T(i)}{k_T(i)}-\rho\]</div>
+<p>If the centroid element is above the mean <span class="math">\([\Delta(i_0) &gt; 0]\)</span>, it is able to release a portion of its
+population to elements in the neighbourhood. The eligible population to be received by surrounding elements is equal
+to the sum of populations at elements with negative density gradients, the <span class="math">\(candidates\)</span>:</p>
+<div class="math">
+\[\begin{split}candidates=\sum_{i=1}^{n} \Delta(i)[\Delta(i) &lt; 0]k_T(i)\end{split}\]</div>
+<p>The minimum of either the population above the mean at the centroid element - <span class="math">\(source=\Delta(i_0)*k_T(i_0)\)</span>,
+or the <span class="math">\(candidates\)</span> are used to determine the total population that is dispersed from the centroid element to
+the other elements in the neighbourhood:</p>
+<div class="math">
+\[dispersal=min\{source, candidates\}\]</div>
+<p>The population at the centroid element becomes:</p>
+<div class="math">
+\[pop_a(i_0)=pop_a(i_0)-\frac{pop_a(i_0)}{pop_T(i_0)}dispersal\]</div>
+<p>where,</p>
+<p><span class="math">\(pop_a\)</span> is the age (stage) group population, which is a sub-population of the total.</p>
+<p>The populations of the candidate elements in the neighbourhood become (a net gain due to negative gradients):</p>
+<div class="math">
+\[\begin{split}pop_a(i)=pop_a(i)-\frac{\Delta(i)[\Delta(i) &lt; 0]k_T(i)}{candidates}dispersal\frac{pop_a(i)}{pop_T(i)}\end{split}\]</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -156,7 +227,7 @@ to nodes with populations below the mean within the radius proportional to their
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>population</strong> (<em>array</em>) &#8211; Sub-population to redistribute (subset of the <code class="docutils literal"><span class="pre">total_population</span></code>)</li>
 <li><strong>total_population</strong> (<em>array</em>) &#8211; Total population</li>
-<li><strong>carrying_capacity</strong> (<em>array</em>) &#8211; Total Carrying Capacity (n)</li>
+<li><strong>carrying_capacity</strong> (<em>array</em>) &#8211; Total Carrying Capacity (k)</li>
 <li><strong>distance</strong> (<em>float</em>) &#8211; Maximum dispersal distance</li>
 <li><strong>csx</strong> (<em>float</em>) &#8211; Cell size of the domain in the x-direction</li>
 <li><strong>csy</strong> (<em>float</em>) &#8211; Cell size of the domain in the y-direction</li>
@@ -188,14 +259,44 @@ to nodes with populations below the mean within the radius proportional to their
 </table>
 </dd></dl>
 
+</div>
+<div class="section" id="max-dispersal">
+<h2><a class="toc-backref" href="#id3">Max Dispersal</a><a class="headerlink" href="#max-dispersal" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
 <dt id="dispersal.distance_propagation">
 <code class="descclassname">dispersal.</code><code class="descname">distance_propagation</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.distance_propagation" title="Permalink to this definition">¶</a></dt>
 <dd><p>&#8216;distance propagation&#8217;</p>
-<p>Distance propagation is used to redistribute populations to distal locations based on density gradients. The node at
-or near the specified distance with the minimum density is selected to redistribute a fraction of the population
-proportional to the density gradient between the two nodes. In the case that all distal nodes have a homogeneous
-density, the target node is chosen at random.</p>
+<p>Distance propagation is used to redistribute populations to distal locations based on density gradients. Portions of
+populations at each element (node, or grid cell) in the study area array (raster) are moved to a target element
+at a radius that is defined by the input distance (<span class="math">\(d\)</span>), as presented in the conceptual
+figure below.</p>
+<img alt="_images/distance_propagation_neighbourhood.png" class="align-center" src="_images/distance_propagation_neighbourhood.png" />
+<p>The density (<span class="math">\(\rho\)</span>) of all distal elements (<span class="math">\(i\)</span>) is calculated as:</p>
+<div class="math">
+\[\rho(i)=\frac{pop_T(i)}{k_T(i)}\]</div>
+<p>where,</p>
+<p><span class="math">\(pop_T\)</span> is the total population (of the entire species) at each element (<span class="math">\(i\)</span>); and</p>
+<p><span class="math">\(k_T\)</span> is the total carrying capacity for the species</p>
+<p>The distal element with the minimum density is chosen as a candidate for population dispersal from the centroid
+element. If the density of distal elements is homogeneous, one element is picked at random. The density gradient
+<span class="math">\(\Delta\)</span> is then calculated using the centroid element <span class="math">\(i_0\)</span> and the chosen distal element <span class="math">\(i_1\)</span>:</p>
+<div class="math">
+\[\rho=\frac{pop_T(i_0)/k_T(i_0)+pop_T(i_1)/k_T(i_1)}{2}\]</div>
+<div class="math">
+\[\Delta(i)=\frac{pop_T(i)}{k_T(i)}-\rho\]</div>
+<p>If the centroid element is above the mean <span class="math">\([\Delta(i_0) &gt; 0]\)</span>, and the distal element is below the mean
+<span class="math">\([\Delta(i_1) &lt; 0]\)</span>, dispersal may take place. The total population dispersed is calculated by taking the
+minimum of the population constrained by the gradient:</p>
+<div class="math">
+\[dispersal=min\{|\Delta(i_0)k_T(i_0)|, |\Delta(i_1)k_T(i_1)|\}\]</div>
+<p>The population at the centroid element becomes:</p>
+<div class="math">
+\[pop_a(i_0)=pop_a(i_0)-dispersal\]</div>
+<p>where,</p>
+<p><span class="math">\(pop_a\)</span> is the age (stage) group population, which is a sub-population of the total.</p>
+<p>The population at the distal element becomes (a net gain due to a negative gradient):</p>
+<div class="math">
+\[pop_a(i_1)=pop_a(i_1)-dispersal\]</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -226,38 +327,75 @@ density, the target node is chosen at random.</p>
 </table>
 </dd></dl>
 
+</div>
+<div class="section" id="masked-dispersal">
+<h2><a class="toc-backref" href="#id4">Masked Dispersal</a><a class="headerlink" href="#masked-dispersal" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
 <dt id="dispersal.masked_density_flux">
 <code class="descclassname">dispersal.</code><code class="descname">masked_density_flux</code><span class="sig-paren">(</span><em>population</em>, <em>total_population</em>, <em>carrying_capacity</em>, <em>distance</em>, <em>csx</em>, <em>csy</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.masked_density_flux" title="Permalink to this definition">¶</a></dt>
 <dd><p>&#8216;masked density-based dispersion&#8217;</p>
 <p>See <a class="reference internal" href="#dispersal.density_flux" title="dispersal.density_flux"><code class="xref py py-func docutils literal"><span class="pre">density_flux()</span></code></a>. The dispersal logic is identical to that of <code class="docutils literal"><span class="pre">density_flux</span></code>, however a mask is specified
-as a keyword argument to scale the dispersal. When populations are transferred between grid nodes, they are first
-multiplied by the value presented in the mask. The mask is normalized within <code class="docutils literal"><span class="pre">density_flux</span></code> to ensure all values
-are between 0 and 1.</p>
-</dd></dl>
-
-<dl class="function">
-<dt id="dispersal.density_network">
-<code class="descclassname">dispersal.</code><code class="descname">density_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.density_network" title="Permalink to this definition">¶</a></dt>
-<dd><p>&#8216;density network dispersal&#8217;</p>
-<p>FUTURE: Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.</p>
+as a keyword argument to scale the dispersal. The <span class="math">\(mask\)</span> elements <span class="math">\(i\)</span> are first normalized to ensure
+values are not less than 0 and do not exceed 1:</p>
+<div class="math">
+\[mask(i)=\frac{mask(i)-min\{mask\}}{max\{mask\}-min\{mask\}}\]</div>
+<p>When the <span class="math">\(candidates\)</span> are calculated (as outlined in <a class="reference internal" href="#dispersal.density_flux" title="dispersal.density_flux"><code class="xref py py-func docutils literal"><span class="pre">density_flux()</span></code></a>) they are first scaled by the mask value:</p>
+<div class="math">
+\[\begin{split}candidates=\sum_{i=1}^{n} \Delta(i)[\Delta(i) &lt; 0]k_T(i)mask(i)\end{split}\]</div>
+<p>and are scaled by the mask when transferring populations from the centroid element:</p>
+<div class="math">
+\[\begin{split}pop_a(i)=pop_a(i)-\frac{\Delta(i)[\Delta(i) &lt; 0]k_T(i)mask(i)}{candidates}dispersal\frac{pop_a(i)}{pop_T(i)}\end{split}\]</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">NotImplementedError</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>population</strong> (<em>array</em>) &#8211; Sub-population to redistribute (subset of the <code class="docutils literal"><span class="pre">total_population</span></code>)</li>
+<li><strong>total_population</strong> (<em>array</em>) &#8211; Total population</li>
+<li><strong>carrying_capacity</strong> (<em>array</em>) &#8211; Total Carrying Capacity (k)</li>
+<li><strong>distance</strong> (<em>float</em>) &#8211; Maximum dispersal distance</li>
+<li><strong>csx</strong> (<em>float</em>) &#8211; Cell size of the domain in the x-direction</li>
+<li><strong>csy</strong> (<em>float</em>) &#8211; Cell size of the domain in the y-direction</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> &#8211; </td>
+</tbody>
+</table>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">Ensure the cell sizes are in the same units as the specified direction</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-odd field"><td>&nbsp;</td><td class="field-body"><dl class="first docutils">
+<dt><strong>mask</strong> (<em>array</em>) &#8211;</dt>
+<dd><p class="first last">A weighting mask that scales dispersal based on the normalized mask value (default: None)</p>
+</dd>
+</dl>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Redistributed population</p>
+</td>
 </tr>
 </tbody>
 </table>
 </dd></dl>
 
+</div>
+<div class="section" id="density-network-dispersal">
+<h2><a class="toc-backref" href="#id5">Density Network Dispersal</a><a class="headerlink" href="#density-network-dispersal" title="Permalink to this headline">¶</a></h2>
 <dl class="function">
-<dt id="dispersal.fixed_network">
-<code class="descclassname">dispersal.</code><code class="descname">fixed_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.fixed_network" title="Permalink to this definition">¶</a></dt>
-<dd><p>&#8216;fixed network movement&#8217;</p>
-<p>FUTURE: Compute dispersal based on a least cost path network analysis using a cost surface.</p>
+<dt id="dispersal.density_network">
+<code class="descclassname">dispersal.</code><code class="descname">density_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.density_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;density network dispersal&#8217;</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In Development</p>
+</div>
+<p>Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -271,6 +409,31 @@ are between 0 and 1.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="fixed-network-dispersal">
+<h2><a class="toc-backref" href="#id6">Fixed Network Dispersal</a><a class="headerlink" href="#fixed-network-dispersal" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="dispersal.fixed_network">
+<code class="descclassname">dispersal.</code><code class="descname">fixed_network</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.fixed_network" title="Permalink to this definition">¶</a></dt>
+<dd><p>&#8216;fixed network movement&#8217;</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In Development</p>
+</div>
+<p>Compute dispersal based on a least cost path network analysis using a cost surface.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">NotImplementedError</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> &#8211; </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
 
 
           </div>
@@ -278,7 +441,7 @@ are between 0 and 1.</p>
   <div class="footer-relations">
     
       <div class="pull-left">
-        <a class="btn btn-default" href="species.html" title="previous chapter (use the left arrow)">Species</a>
+        <a class="btn btn-default" href="species.html" title="previous chapter (use the left arrow)">Species (Populations)</a>
       </div>
     
       <div class="pull-right">
@@ -300,7 +463,7 @@ are between 0 and 1.</p>
           <a href="parameters.html" title="Parameters"
              >next</a> |</li>
         <li class="right" >
-          <a href="species.html" title="Species"
+          <a href="species.html" title="Species (Populations)"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
       </ul>

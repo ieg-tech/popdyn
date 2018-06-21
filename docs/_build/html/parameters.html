@@ -72,7 +72,7 @@
     
     
       <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Parameters</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#carrying-capacity">Carrying Capacity</a></li>
@@ -145,8 +145,8 @@
 </li>
 </ul>
 </div>
-<p>Sets of parameters may be customized and prepared prior to adding them to a <a class="reference internal" href="species.html#species"><span>Species</span></a> or a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>. They
-may be created to be used with multiple <a class="reference internal" href="species.html#species"><span>Species</span></a> or <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> objects, and are usually accompanied by a gridded
+<p>Sets of parameters may be customized and prepared prior to adding them to a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>. They
+may be created to be used with multiple <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> objects, and are usually accompanied by a gridded
 (or <em>raster</em>) dataset when added to the <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>. Inter-species relationships are also defined using <a class="reference internal" href="#parameters"><span>Parameters</span></a>,
 whereby tables of correlations between population density and parameter values or coefficients are provided.</p>
 <p>Paramters consist of:</p>
@@ -157,26 +157,68 @@ whereby tables of correlations between population density and parameter values o
 </colgroup>
 <tbody valign="top">
 <tr class="row-odd"><td><a class="reference internal" href="#popdyn.CarryingCapacity" title="popdyn.CarryingCapacity"><code class="xref py py-obj docutils literal"><span class="pre">CarryingCapacity</span></code></a>(name,&nbsp;**kwargs)</td>
-<td>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain</td>
+<td>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain.</td>
 </tr>
 <tr class="row-even"><td><a class="reference internal" href="#popdyn.Mortality" title="popdyn.Mortality"><code class="xref py py-obj docutils literal"><span class="pre">Mortality</span></code></a>(name,&nbsp;**kwargs)</td>
-<td>Mortality drivers are used to define rates of population decline for one or more Species</td>
+<td>Mortality drivers are used to define rates of population decline for one or more Species.</td>
 </tr>
 <tr class="row-odd"><td><a class="reference internal" href="#popdyn.Fecundity" title="popdyn.Fecundity"><code class="xref py py-obj docutils literal"><span class="pre">Fecundity</span></code></a>(name,&nbsp;**kwargs)</td>
-<td>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species</td>
+<td>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species.</td>
 </tr>
 </tbody>
 </table>
+<p>When inter-species relationships are specified, the following describes the input lookup table format:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="p">[(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">),</span> <span class="o">...</span><span class="p">,</span> <span class="p">(</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">)]</span>
+</span></pre></div>
+</div>
+<p>Where <cite>x</cite> is the density of the <em>affecting</em> species, and <cite>y</cite> is the parameter value applied to the <em>affected</em> species.
+Parameter values <span class="math">\(y_m\)</span> are linearly interpolated between lookup points, given the density <span class="math">\(x_m\)</span>:</p>
+<div class="math">
+\[y_m=y_0+\frac{x_m-x_0}{x_1-x_0}(y_1-y_0)\]</div>
+<p>Stochastic processes may also be represented using Parameters. A single random number generator may be chosen to perturb
+parameter data in a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> in one of two ways:</p>
+<ol class="arabic simple">
+<li>Random numbers are generated at each element (i.e. node or grid cell) in the domain during a simulation; or</li>
+<li>A single random number is generated and applied evenly to all elements in the domain</li>
+</ol>
+<p>The behaviour and type of the random number generators is flexible, and each of the Distributions available in the
+<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random module</a> are available. For
+example, if random numbers (<span class="math">\(X\)</span>) are chosen from a normal distribution, the input argument for the method would be the <code class="docutils literal"><span class="pre">scale</span></code>,
+or one standard deviation. Using method 1 (above), the value of each element <span class="math">\(param(i)\)</span> would be used for the mean value in the
+normal distribution:</p>
+<div class="math">
+\[param_o(i)=X\sim\mathcal{N}(param(i),\sigma^2)\]</div>
+<p>where,</p>
+<p><span class="math">\(param_o\)</span> is the stochastic parameter</p>
+<p>If using method 2 (above), the mean value of the entire study area (<span class="math">\(\\mu\)</span>) would be used as the mean in the
+normal distribution and a delta will be calculated at each element using the random value:</p>
+<div class="math">
+\[\mu=\frac{\sum_{i=1}^{n}param(i)[k_T(i)\neq0]}{n}\]</div>
+<div class="math">
+\[param_o(i)=param(i)+(X\sim\mathcal{N}(\mu,\sigma^2)-param(i))\]</div>
+<div class="math">
+\[param_o(i)=max\{0, param_o(i)\}\]</div>
+<p>where,</p>
+<p><span class="math">\(k_T\)</span> is the total carrying capacity of the species.</p>
 <div class="section" id="carrying-capacity">
 <h2><a class="toc-backref" href="#id5">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
-<p>Carrying Capacity is used in popdyn models to specify the population potential on a landscape, expressed as a total
-population. Carrying Capacity may also be modified using the density of another species, which may be invoked using the
-<code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. Multiple Carrying Capacity instances may be added to a given <a class="reference internal" href="species.html#species"><span>Species</span></a> in a model
-<a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>.</p>
+<p>Carrying Capacity is used in popdyn models to define means to enhance or reduce the ability for populations to exist in
+a model domain. It is used numerically to relate populations to density, which drives a number of
+model processes. When added to a model domain, Carrying Capacity data are effectively a population potential in the study
+area, and are expressed as a total population for each data point. Multiple Carrying Capacity instances may be added to
+a given <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> in a model <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>, and they will be summed to yield the total Carrying Capacity <span class="math">\(k\)</span>
+at time <span class="math">\(t\)</span> for each source <span class="math">\(i\)</span>:</p>
+<div class="math">
+\[k(t)=\sum_{i=1}^{n} k_i(t)\]</div>
+<p>Carrying Capacity may also be derived using the density of another species and a lookup table (as outlined above),
+which may be invoked using the <code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. The <span class="math">\(y\)</span> value in the lookup table is a coefficient
+that is applied to the Carrying Capacity of the <em>affected</em> species:</p>
+<div class="math">
+\[k=yk\]</div>
 <dl class="class">
 <dt id="popdyn.CarryingCapacity">
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">CarryingCapacity</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.CarryingCapacity" title="Permalink to this definition">¶</a></dt>
-<dd><p>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain</p>
+<dd><p>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain.</p>
 <p>Carrying Capacity effectively represents habitat quality, and is added to a Species or Domain alongside data. Multiple
 types of Carrying Capacity may be added to a given species, as they are added together in the domain.
 When another species is added (using the <a class="reference internal" href="#popdyn.CarryingCapacity.add_as_species" title="popdyn.CarryingCapacity.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method) to a Carrying Capacity instance, the affecting
@@ -185,6 +227,14 @@ species will scale the Carrying Capacity using a coefficient specified in the lo
 <p class="first admonition-title">Note</p>
 <p class="last">multiple Carrying Capacities may be tied to an individual species, and they are stacked in the domain</p>
 </div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>name</strong> &#8211; Name of the Carrying Capacity (25 chars). Use something short and intuitive, such as &#8220;Marsh&#8221;.</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="popdyn.CarryingCapacity.add_as_species">
 <code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.CarryingCapacity.add_as_species" title="Permalink to this definition">¶</a></dt>
@@ -231,10 +281,23 @@ distributions from the
 </div>
 <div class="section" id="mortality">
 <h2><a class="toc-backref" href="#id6">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
+<p>Mortality is used to define and constrain ways for Species populations to decline. Any number of mortality drivers may
+be created and added to a model domain. They are usually added to a model domain with rate data <span class="math">\(q\)</span>, which are used to
+calculate a number of deaths (<span class="math">\(m\)</span>):</p>
+<div class="math">
+\[m=pop\cdot q\]</div>
+<p>where <span class="math">\(pop\)</span> is the population that mortality is applied to.</p>
+<p>Mortality may also be derived using the density of another species and a lookup table (as outlined above),
+which may be invoked using the <code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. The <span class="math">\(y\)</span> value in the lookup table is a mortality
+rate (<span class="math">\(q\)</span> above) used on the <em>affected</em> species.</p>
+<p>One additional option when creating mortality is to define a recipient species to apply deaths to. This functionality was
+conceived to perform infection and disease modelling, whereby infected and non-infected populations are treated as
+separate species with their own unique traits. The rate of mortality in these cases would be the rate of infection, and
+individuals would be transferred from one species to another.</p>
 <dl class="class">
 <dt id="popdyn.Mortality">
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Mortality</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality" title="Permalink to this definition">¶</a></dt>
-<dd><p>Mortality drivers are used to define rates of population decline for one or more Species</p>
+<dd><p>Mortality drivers are used to define rates of population decline for one or more Species.</p>
 <p>Mortality is added to a Species and a Domain together, optionally with data. When another Species is added (using
 the <a class="reference internal" href="#popdyn.Mortality.add_as_species" title="popdyn.Mortality.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a mortality rate using the included lookup
 table. Multiple mortality instances may be added to a given Species. The mortality name cannot be any of &#8220;mortality&#8221;,
@@ -245,8 +308,7 @@ table. Multiple mortality instances may be added to a given Species. The mortali
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>name</strong> (<em>str</em>) &#8211; Name of the mortality</li>
-<li><strong>kwargs</strong> &#8211; </li>
+<li><strong>name</strong> (<em>str</em>) &#8211; Name of the mortality (25 chars). Use something short and intuitive, such as &#8220;Poaching&#8221;.</li>
 <li><strong>is_rate</strong> &#8211; This mortality is defined as a rate, as opposed to an absolute number (default is True)</li>
 </ul>
 </td>
@@ -314,13 +376,45 @@ distributions from the
 </div>
 <div class="section" id="fecundity">
 <h2><a class="toc-backref" href="#id7">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
+<p>Fecundity is used to create means for species to reproduce. Fecundity is used to specify:</p>
+<ul class="simple">
+<li>Whether a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> is able to reproduce</li>
+<li>The effect of density on reproduction</li>
+<li>Allocation of offspring</li>
+<li>Effects another species may have on reproduction</li>
+</ul>
+<p>Just as the other parameters, Fecundity can have stochasticity and may be derived using the density of another species,
+based on a lookup table (as outlined above). Inter-species effects on fecundity are specified using the
+<code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method, where <span class="math">\(y\)</span> in the lookup table is a Fecundity rate (<span class="math">\(q\)</span>) used to determine the
+number of offspring per individual (<span class="math">\(n\)</span>) of the <em>affected</em> species:</p>
+<div class="math">
+\[n=pop\cdot q\]</div>
 <dl class="class">
 <dt id="popdyn.Fecundity">
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Fecundity</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species</p>
+<dd><p>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species.</p>
 <p>Fecundity is added to a Species and a Domain together, optionally with data. When another Species is added (using
 the <a class="reference internal" href="#popdyn.Fecundity.add_as_species" title="popdyn.Fecundity.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a fecundity value using the included lookup
 table.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> &#8211; Name of the Fecundity (25 chars). Use something short and intuitive, such as &#8220;Normal Adult&#8221;.</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>birth_ratio</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">The birth ratio is used to allocate offspring as a ratio of males to females. The birth ratio may also
+be random (use <code class="docutils literal"><span class="pre">'random'</span></code>), which uses a uniform random number generator to select a ratio between 0
+and 1 for each element in the domain. (Default: 0.5)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
 <dl class="method">
 <dt id="popdyn.Fecundity.add_as_species">
 <code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity.add_as_species" title="Permalink to this definition">¶</a></dt>

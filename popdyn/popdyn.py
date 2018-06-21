@@ -1436,6 +1436,9 @@ class AgeGroup(Sex):
 class Parameter(object):
 
     def __init__(self, name, **kwargs):
+        """
+        :param name: Name of the parameter. This must be no more than 25 characters.
+        """
         # Limit names to 25 chars
         if len(name) > 25:
             raise PopdynError('Parameter names must not exceed 25 characters. '
@@ -1469,7 +1472,7 @@ class Parameter(object):
         """
         Apply a type of random variability to this parameter. Random numbers are generated using one of the available
         distributions from the
-        `numpy.random <https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html>`_ library.
+        `numpy.random module <https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html>`_.
 
         :param type: Variance type. Use one of the random distribution generator methods in ``numpy.random``
 
@@ -1487,7 +1490,7 @@ class Parameter(object):
 
 class CarryingCapacity(Parameter):
     """
-    Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain
+    Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain.
 
     Carrying Capacity effectively represents habitat quality, and is added to a Species or Domain alongside data. Multiple
     types of Carrying Capacity may be added to a given species, as they are added together in the domain.
@@ -1498,12 +1501,15 @@ class CarryingCapacity(Parameter):
     """
 
     def __init__(self, name, **kwargs):
+        """
+        :param name: Name of the Carrying Capacity (25 chars). Use something short and intuitive, such as "Marsh".
+        """
         super(CarryingCapacity, self).__init__(name, **kwargs)
 
 
 class Fecundity(Parameter):
     """
-    Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species
+    Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species.
 
     Fecundity is added to a Species and a Domain together, optionally with data. When another Species is added (using
     the :func:`add_as_species` method), the affecting species will impose a fecundity value using the included lookup
@@ -1511,6 +1517,14 @@ class Fecundity(Parameter):
     """
 
     def __init__(self, name, **kwargs):
+        """
+        :param name: Name of the Fecundity (25 chars). Use something short and intuitive, such as "Normal Adult".
+        :Keyword Arguments:
+            **birth_ratio** (*bool*) --
+                The birth ratio is used to allocate offspring as a ratio of males to females. The birth ratio may also
+                be random (use ``'random'``), which uses a uniform random number generator to select a ratio between 0
+                and 1 for each element in the domain. (Default: 0.5)
+        """
 
         super(Fecundity, self).__init__(name, **kwargs)
 
@@ -1529,7 +1543,7 @@ class Fecundity(Parameter):
 
 class Mortality(Parameter):
     """
-    Mortality drivers are used to define rates of population decline for one or more Species
+    Mortality drivers are used to define rates of population decline for one or more Species.
 
     Mortality is added to a Species and a Domain together, optionally with data. When another Species is added (using
     the :func:`add_as_species` method), the affecting species will impose a mortality rate using the included lookup
@@ -1541,8 +1555,7 @@ class Mortality(Parameter):
         """
         Mortality driver instance
 
-        :param str name: Name of the mortality
-        :param kwargs:
+        :param str name: Name of the mortality (25 chars). Use something short and intuitive, such as "Poaching".
         :param is_rate: This mortality is defined as a rate, as opposed to an absolute number (default is True)
         """
         super(Mortality, self).__init__(name, **kwargs)

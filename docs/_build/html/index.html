@@ -34,7 +34,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Popdyn  documentation" href="#" />
-    <link rel="next" title="Species" href="species.html" />
+    <link rel="next" title="Species (Populations)" href="species.html" />
   
    
 
@@ -47,7 +47,7 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="species.html" title="Species"
+          <a href="species.html" title="Species (Populations)"
              accesskey="N">next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">Popdyn  documentation</a> &raquo;</li> 
       </ul>
@@ -68,7 +68,7 @@
     
     
       <ul>
-<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
@@ -109,23 +109,37 @@
             
   <div class="section" id="popdyn">
 <span id="id1"></span><h1>Popdyn<a class="headerlink" href="#popdyn" title="Permalink to this headline">¶</a></h1>
-<img alt="_images/popdyn.png" class="align-center" src="_images/popdyn.png" />
 <p><em>Population Dynamics Modelling toolset</em></p>
-<p>Popdyn allows multiple species to <strong>reproduce</strong>, <strong>die</strong>, <strong>move</strong> around the landscape, and <strong>interact</strong> with one
+<img alt="_images/popdyn.png" class="align-center" src="_images/popdyn.png" />
+<p>Popdyn allows multiple populations of species to <strong>reproduce</strong>, <strong>age</strong>, <strong>die</strong>, <strong>move</strong>, and <strong>interact</strong> with one
 another. This library strives to be pythonic, and easily abstracted through simple syntax to enable users to focus on
-their own science.</p>
+their own science. Models use initial populations and parameter sets to interpolate or predict populations at other
+times and locations. Popdyn models utilize and combine theory related to:</p>
+<ul class="simple">
+<li>Biological systems</li>
+<li>Land cover and land use</li>
+<li>Geographical information systems (GIS)</li>
+<li>Deterministic modelling</li>
+<li>Stochastic modelling</li>
+<li>Cellular automata</li>
+<li>Agent-based modelling</li>
+</ul>
 <p>The popdyn module is comprised of four main components:</p>
 <ul class="simple">
-<li><strong>Species</strong> - which possess individual traits</li>
+<li><strong>Species (Populations)</strong> - which possess individual traits and optionally, sex (gender)/age (stage) attributes</li>
 <li><strong>Parameters</strong> - which affect species through various means</li>
 <li><strong>Domain</strong> - which defines a study area through spatial discretization</li>
 <li><strong>Solvers</strong> - which provides modular numerical solvers to compute systems of species and parameters within a domain</li>
 </ul>
 <p>A typical popdyn model workflow includes:</p>
 <ol class="arabic simple">
-<li>Create one or more species, specifying their behaviour through the provided <a class="reference internal" href="species.html#species"><span>Species</span></a> abstraction.</li>
-<li>Create carrying capacity (i.e. habitat), mortality, and fecundity <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> independently.</li>
-<li>Attach population data and parameters to a species by adding them to a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>.</li>
+<li>Create one or more species, specifying their attributes through the provided <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> abstraction. Species are
+templates that are created prior to adding them to a model domain, where their population magnitude and distribution
+are specified independently.</li>
+<li>Create carrying capacity (i.e. habitat), mortality, and fecundity <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> independently. Similar to <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a>,
+Parameters are added to the model domain with spatially-distributed data that match the spatial and temporal
+specifications of the model <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>.</li>
+<li>Attach population data and parameter data to a species by adding them to a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> at specified time slices.</li>
 <li>Solve the populations of all added species in a domain by choosing any of the available <a class="reference internal" href="solvers.html#solvers"><span>Numerical Solvers</span></a>, and the time duration.</li>
 </ol>
 <div class="toctree-wrapper compound">
@@ -138,7 +152,7 @@ their own science.</p>
   <div class="footer-relations">
     
       <div class="pull-right">
-        <a class="btn btn-default" href="species.html" title="next chapter (use the right arrow)">Species</a>
+        <a class="btn btn-default" href="species.html" title="next chapter (use the right arrow)">Species (Populations)</a>
       </div>
     </div>
     <div class="clearer"></div>
@@ -153,7 +167,7 @@ their own science.</p>
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="species.html" title="Species"
+          <a href="species.html" title="Species (Populations)"
              >next</a> |</li>
         <li class="nav-item nav-item-0"><a href="#">Popdyn  documentation</a> &raquo;</li> 
       </ul>

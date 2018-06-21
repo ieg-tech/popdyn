@@ -1,8 +1,8 @@
 .. _species:
 
-=======
-Species
-=======
+=====================
+Species (Populations)
+=====================
 
 .. py:currentmodule:: popdyn
 
@@ -10,15 +10,15 @@ Species
     :depth: 1
     :local:
 
-Popdyn species are created independently (without any regard for parameters or a domain), and possess unique traits
-which are specified using the Species Classes:
+Popdyn species are created independently to solve their population (without any regard for parameters or a domain), and
+possess unique traits which are specified using the Species Classes:
 
 .. autosummary::
     Species
     Sex
     AgeGroup
 
-Species may possess attributes in a hierarchy, whereby the entire species, an individual sex, or range of ages can be
+Species may possess attributes in a hierarchy, whereby the entire species, an individual sex (gender), or range of ages (stage group) can be
 customized separately. For convenience, species attributes in a model domain are inherited using the hierarchy outlined
 in the figure below. Species are linked in the model domain using their name, which is the minimum requirement to
 create a species.
@@ -40,15 +40,15 @@ on these methods.
 .. autoclass:: Species
     :members:
 
-Sexes
------
+Sexes (Gender)
+--------------
 
-A species that has information related to Sex, but is agnostic to age may be created using the ``Sex`` Class:
+A species that has information related to Sex (gender), but age (stage groups) are optional. The ``Sex`` Class:
 
 .. autoclass:: Sex
 
-Age Groups
-----------
+Age (Stage) Groups
+------------------
 
 A species that has both sex and age information is created using the ``AgeGroup`` class:
 

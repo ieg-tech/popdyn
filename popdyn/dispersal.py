@@ -80,16 +80,61 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     """
     'density-based dispersion'
 
-    Dispersal is calculated using a density gradient based on the mean within a neighbourhood dictated by the specified
-    distance. The mean density over grid nodes within a radius determined by the input distance is calculated to evaluate
-    the gradient between the mean and the node at the centre. This gradient is used to determine whether a population is
-    above the mean, thus able to distribute a portion of the population outwards. Populations above the mean are distributed
-    to nodes with populations below the mean within the radius proportional to their gradient.
+    Dispersal is calculated using the following sequence of methods:
 
+    Portions of populations at each element (node, or grid cell) in the study area array (raster) are moved to
+    surrounding elements (a neighbourhood) within a radius that is defined by the input distance (:math:`d`), as
+    presented in the conceptual figure below.
+
+        .. image:: images/density_flux_neighbourhood.png
+            :align: center
+
+    The mean density (:math:`\\rho`) of all elements in the neighbourhood is calculated as:
+
+    .. math::
+       \\rho=\\frac{\\sum_{i=1}^{n} \\frac{pop_T(i)}{k_T(i)}}{n}
+
+    where,
+
+    :math:`pop_T` is the total population (of the entire species) at each element (:math:`i`); and\n
+    :math:`k_T` is the total carrying capacity for the species
+
+    The density gradient at each element (:math:`\\Delta`) with respect to the mean is calculated as:
+
+    .. math::
+        \\Delta(i)=\\frac{pop_T(i)}{k_T(i)}-\\rho
+
+    If the centroid element is above the mean :math:`[\\Delta(i_0) > 0]`, it is able to release a portion of its
+    population to elements in the neighbourhood. The eligible population to be received by surrounding elements is equal
+    to the sum of populations at elements with negative density gradients, the :math:`candidates`:
+
+    .. math::
+        candidates=\\sum_{i=1}^{n} \\Delta(i)[\\Delta(i) < 0]k_T(i)
+
+    The minimum of either the population above the mean at the centroid element - :math:`source=\\Delta(i_0)*k_T(i_0)`,
+    or the :math:`candidates` are used to determine the total population that is dispersed from the centroid element to
+    the other elements in the neighbourhood:
+
+    .. math::
+        dispersal=min\{source, candidates\}
+
+    The population at the centroid element becomes:
+
+    .. math::
+        pop_a(i_0)=pop_a(i_0)-\\frac{pop_a(i_0)}{pop_T(i_0)}dispersal
+
+    where,
+
+    :math:`pop_a` is the age (stage) group population, which is a sub-population of the total.
+
+    The populations of the candidate elements in the neighbourhood become (a net gain due to negative gradients):
+
+    .. math::
+        pop_a(i)=pop_a(i)-\\frac{\\Delta(i)[\\Delta(i) < 0]k_T(i)}{candidates}dispersal\\frac{pop_a(i)}{pop_T(i)}
 
     :param array population: Sub-population to redistribute (subset of the ``total_population``)
     :param array total_population: Total population
-    :param array carrying_capacity: Total Carrying Capacity (n)
+    :param array carrying_capacity: Total Carrying Capacity (k)
     :param float distance: Maximum dispersal distance
     :param float csx: Cell size of the domain in the x-direction
     :param float csy: Cell size of the domain in the y-direction
@@ -150,9 +195,35 @@ def masked_density_flux(population, total_population, carrying_capacity, distanc
     'masked density-based dispersion'
 
     See :func:`density_flux`. The dispersal logic is identical to that of ``density_flux``, however a mask is specified
-    as a keyword argument to scale the dispersal. When populations are transferred between grid nodes, they are first
-    multiplied by the value presented in the mask. The mask is normalized within ``density_flux`` to ensure all values
-    are between 0 and 1.
+    as a keyword argument to scale the dispersal. The :math:`mask` elements :math:`i` are first normalized to ensure
+    values are not less than 0 and do not exceed 1:
+
+    .. math::
+        mask(i)=\\frac{mask(i)-min\{mask\}}{max\{mask\}-min\{mask\}}
+
+    When the :math:`candidates` are calculated (as outlined in :func:`density_flux`) they are first scaled by the mask value:
+
+    .. math::
+        candidates=\\sum_{i=1}^{n} \\Delta(i)[\\Delta(i) < 0]k_T(i)mask(i)
+
+    and are scaled by the mask when transferring populations from the centroid element:
+
+    .. math::
+        pop_a(i)=pop_a(i)-\\frac{\\Delta(i)[\\Delta(i) < 0]k_T(i)mask(i)}{candidates}dispersal\\frac{pop_a(i)}{pop_T(i)}
+
+    :param array population: Sub-population to redistribute (subset of the ``total_population``)
+    :param array total_population: Total population
+    :param array carrying_capacity: Total Carrying Capacity (k)
+    :param float distance: Maximum dispersal distance
+    :param float csx: Cell size of the domain in the x-direction
+    :param float csy: Cell size of the domain in the y-direction
+
+    .. Attention:: Ensure the cell sizes are in the same units as the specified direction
+
+    :Keyword Arguments:
+        **mask** (*array*) --
+            A weighting mask that scales dispersal based on the normalized mask value (default: None)
+    :return: Redistributed population
     """
     # Check that there is a mask
     if kwargs.get('mask', None) is None:
@@ -248,10 +319,54 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     """
     'distance propagation'
 
-    Distance propagation is used to redistribute populations to distal locations based on density gradients. The node at
-    or near the specified distance with the minimum density is selected to redistribute a fraction of the population
-    proportional to the density gradient between the two nodes. In the case that all distal nodes have a homogeneous
-    density, the target node is chosen at random.
+    Distance propagation is used to redistribute populations to distal locations based on density gradients. Portions of
+    populations at each element (node, or grid cell) in the study area array (raster) are moved to a target element
+    at a radius that is defined by the input distance (:math:`d`), as presented in the conceptual
+    figure below.
+
+    .. image:: images/distance_propagation_neighbourhood.png
+        :align: center
+
+    The density (:math:`\\rho`) of all distal elements (:math:`i`) is calculated as:
+
+    .. math::
+       \\rho(i)=\\frac{pop_T(i)}{k_T(i)}
+
+    where,
+
+    :math:`pop_T` is the total population (of the entire species) at each element (:math:`i`); and\n
+    :math:`k_T` is the total carrying capacity for the species
+
+    The distal element with the minimum density is chosen as a candidate for population dispersal from the centroid
+    element. If the density of distal elements is homogeneous, one element is picked at random. The density gradient
+    :math:`\\Delta` is then calculated using the centroid element :math:`i_0` and the chosen distal element :math:`i_1`:
+
+    .. math::
+        \\rho=\\frac{pop_T(i_0)/k_T(i_0)+pop_T(i_1)/k_T(i_1)}{2}
+
+    .. math::
+        \\Delta(i)=\\frac{pop_T(i)}{k_T(i)}-\\rho
+
+    If the centroid element is above the mean :math:`[\\Delta(i_0) > 0]`, and the distal element is below the mean
+    :math:`[\\Delta(i_1) < 0]`, dispersal may take place. The total population dispersed is calculated by taking the
+    minimum of the population constrained by the gradient:
+
+    .. math::
+        dispersal=min\{|\\Delta(i_0)k_T(i_0)|, |\\Delta(i_1)k_T(i_1)|\}
+
+    The population at the centroid element becomes:
+
+    .. math::
+        pop_a(i_0)=pop_a(i_0)-dispersal
+
+    where,
+
+    :math:`pop_a` is the age (stage) group population, which is a sub-population of the total.
+
+    The population at the distal element becomes (a net gain due to a negative gradient):
+
+    .. math::
+        pop_a(i_1)=pop_a(i_1)-dispersal
 
     :param array population: Sub-population to redistribute (subset of the ``total_population``)
     :param array total_population: Total population
@@ -370,7 +485,9 @@ def density_network(args):
     """
     'density network dispersal'
 
-    FUTURE: Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.
+    .. note:: In Development
+
+    Compute dispersal based on a density gradient along a least cost path network analysis using a cost surface.
 
     :raises: NotImplementedError
     :param args:
@@ -381,7 +498,9 @@ def fixed_network(args):
     """
     'fixed network movement'
 
-    FUTURE: Compute dispersal based on a least cost path network analysis using a cost surface.
+    .. note:: In Development
+
+    Compute dispersal based on a least cost path network analysis using a cost surface.
 
     :raises: NotImplementedError
     :param args:
