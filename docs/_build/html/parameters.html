@@ -72,6 +72,7 @@
     
     
       <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Parameters</a><ul>
@@ -83,6 +84,8 @@
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -133,14 +136,14 @@
           <div class="document clearer body">
             
   <div class="section" id="parameters">
-<span id="id1"></span><h1><a class="toc-backref" href="#id4">Parameters</a><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
+<span id="id1"></span><h1><a class="toc-backref" href="#id5">Parameters</a><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
 <div class="contents topic" id="table-of-contents">
 <p class="topic-title first">Table of Contents</p>
 <ul class="simple">
-<li><a class="reference internal" href="#parameters" id="id4">Parameters</a><ul>
-<li><a class="reference internal" href="#carrying-capacity" id="id5">Carrying Capacity</a></li>
-<li><a class="reference internal" href="#mortality" id="id6">Mortality</a></li>
-<li><a class="reference internal" href="#fecundity" id="id7">Fecundity</a></li>
+<li><a class="reference internal" href="#parameters" id="id5">Parameters</a><ul>
+<li><a class="reference internal" href="#carrying-capacity" id="id6">Carrying Capacity</a></li>
+<li><a class="reference internal" href="#mortality" id="id7">Mortality</a></li>
+<li><a class="reference internal" href="#fecundity" id="id8">Fecundity</a></li>
 </ul>
 </li>
 </ul>
@@ -167,7 +170,7 @@ whereby tables of correlations between population density and parameter values o
 </tr>
 </tbody>
 </table>
-<p>When inter-species relationships are specified, the following describes the input lookup table format:</p>
+<p id="lookup">When inter-species relationships are specified, the following describes the input lookup table format:</p>
 <div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="p">[(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">),</span> <span class="o">...</span><span class="p">,</span> <span class="p">(</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">)]</span>
 </span></pre></div>
 </div>
@@ -201,7 +204,7 @@ normal distribution and a delta will be calculated at each element using the ran
 <p>where,</p>
 <p><span class="math">\(k_T\)</span> is the total carrying capacity of the species.</p>
 <div class="section" id="carrying-capacity">
-<h2><a class="toc-backref" href="#id5">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id6">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
 <p>Carrying Capacity is used in popdyn models to define means to enhance or reduce the ability for populations to exist in
 a model domain. It is used numerically to relate populations to density, which drives a number of
 model processes. When added to a model domain, Carrying Capacity data are effectively a population potential in the study
@@ -262,7 +265,7 @@ define this parameter, in the form: <code class="docutils literal"><span class="
 <code class="descname">random</code><span class="sig-paren">(</span><em>type</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.CarryingCapacity.random" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply a type of random variability to this parameter. Random numbers are generated using one of the available
 distributions from the
-<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random</a> library.</p>
+<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random module</a>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -280,7 +283,7 @@ distributions from the
 
 </div>
 <div class="section" id="mortality">
-<h2><a class="toc-backref" href="#id6">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id7">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
 <p>Mortality is used to define and constrain ways for Species populations to decline. Any number of mortality drivers may
 be created and added to a model domain. They are usually added to a model domain with rate data <span class="math">\(q\)</span>, which are used to
 calculate a number of deaths (<span class="math">\(m\)</span>):</p>
@@ -357,7 +360,7 @@ track infection and disease, whereby infected individuals are treated as a diffe
 <code class="descname">random</code><span class="sig-paren">(</span><em>type</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality.random" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply a type of random variability to this parameter. Random numbers are generated using one of the available
 distributions from the
-<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random</a> library.</p>
+<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random module</a>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -375,7 +378,7 @@ distributions from the
 
 </div>
 <div class="section" id="fecundity">
-<h2><a class="toc-backref" href="#id7">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id8">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
 <p>Fecundity is used to create means for species to reproduce. Fecundity is used to specify:</p>
 <ul class="simple">
 <li>Whether a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> is able to reproduce</li>
@@ -442,7 +445,7 @@ define this parameter, in the form: <code class="docutils literal"><span class="
 <code class="descname">random</code><span class="sig-paren">(</span><em>type</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity.random" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply a type of random variability to this parameter. Random numbers are generated using one of the available
 distributions from the
-<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random</a> library.</p>
+<a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random module</a>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />

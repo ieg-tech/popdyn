@@ -34,6 +34,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <link rel="next" title="Tutorial" href="tutorial.html" />
     <link rel="prev" title="Numerical Solvers" href="solvers.html" />
   
    
@@ -46,6 +47,9 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="solvers.html" title="Numerical Solvers"
              accesskey="P">previous</a> |</li>
@@ -68,12 +72,15 @@
     
     
       <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -116,6 +123,10 @@
 <dd><p>Collect summarized results from the model domain. With each summary function call, no computations take place.
 Rather, the <code class="docutils literal"><span class="pre">to_compute</span></code> attribute is appended with the output <code class="docutils literal"><span class="pre">dask</span></code> object, all of which are optimized and
 computed only when the <a class="reference internal" href="#summary.ModelSummary.compute" title="summary.ModelSummary.compute"><code class="xref py py-func docutils literal"><span class="pre">compute()</span></code></a> method is called.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <code class="docutils literal"><span class="pre">to_compute</span></code> attribute maintains the order of summary function calls. The returned list from <code class="docutils literal"><span class="pre">compute</span></code> will maintain summarized data in the call order.</p>
+</div>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
@@ -152,7 +163,7 @@ computed only when the <a class="reference internal" href="#summary.ModelSummary
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">list of computed objects from <code class="docutils literal"><span class="pre">to_compute</span></code> attribute</td>
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">list of <strong>computed</strong> computed objects from <code class="docutils literal"><span class="pre">to_compute</span></code> attribute</td>
 </tr>
 </tbody>
 </table>
@@ -333,6 +344,9 @@ mortality, or the mortality rate</li>
         <a class="btn btn-default" href="solvers.html" title="previous chapter (use the left arrow)">Numerical Solvers</a>
       </div>
     
+      <div class="pull-right">
+        <a class="btn btn-default" href="tutorial.html" title="next chapter (use the right arrow)">Tutorial</a>
+      </div>
     </div>
     <div class="clearer"></div>
   
@@ -345,6 +359,9 @@ mortality, or the mortality rate</li>
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             >next</a> |</li>
         <li class="right" >
           <a href="solvers.html" title="Numerical Solvers"
              >previous</a> |</li>

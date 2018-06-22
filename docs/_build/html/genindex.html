@@ -65,12 +65,15 @@
     
     
       <ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -111,10 +114,13 @@
  <a href="#A"><strong>A</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#I"><strong>I</strong></a>
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
+ | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
@@ -139,9 +145,31 @@
 
       </dl></dd>
       
+  <dt><a href="domain.html#popdyn.Domain.add_carrying_capacity">add_carrying_capacity() (popdyn.Domain method)</a>
+  </dt>
+
+      
   <dt><a href="species.html#popdyn.Species.add_dispersal">add_dispersal() (popdyn.Species method)</a>
   </dt>
 
+      
+  <dt><a href="domain.html#popdyn.Domain.add_fecundity">add_fecundity() (popdyn.Domain method)</a>
+  </dt>
+
+      
+  <dt><a href="domain.html#popdyn.Domain.add_mask">add_mask() (popdyn.Domain method)</a>
+  </dt>
+
+      
+  <dt><a href="domain.html#popdyn.Domain.add_mortality">add_mortality() (popdyn.Domain method)</a>
+  </dt>
+
+      
+  <dt><a href="domain.html#popdyn.Domain.add_population">add_population() (popdyn.Domain method)</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="parameters.html#popdyn.Mortality.add_recipient_species">add_recipient_species() (popdyn.Mortality method)</a>
   </dt>
@@ -150,8 +178,6 @@
   <dt><a href="domain.html#popdyn.Domain.age_from_group">age_from_group() (popdyn.Domain method)</a>
   </dt>
 
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="species.html#popdyn.AgeGroup">AgeGroup (class in popdyn)</a>
   </dt>
@@ -175,11 +201,19 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
+  <dt><a href="solvers.html#solvers.discrete_explicit.carrying_capacity_total">carrying_capacity_total() (solvers.discrete_explicit method)</a>
+  </dt>
+
+      
   <dt><a href="parameters.html#popdyn.CarryingCapacity">CarryingCapacity (class in popdyn)</a>
   </dt>
 
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.collect_parameter">collect_parameter() (solvers.discrete_explicit method)</a>
+  </dt>
+
       
   <dt><a href="data_summary.html#summary.ModelSummary.compute">compute() (summary.ModelSummary method)</a>
   </dt>
@@ -205,7 +239,7 @@
   </dl></td>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="solvers.html#solvers.discrete_explicit">discrete_explicit() (in module solvers)</a>
+  <dt><a href="solvers.html#solvers.discrete_explicit">discrete_explicit (class in solvers)</a>
   </dt>
 
       
@@ -214,6 +248,22 @@
 
       
   <dt><a href="domain.html#popdyn.Domain">Domain (class in popdyn)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.error_check">error_check() (in module solvers)</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.execute">execute() (solvers.discrete_explicit method)</a>
   </dt>
 
   </dl></td>
@@ -279,6 +329,22 @@
   </dl></td>
 </tr></table>
 
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.inherit">inherit() (in module solvers)</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.interspecies_carrying_capacity">interspecies_carrying_capacity() (solvers.discrete_explicit method)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
@@ -308,6 +374,26 @@
 
       
   <dt><a href="parameters.html#popdyn.Mortality">Mortality (class in popdyn)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.population_total">population_total() (solvers.discrete_explicit method)</a>
+  </dt>
+
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.prepare_domain">prepare_domain() (solvers.discrete_explicit method)</a>
+  </dt>
+
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.propagate">propagate() (solvers.discrete_explicit method)</a>
   </dt>
 
   </dl></td>
@@ -368,14 +454,18 @@
   <dt><a href="data_summary.html#summary.ModelSummary.total_mortality">total_mortality() (summary.ModelSummary method)</a>
   </dt>
 
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="data_summary.html#summary.ModelSummary.total_offspring">total_offspring() (summary.ModelSummary method)</a>
   </dt>
 
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="data_summary.html#summary.ModelSummary.total_population">total_population() (summary.ModelSummary method)</a>
+  </dt>
+
+      
+  <dt><a href="solvers.html#solvers.discrete_explicit.totals">totals() (solvers.discrete_explicit method)</a>
   </dt>
 
   </dl></td>

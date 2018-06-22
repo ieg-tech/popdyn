@@ -5,7 +5,7 @@ Domain Data Summary
 ===================
 
 .. contents:: Table of contents
-    :depth: 6
+    :depth: 7
     :local:
 
 .. py:currentmodule:: summary

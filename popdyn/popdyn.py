@@ -389,6 +389,7 @@ class Domain(object):
     def add_population(self, species, data, time, **kwargs):
         """
         Add population data for a given species at a specific time slice in the domain.
+
         :param Species species: A Species instance
         :param data: Population data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
         :param time: The time slice to insert the population data into
@@ -443,6 +444,7 @@ class Domain(object):
     def add_carrying_capacity(self, species, carrying_capacity, time, data=None, **kwargs):
         """
         Carrying capacity is added to the domain with species and CarryingCapacity objects in tandem.
+
         Multiple carrying capacity datasets may added to a single species,
             as they are stacked in the domain for each species (or sex/age group).
 
@@ -506,6 +508,7 @@ class Domain(object):
     def add_mortality(self, species, mortality, time, data=None, **kwargs):
         """
         Mortality is added to the domain with species and Mortality objects in tandem.
+
         Multiple mortality datasets may added to a single species,
         as they are stacked in the domain for each species (or sex/age group).
 
@@ -555,6 +558,7 @@ class Domain(object):
     def add_fecundity(self, species, fecundity, time, data=None, **kwargs):
         """
         Fecundity is added to the domain with species and Fecundity objects in tandem.
+
         Multiple fecundity datasets may added to a single species, as they are stacked in the domain for each
         species (or sex/age group).
 

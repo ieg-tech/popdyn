@@ -14,10 +14,13 @@ class SolverError(Exception):
 
 def error_check(domain):
     """
-    Make sure there are no conflicts within a domain.
+    Ensure there are no data conflicts within a domain prior to calling a solver. Current checks include:
+
+    - Make sure at least one Species is included
+    - Make sure age (stage) groups do not have overlapping ages
+    - Make sure species defined in inter-species relationships are included
 
     :param Domain domain: Domain instance
-    :return:
     """
     def test(sex_d):
         """Collect all discrete ages from a sex"""
@@ -95,11 +98,11 @@ def error_check(domain):
 
 def inherit(domain, start_time, end_time):
     """
-    Divide population and carrying capacity among children of species if they exist
-    :param domain:
-    :param int start_time:
-    :param int end_time:
-    :return:
+    Divide population and carrying capacity among children of species if they exist.
+
+    :param domain: Domain instance
+    :param int start_time: A simulation start time that coincides with that of the specified solver time range
+    :param int end_time: A simulation stop time that coincides with that of the specified solver time range
     """
     # Iterate all species and times in the domain
     for species in domain.species.keys():
@@ -215,22 +218,26 @@ def inherit(domain, start_time, end_time):
 
 class discrete_explicit(object):
     """
-    Solve the domain from a start time to an end time on a discrete time step associated with the Domain
+    Solve the domain from a start time to an end time on a discrete time step associated with the Domain.
 
     The total populations from the previous year are used to calculate derived
     parameters (density, fecundity, inter-species relationships, etc.).
+
+    Parameters used during execution are stored in the domain under the ``params`` key, while magnitude
+    related to mortality and fecundity are stored under the ``flux`` key at each time step.
 
     To run the simulation, use .execute()
     """
     def __init__(self, domain, start_time, end_time, **kwargs):
         """
-        :param domain: Domain instance populated with at least one species
-        :param start_time: Start time of the simulation
-        :param end_time: End time of the simulation
-        :param kwargs:
-            :total_density: Use the total species population for density calculations (as opposed to
-            populations of sexes or groups)
-        :return: None
+        :param Domain domain: Domain instance populated with at least one species
+        :param int start_time: Start time of the simulation
+        :param int end_time: End time of the simulation
+
+        :Keyword Arguments:
+            **total_density** (*bool*) --
+                Use the total species population for density calculations (as opposed to
+                populations of sexes or groups) (Default: True)
         """
         # Prepare time
         start_time = Domain._get_time_input(start_time)
@@ -244,8 +251,6 @@ class discrete_explicit(object):
         # -------------
         self.total_density = kwargs.get('total_density', True)
 
-
-    @time_this
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
         error_check(self.D)
@@ -322,7 +327,6 @@ class discrete_explicit(object):
             # Compute this time slice and write to the domain file
             self.D._domain_compute(output, _delayed)
 
-    @time_this
     def totals(self, all_species, time):
         """
         Collect all population and carrying capacity datasets, and calculate species totals if necessary.
@@ -331,7 +335,6 @@ class discrete_explicit(object):
 
         :param list all_species: All species in the domain
         :param int time: Time slice to collect totals
-        :return: None
         """
         for species in all_species:
             # Need to collect the total population for fecundity and density if not otherwise specified
@@ -368,11 +371,11 @@ class discrete_explicit(object):
                 np.inf
             )
 
-    @time_this
     def collect_parameter(self, param, data):
         """
         Collect data associated with a Fecundity, CarryingCapacity, or Mortality instance. If a species is linked,
         data will be None and density of the linked species will be calculated.
+
         :param param: CarryingCapacity, Fecundity, or Mortality instance
         :param data: array data or None
         :return: A dask array with the collected data
@@ -404,11 +407,10 @@ class discrete_explicit(object):
         kwargs.update({'chunks': self.D.chunks})
         return dynamic.collect(data, **kwargs)
 
-    @time_this
     def interspecies_carrying_capacity(self, parent_species, param):
         """
         Because inter-species dependencies may be nested or circular, the carrying capacity of all connected
-        species is calculated herein and added to the self.carrying_capacity_arrays object. Future calls of any
+        species is calculated herein and added to the ``self.carrying_capacity_arrays`` object. Future calls of any
         of the connected species will have data available, avoiding redundant calculations.
 
         :param param: input instance of CarryingCapacity
@@ -466,11 +468,11 @@ class discrete_explicit(object):
         complete = []
         next_species_edge(param, parent_species)
 
-    @time_this
     def population_total(self, species, datasets, honor_density=True, honor_reproduction=False):
         """
         Calculate the total population for a species with the provided datasets, usually a result of a
-        Domain.all_population call. This updates self.population_arrays to avoid repetitive IO
+        :func:`Domain.all_population` call. This updates ``self.population_arrays`` to avoid repetitive IO
+
         :param species: Species key
         :param datasets: population datasets, retrieved from popdyn.Domain.all_population()
         :param bool honor_density: Use the density contribution attribute from a species
@@ -505,11 +507,11 @@ class discrete_explicit(object):
 
         return out
 
-    @time_this
     def carrying_capacity_total(self, species, datasets):
         """
         Calculate the total carrying capacity for a species with the provided datasets, usually a result of a
-        Domain.get_carrying_capacity call. This updates self.carrying_capacity_arrays to avoid repetitive IO
+        :func:`Domain.get_carrying_capacity` call. This updates ``self.carrying_capacity_arrays`` to avoid repetitive IO
+
         :param datasets: list of tuples with instance - data pairs
         :param list dependent: Tracks the species used in species-dependent carrying capacity calculations
         :return: dask array of total carrying capacity
@@ -548,21 +550,20 @@ class discrete_explicit(object):
 
         return da.where(array > 0, array * coeff, 0)
 
-    @time_this
     def propagate(self, species, sex, group, time):
         """
         Create a graph of calculations to propagate populations and record parameters.
         A dict of key pointers - dask array pairs are created and returned
 
-        Note:
-            -If age gaps exist, they will be filled by empty groups and will propagate
-            -Currently, female:male ratio uses the total species population even if densities are calculated at the
-            age group level
-        :param species:
-        :param sex:
-        :param group:
-        :param time:
-        :return:
+        .. Note::
+            - If age gaps exist, they will be filled by empty groups and will propagate
+            - Currently, female:male ratio uses the total species population even if densities are calculated at the
+              age group level
+
+        :param str species: Species key (``Species.name_key``)
+        :param str sex: Sex (``'male'``, ``'female'``, or ``None``)
+        :param str group: Group key (``AgeGroup.group_key``)
+        :param int time: Time slice
         """
         # Collect some meta on the species
         # -----------------------------------------------------------------

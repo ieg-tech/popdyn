@@ -7,7 +7,7 @@ Species (Populations)
 .. py:currentmodule:: popdyn
 
 .. contents:: Table of contents
-    :depth: 1
+    :depth: 2
     :local:
 
 Popdyn species are created independently to solve their population (without any regard for parameters or a domain), and

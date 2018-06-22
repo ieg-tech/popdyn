@@ -72,6 +72,7 @@
     
     
       <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Dispersal</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#interhabitat-dispersal">Interhabitat Dispersal</a></li>
@@ -79,12 +80,15 @@
 <li class="toctree-l2"><a class="reference internal" href="#masked-dispersal">Masked Dispersal</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#density-network-dispersal">Density Network Dispersal</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#fixed-network-dispersal">Fixed Network Dispersal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#minimum-viable-population">Minimum Viable Population</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -101,6 +105,7 @@
 <li><a class="reference internal" href="#masked-dispersal">Masked Dispersal</a></li>
 <li><a class="reference internal" href="#density-network-dispersal">Density Network Dispersal</a></li>
 <li><a class="reference internal" href="#fixed-network-dispersal">Fixed Network Dispersal</a></li>
+<li><a class="reference internal" href="#minimum-viable-population">Minimum Viable Population</a></li>
 </ul>
 </li>
 </ul>
@@ -146,15 +151,12 @@
 <li><a class="reference internal" href="#masked-dispersal" id="id4">Masked Dispersal</a></li>
 <li><a class="reference internal" href="#density-network-dispersal" id="id5">Density Network Dispersal</a></li>
 <li><a class="reference internal" href="#fixed-network-dispersal" id="id6">Fixed Network Dispersal</a></li>
+<li><a class="reference internal" href="#minimum-viable-population" id="id7">Minimum Viable Population</a></li>
 </ul>
 </div>
 <p>Species may move independently in a model domain using any number of available dispersal methods. They are added to a
 species using the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> <code class="xref py py-func docutils literal"><span class="pre">add_dispersal()</span></code> method, which is specified using one of the available methods listed in
 <code class="docutils literal"><span class="pre">popdyn.dispersal.METHODS</span></code>.</p>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">Poplulation is never moved outside of the model domain or to where carrying capacity is 0</p>
-</div>
 <p>These methods, and their keys are used to add each to a species are listed below:</p>
 <table border="1" class="longtable docutils">
 <colgroup>
@@ -179,6 +181,12 @@ species using the <a class="reference internal" href="species.html#species"><spa
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Poplulation is never moved outside of the model domain or to where carrying capacity is 0</p>
+</div>
+<p>A description of <a class="reference internal" href="#mvp"><span>Minimum Viable Population</span></a> is included herein as well, although it is a mortality driver. This method relies on
+spatial distributions and is considered appropriate for this section.</p>
 <p>Dispersal methods are described as follows:</p>
 <div class="section" id="interhabitat-dispersal">
 <h2><a class="toc-backref" href="#id2">Interhabitat Dispersal</a><a class="headerlink" href="#interhabitat-dispersal" title="Permalink to this headline">¶</a></h2>
@@ -432,6 +440,10 @@ values are not less than 0 and do not exceed 1:</p>
 </table>
 </dd></dl>
 
+</div>
+<div class="section" id="minimum-viable-population">
+<span id="mvp"></span><h2><a class="toc-backref" href="#id7">Minimum Viable Population</a><a class="headerlink" href="#minimum-viable-population" title="Permalink to this headline">¶</a></h2>
+<p>mvp</p>
 </div>
 </div>
 

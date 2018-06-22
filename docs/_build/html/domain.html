@@ -72,12 +72,15 @@
     
     
       <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Model Domain</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -116,25 +119,66 @@
 <p>A popdyn model <a class="reference internal" href="#domain"><span>Model Domain</span></a> provides a framework for simulations so they may be spatially and temporally discretized,
 and parameterized. The primary purposes of a <a class="reference internal" href="#domain"><span>Model Domain</span></a> are to:</p>
 <ul class="simple">
-<li>Manage a file to store study area data in HDF5 format, and act as a quasi-database for the model domain attributes. The file will be automatically created with the extension <code class="docutils literal"><span class="pre">.popdyn</span></code>, and can be used to instantiate <a class="reference internal" href="#popdyn.Domain" title="popdyn.Domain"><code class="xref py py-class docutils literal"><span class="pre">Domain</span></code></a> instances.</li>
+<li>Manage a file to store study area data in HDF5 format, and act as a quasi-database for the model domain attributes.
+The file will be automatically created with the extension <code class="docutils literal"><span class="pre">.popdyn</span></code>, and can be used to instantiate <a class="reference internal" href="#popdyn.Domain" title="popdyn.Domain"><code class="xref py py-class docutils literal"><span class="pre">Domain</span></code></a>
+instances.</li>
 <li>The <a class="reference internal" href="#domain"><span>Model Domain</span></a> has a consistent spatial extent and anisotropic grid resolution</li>
 <li>Data added to a domain are automatically read, spatially transformed, converted, and stored on the disk.</li>
-<li>Data are commonly added with <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> instances to add them and corresponding data to the <a class="reference internal" href="#domain"><span>Model Domain</span></a></li>
-<li>Domain instances are provided to selected <a class="reference internal" href="solvers.html#solvers"><span>Numerical Solvers</span></a> to calculate derived parameters and simulate populations in the model</li>
+<li>Data are commonly added with <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> instances to add them and corresponding data to the
+<a class="reference internal" href="#domain"><span>Model Domain</span></a></li>
+<li>Domain instances are provided to selected <a class="reference internal" href="solvers.html#solvers"><span>Numerical Solvers</span></a> to calculate derived parameters and simulate populations in
+the model</li>
+<li>Computation &#8220;chunks&#8221; are also specified in the domain to make use of distributed schedulers that allow parallel
+computation and make memory (RAM) usage predictable</li>
 </ul>
-<p>Species are added to a model domain using parameters or population data using one of the following methods:</p>
+<p>Species (and accompanying data) are added to a model domain using parameters or population data using one of the
+following methods:</p>
 <ul class="simple">
-<li><code class="xref py py-meth docutils literal"><span class="pre">add_population()</span></code></li>
-<li><code class="xref py py-meth docutils literal"><span class="pre">add_mortality()</span></code></li>
-<li><code class="xref py py-meth docutils literal"><span class="pre">add_carrying_capacity()</span></code></li>
-<li><code class="xref py py-meth docutils literal"><span class="pre">add_fecundity()</span></code></li>
+<li><a class="reference internal" href="#popdyn.Domain.add_population" title="popdyn.Domain.add_population"><code class="xref py py-meth docutils literal"><span class="pre">add_population()</span></code></a></li>
+<li><a class="reference internal" href="#popdyn.Domain.add_mortality" title="popdyn.Domain.add_mortality"><code class="xref py py-meth docutils literal"><span class="pre">add_mortality()</span></code></a></li>
+<li><a class="reference internal" href="#popdyn.Domain.add_carrying_capacity" title="popdyn.Domain.add_carrying_capacity"><code class="xref py py-meth docutils literal"><span class="pre">add_carrying_capacity()</span></code></a></li>
+<li><a class="reference internal" href="#popdyn.Domain.add_fecundity" title="popdyn.Domain.add_fecundity"><code class="xref py py-meth docutils literal"><span class="pre">add_fecundity()</span></code></a></li>
+<li><a class="reference internal" href="#popdyn.Domain.add_mask" title="popdyn.Domain.add_mask"><code class="xref py py-meth docutils literal"><span class="pre">add_mask()</span></code></a></li>
 </ul>
 <div class="admonition attention">
 <p class="first admonition-title">Attention</p>
 <p class="last">All parameters or data that are added to a model domain must be in the same spatial and temporal units</p>
 </div>
+<p>Data associated with <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a> may be added to the model domain using one of the following
+formats:</p>
+<ul class="simple">
+<li>A raster dataset. If the raster spatial reference and geotransform do not match the domain, it will be automatically
+resampled using nearest neighbour interpolation when added to the domain.</li>
+<li>A <a class="reference external" href="https://docs.scipy.org/doc/numpy/user/basics.creation.html">numpy</a> array-like object with a shape matching the
+model domain, or in a shape that can be
+<a class="reference external" href="https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html">broadcasted</a> to the shape of the model domain.</li>
+<li>A scalar that is repeated over all domain elements.</li>
+</ul>
+<p>Data added to a model domain may also be distributed using any of the following <code class="docutils literal"><span class="pre">keyword</span> <span class="pre">arguments</span></code>:</p>
+<p><strong>distribute</strong>: If the input data are scalars, the value will be divided evenly among all domain elements:</p>
+<div class="math">
+\[param/n\]</div>
+<p>where <span class="math">\(param\)</span> is the value, and <span class="math">\(n\)</span> is the number of domain elements).</p>
+<p>If data are arrays, the sum will
+be evenly divided among all domain elements:</p>
+<div class="math">
+\[\frac{\sum_{i=1}^{n}param(i)}{n}\]</div>
+<p><strong>distribute_by_habitat</strong>: Use habitat quality to linearly distribute the input parameter data. Data that are
+scalars or arrays are aggregated using the same method as <code class="docutils literal"><span class="pre">distribute</span></code>. The <span class="math">\(param\)</span> value is distributed over
+habitat (<span class="math">\(k\)</span>) using the following:</p>
+<div class="math">
+\[param\cdot \frac{k(i)[k(i)\neq 0]}{\sum_{i=1}^{n}k(i)[k(i)\neq 0]}\]</div>
 <p>Once added to a domain, species with the same name automatically become stratified by their name, sex, and age groups,
 and are able to inherit mortality and fecundity based on a species - sex - age group hierarchy.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Remember, for inheritance to work, the members of the same species added to the model domain must have matching names</p>
+</div>
+<p>Time is also discretized in the model domain. Data related to species and parameters are tied to a specific time, which
+is used in the solvers. Time is always represented as whole numbers, although these numbers are not constrained to any
+interval or time format. For example, a model domain that is solved annually will contain data that is tied to a specific
+year. A model domain that is solved every second will have data added at a specific second over the duration of the model.
+The start and end times are specified in the solvers.</p>
 <dl class="class">
 <dt id="popdyn.Domain">
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Domain</code><span class="sig-paren">(</span><em>popdyn_path</em>, <em>domain_raster=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain" title="Permalink to this definition">¶</a></dt>
@@ -177,6 +221,175 @@ using the keyword arguments</p>
 </tr>
 </tbody>
 </table>
+<dl class="method">
+<dt id="popdyn.Domain.add_population">
+<code class="descname">add_population</code><span class="sig-paren">(</span><em>species</em>, <em>data</em>, <em>time</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.add_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add population data for a given species at a specific time slice in the domain.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; A Species instance</li>
+<li><strong>data</strong> &#8211; Population data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)</li>
+<li><strong>time</strong> &#8211; The time slice to insert the population data into</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>distribute_by_habitat</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input population linearly among domain elements using the covariate
+carrying capacity (Default: False)</p>
+</dd>
+<dt><strong>discrete_age</strong> (<em>int</em>) &#8211;</dt>
+<dd><p class="first last">Apply the input population to a single discrete age in the age group (Default: None)</p>
+</dd>
+<dt><strong>distribute</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input data evenly among all domain nodes (grid cells) (default: True)</p>
+</dd>
+<dt><strong>overwrite</strong> (<em>str</em>) &#8211;</dt>
+<dd><p class="first last">Overwrite method for replacing existing data. Use one of <code class="docutils literal"><span class="pre">['replace',</span> <span class="pre">'add']</span></code> (Default &#8216;replace&#8217;)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.add_mortality">
+<code class="descname">add_mortality</code><span class="sig-paren">(</span><em>species</em>, <em>mortality</em>, <em>time</em>, <em>data=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.add_mortality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mortality is added to the domain with species and Mortality objects in tandem.</p>
+<p>Multiple mortality datasets may added to a single species,
+as they are stacked in the domain for each species (or sex/age group).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
+<li><strong>mortality</strong> (<em>Morality</em>) &#8211; Mortality instance.</li>
+<li><strong>data</strong> &#8211; Mortality data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)</li>
+<li><strong>time</strong> &#8211; The time slice to insert mortality</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>distribute</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input data evenly among all domain nodes (grid cells) (default: True)</p>
+</dd>
+<dt><strong>overwrite</strong> (<em>str</em>) &#8211;</dt>
+<dd><p class="first last">Overwrite method for replacing existing data. Use one of <code class="docutils literal"><span class="pre">['replace',</span> <span class="pre">'add']</span></code> (Default &#8216;replace&#8217;)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.add_carrying_capacity">
+<code class="descname">add_carrying_capacity</code><span class="sig-paren">(</span><em>species</em>, <em>carrying_capacity</em>, <em>time</em>, <em>data=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.add_carrying_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Carrying capacity is added to the domain with species and CarryingCapacity objects in tandem.</p>
+<p>Multiple carrying capacity datasets may added to a single species, as they are stacked in the domain for each species (or sex/age group).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
+<li><strong>carrying_capacity</strong> (<a class="reference internal" href="parameters.html#popdyn.CarryingCapacity" title="popdyn.CarryingCapacity"><em>CarryingCapacity</em></a>) &#8211; Carrying capacity instance.</li>
+<li><strong>time</strong> &#8211; The time slice to insert the carrying capacity</li>
+<li><strong>data</strong> &#8211; Carrying Capacity data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>is_density</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">The input data are a density, and not an absolute population (Default: False)</p>
+</dd>
+<dt><strong>distribute</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input data evenly among all domain nodes (grid cells) (default: True)</p>
+</dd>
+<dt><strong>overwrite</strong> (<em>str</em>) &#8211;</dt>
+<dd><p class="first last">Overwrite method for replacing existing data. Use one of <code class="docutils literal"><span class="pre">['replace',</span> <span class="pre">'add']</span></code> (Default &#8216;replace&#8217;)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.add_fecundity">
+<code class="descname">add_fecundity</code><span class="sig-paren">(</span><em>species</em>, <em>fecundity</em>, <em>time</em>, <em>data=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.add_fecundity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fecundity is added to the domain with species and Fecundity objects in tandem.</p>
+<p>Multiple fecundity datasets may added to a single species, as they are stacked in the domain for each
+species (or sex/age group).</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
+<li><strong>fecundity</strong> (<a class="reference internal" href="parameters.html#popdyn.Fecundity" title="popdyn.Fecundity"><em>Fecundity</em></a>) &#8211; Fecundity instance.</li>
+<li><strong>data</strong> &#8211; Fecundity data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)</li>
+<li><strong>time</strong> &#8211; The time slice to insert fecundity</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>distribute</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input data evenly among all domain nodes (grid cells) (default: True)</p>
+</dd>
+<dt><strong>overwrite</strong> (<em>str</em>) &#8211;</dt>
+<dd><p class="first last">Overwrite method for replacing existing data. Use one of <code class="docutils literal"><span class="pre">['replace',</span> <span class="pre">'add']</span></code> (Default &#8216;replace&#8217;)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Domain.add_mask">
+<code class="descname">add_mask</code><span class="sig-paren">(</span><em>species</em>, <em>time</em>, <em>data=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.add_mask" title="Permalink to this definition">¶</a></dt>
+<dd><p>A mask is a general-use dataset associated with a species. It is currently only used for masked density-based
+dispersal. Only one mask may exist for a species - sex - age group.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
+<li><strong>data</strong> &#8211; Mask data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)</li>
+<li><strong>time</strong> &#8211; The time slice to insert fecundity</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>distribute</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Divide the sum of the input data evenly among all domain nodes (grid cells) (default: True)</p>
+</dd>
+<dt><strong>overwrite</strong> (<em>str</em>) &#8211;</dt>
+<dd><p class="first last">Overwrite method for replacing existing data. Use one of <code class="docutils literal"><span class="pre">['replace',</span> <span class="pre">'add']</span></code> (Default &#8216;replace&#8217;)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 <dl class="method">
 <dt id="popdyn.Domain.age_from_group">
 <code class="descname">age_from_group</code><span class="sig-paren">(</span><em>species_key</em>, <em>sex</em>, <em>gp</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Domain.age_from_group" title="Permalink to this definition">¶</a></dt>

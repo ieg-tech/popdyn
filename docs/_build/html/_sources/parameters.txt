@@ -5,7 +5,7 @@ Parameters
 ==========
 
 .. contents:: Table of Contents
-   :depth: 3
+   :depth: 4
 
 .. py:currentmodule:: popdyn
 
@@ -20,6 +20,8 @@ Paramters consist of:
     CarryingCapacity
     Mortality
     Fecundity
+
+.. _lookup:
 
 When inter-species relationships are specified, the following describes the input lookup table format:
 

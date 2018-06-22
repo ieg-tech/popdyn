@@ -50,9 +50,12 @@ A typical popdyn model workflow includes:
 .. toctree::
     :hidden:
 
+    installation
     species
     dispersal
     parameters
     domain
     solvers
     data_summary
+    tutorial
+    solver_development

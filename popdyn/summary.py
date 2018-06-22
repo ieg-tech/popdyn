@@ -35,6 +35,8 @@ class ModelSummary(object):
     Collect summarized results from the model domain. With each summary function call, no computations take place.
     Rather, the ``to_compute`` attribute is appended with the output ``dask`` object, all of which are optimized and
     computed only when the :func:`compute` method is called.
+
+    .. note:: The ``to_compute`` attribute maintains the order of summary function calls. The returned list from ``compute`` will maintain summarized data in the call order.
     """
 
     def __init__(self, domain):
@@ -85,7 +87,7 @@ class ModelSummary(object):
         """
         Compute all loaded summaries in the ``to_compute`` attribute
 
-        :returns: list of computed objects from ``to_compute`` attribute
+        :returns: list of **computed** computed objects from ``to_compute`` attribute
         """
         # Create output summary dataset objects as store locations
         targets = [SummaryDataset(ds.shape) for ds in self.to_compute]

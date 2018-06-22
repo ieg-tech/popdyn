@@ -72,16 +72,20 @@
     
     
       <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="species.html">Species</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
 <li class="toctree-l1"><a class="reference internal" href="parameters.html">Parameters</a></li>
 <li class="toctree-l1"><a class="reference internal" href="domain.html">Model Domain</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Numerical Solvers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#error-checking">Error Checking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#species-inheritance">Species Inheritance</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#discrete-explicit">Discrete Explicit</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
 </ul>
 
     
@@ -93,8 +97,14 @@
     <div class="sidebar-localtoc">
       <ul>
 <li><a class="reference internal" href="#">Numerical Solvers</a><ul>
+<li><a class="reference internal" href="#error-checking">Error Checking</a></li>
 <li><a class="reference internal" href="#species-inheritance">Species Inheritance</a></li>
-<li><a class="reference internal" href="#discrete-explicit">Discrete Explicit</a></li>
+<li><a class="reference internal" href="#discrete-explicit">Discrete Explicit</a><ul>
+<li><a class="reference internal" href="#fecundity-method">Fecundity Method</a></li>
+<li><a class="reference internal" href="#mortality-method">Mortality Method</a></li>
+<li><a class="reference internal" href="#dispersal-method">Dispersal Method</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -135,40 +145,373 @@
 <div class="contents local topic" id="table-of-contents">
 <p class="topic-title first">Table of contents</p>
 <ul class="simple">
-<li><a class="reference internal" href="#species-inheritance" id="id1">Species Inheritance</a></li>
-<li><a class="reference internal" href="#discrete-explicit" id="id2">Discrete Explicit</a></li>
+<li><a class="reference internal" href="#error-checking" id="id2">Error Checking</a></li>
+<li><a class="reference internal" href="#species-inheritance" id="id3">Species Inheritance</a></li>
+<li><a class="reference internal" href="#discrete-explicit" id="id4">Discrete Explicit</a><ul>
+<li><a class="reference internal" href="#fecundity-method" id="id5">Fecundity Method</a></li>
+<li><a class="reference internal" href="#mortality-method" id="id6">Mortality Method</a></li>
+<li><a class="reference internal" href="#dispersal-method" id="id7">Dispersal Method</a></li>
+</ul>
+</li>
 </ul>
 </div>
-<div class="section" id="species-inheritance">
-<h2><a class="toc-backref" href="#id1">Species Inheritance</a><a class="headerlink" href="#species-inheritance" title="Permalink to this headline">¶</a></h2>
-<p>Prior to commencing population calculations over time, solvers must perform error check and species inheritance:</p>
-<table border="1" class="longtable docutils">
-<colgroup>
-<col width="10%" />
-<col width="90%" />
-</colgroup>
+<p>The object-oriented nature of <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a>, <a class="reference internal" href="parameters.html#parameters"><span>Parameters</span></a>, and the <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> allows flexibility and modularity
+while solving of populations over time. Numerical solvers may be developed to address unique logic associated with projects
+and may be swapped or combined while simulating populations.</p>
+<p>All solvers include calls to the <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> pre-solve check functions:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#error-check"><span>Error Checking</span></a></li>
+<li><a class="reference internal" href="#inheritance"><span>Species Inheritance</span></a></li>
+</ul>
+<p>Available, documented solvers include:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#discrete-explicit"><span>Discrete Explicit</span></a> - <a class="reference internal" href="#solvers.discrete_explicit" title="solvers.discrete_explicit"><code class="xref py py-class docutils literal"><span class="pre">solvers.discrete_explicit</span></code></a></li>
+</ul>
+<div class="section" id="error-checking">
+<span id="error-check"></span><h2><a class="toc-backref" href="#id2">Error Checking</a><a class="headerlink" href="#error-checking" title="Permalink to this headline">¶</a></h2>
+<p>Error checking is performed using the following:</p>
+<dl class="function">
+<dt id="solvers.error_check">
+<code class="descclassname">solvers.</code><code class="descname">error_check</code><span class="sig-paren">(</span><em>domain</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.error_check" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ensure there are no data conflicts within a domain prior to calling a solver. Current checks include:</p>
+<ul class="simple">
+<li>Make sure at least one Species is included</li>
+<li>Make sure age (stage) groups do not have overlapping ages</li>
+<li>Make sure species defined in inter-species relationships are included</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
 <tbody valign="top">
-<tr class="row-odd"><td><code class="xref py py-obj docutils literal"><span class="pre">solvers.error_check</span></code>(domain)</td>
-<td>Make sure there are no conflicts within a domain.</td>
-</tr>
-<tr class="row-even"><td><code class="xref py py-obj docutils literal"><span class="pre">solvers.inherit</span></code>(domain,&nbsp;start_time,&nbsp;end_time)</td>
-<td>Divide population and carrying capacity among children of species if they exist</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>domain</strong> (<a class="reference internal" href="domain.html#popdyn.Domain" title="popdyn.Domain"><em>Domain</em></a>) &#8211; Domain instance</td>
 </tr>
 </tbody>
 </table>
-<p>Both population and carrying capacity data in the domain are distributed evenly among their children species.</p>
-</div>
-<div class="section" id="discrete-explicit">
-<h2><a class="toc-backref" href="#id2">Discrete Explicit</a><a class="headerlink" href="#discrete-explicit" title="Permalink to this headline">¶</a></h2>
-<dl class="function">
-<dt id="solvers.discrete_explicit">
-<code class="descclassname">solvers.</code><code class="descname">discrete_explicit</code><span class="sig-paren">(</span><em>domain</em>, <em>start_time</em>, <em>end_time</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit" title="Permalink to this definition">¶</a></dt>
-<dd><p>Solve the domain from a start time to an end time on a discrete time step associated with the Domain</p>
-<p>The total populations from the previous year are used to calculate derived
-parameters (density, fecundity, inter-species relationships, etc.).</p>
-<p>To run the simulation, use .execute()</p>
 </dd></dl>
 
+</div>
+<div class="section" id="species-inheritance">
+<span id="inheritance"></span><h2><a class="toc-backref" href="#id3">Species Inheritance</a><a class="headerlink" href="#species-inheritance" title="Permalink to this headline">¶</a></h2>
+<p>Population and Carrying Capacity data may be applied to a Species-level instance, although Sex and AgeGroup-level species
+may exist in the model Domain. As such, these data are cascaded to children classes in advance of solving, which reduces
+complexity of numerical solvers and their ability to recognize data inheritance. Inheritance typically involves:</p>
+<ol class="arabic simple">
+<li>Check whether children of Species and Sex-level classes exist in the model domain</li>
+<li>Collect data related to parent classes</li>
+<li>Divide parent data (<span class="math">\(param\)</span>) by the number of children (<span class="math">\(n\)</span>), <span class="math">\(\frac{param}{n}\)</span></li>
+</ol>
+<dl class="function">
+<dt id="solvers.inherit">
+<code class="descclassname">solvers.</code><code class="descname">inherit</code><span class="sig-paren">(</span><em>domain</em>, <em>start_time</em>, <em>end_time</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.inherit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Divide population and carrying capacity among children of species if they exist.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>domain</strong> &#8211; Domain instance</li>
+<li><strong>start_time</strong> (<em>int</em>) &#8211; A simulation start time that coincides with that of the specified solver time range</li>
+<li><strong>end_time</strong> (<em>int</em>) &#8211; A simulation stop time that coincides with that of the specified solver time range</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="discrete-explicit">
+<span id="id1"></span><h2><a class="toc-backref" href="#id4">Discrete Explicit</a><a class="headerlink" href="#discrete-explicit" title="Permalink to this headline">¶</a></h2>
+<p>This solver is designed to solve species populations on a discrete time interval using explicit functions. At each time
+step between the given start time and end time, species populations from the previous time step are collected and combined
+with parameters from the current time step to calculate and save the populations at the current time step. As such, populations
+must be provided at the first time step, and the first time step is not solved in the <code class="docutils literal"><span class="pre">discrete_explicit</span></code> solver.</p>
+<p>Calculation graphs are created for each species, sex, age (stage) group, at each time using the
+<a class="reference external" href="https://dask.pydata.org/en/latest/">dask library</a>, which enables:</p>
+<ul class="simple">
+<li>Disk input/output to be optimized while reading HDF5 data</li>
+<li>Mathematical parameter optimization</li>
+<li>Parallelism where possible</li>
+<li>Memory-management to ensure RAM usage is predictable and constrained</li>
+</ul>
+<p><strong>At each time step (starting with the second time step), populations are solved using the following methods</strong></p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">When describing calculations, note that they are performed independently at each element in the model domain</p>
+</div>
+<p>The two primary drivers during simulations are the carrying capacity and populations. At each time step, the total
+populations of each sex (gender) if they are included in the domain are collected from the previous
+time step:</p>
+<div class="math">
+\[p_{o(t)}=\sum_{i=1}^{n}p_{a(t-1)}\]</div>
+<p>where <span class="math">\(p_o\)</span> is the initial population of each sex (gender) used in calculations,
+<span class="math">\(p_a\)</span> is the population associated with each age and, and <span class="math">\(t\)</span> is time.</p>
+<p>If the <code class="docutils literal"><span class="pre">total_density</span></code> keyword argument is specified, the total population of the entire species is also calcualted,
+which will be used to calculate density relationships (as opposed to doing so independently for each sex or age (stage)
+group).</p>
+<p>Each species, sex (gender) and age (stage) group are then iterated and populations of each are iterated and solved
+independently. While solving the population, parameters at the current time step are first collected for the species.</p>
+<p>If parameters are dependent on inter-species relationships, the density of the contributing species <span class="math">\(\rho\)</span> is
+calculated using the population <span class="math">\(p_o\)</span> from the previous time step, and the carrying capacity <span class="math">\(k\)</span> at the
+current time step:</p>
+<div class="math" id="density">
+\[\rho=\frac{p_o}{k}\]</div>
+<p>Circularity may exist when calculating inter-species relationships (i.e. two or more species have derived <span class="math">\(k\)</span>
+based on one another), which is why derived carrying capacity is performed with a coefficient. In such cases, the
+carrying capacity data are first collected for all interdependent species, and are subsequently used to calculate
+derived values, rather than using derived values to calculate other derived values.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Stochastic variability included in parameters is applied after values are derived from inter-species relationships</p>
+</div>
+<p>Parameters collected at the beginning of the time step include:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#mortality"><span>Mortality</span></a> for each mortality driver</li>
+<li>The sum of Carrying Capacity - <span class="math">\(\sum_{i=1}^{n}k_{i(t)}\)</span></li>
+<li>Total populations for the species, males, and females (if this level of stratification exists in the domain)</li>
+<li>Total populations of reproducing species</li>
+<li>Total populations of species that contribute to density (specified in the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> keyword arg
+<code class="docutils literal"><span class="pre">contributes_to_density</span></code>)</li>
+<li><a class="reference internal" href="#density"><span>Density</span></a></li>
+<li>The sum of <a class="reference internal" href="#fecundity"><span>Fecundity</span></a> - <span class="math">\(\sum_{i=1}^{n}f_{i(t)}\)</span>, where <span class="math">\(f\)</span> is the fecundity type</li>
+</ul>
+<div class="section" id="fecundity-method">
+<span id="fecundity"></span><h3><a class="toc-backref" href="#id5">Fecundity Method</a><a class="headerlink" href="#fecundity-method" title="Permalink to this headline">¶</a></h3>
+<p>Fecundity values are scaled by two coefficients, which yields the <em>effective fecundity</em>:</p>
+<ol class="arabic simple">
+<li>A coefficient (<span class="math">\(y\)</span>) derived from a lookup table (methods explained <a class="reference internal" href="parameters.html#lookup"><span>here</span></a>.) based on density
+(<span class="math">\(x\)</span>).</li>
+<li>A coefficient derived from density dependency on fecundity. This value is calculated using the
+<code class="docutils literal"><span class="pre">density_fecundity_threshold</span></code>, <code class="docutils literal"><span class="pre">density_fecundity_max</span></code>, and <code class="docutils literal"><span class="pre">fecundity_reduction_rate</span></code> keyword arguments in
+the <a class="reference internal" href="parameters.html#parameters"><span>Fecundity</span></a> class.</li>
+</ol>
+<p>Density dependency on fecundity (coefficient 2 above) is calculated linearly, as follows:</p>
+<div class="math">
+\[min\{1,\frac{\rho-l}{max\{0,u-l\}}\}\cdot \Delta\]</div>
+<p>where:</p>
+<p><span class="math">\(u\)</span> is <code class="docutils literal"><span class="pre">density_fecundity_max</span></code>, the upper threshold</p>
+<p><span class="math">\(l\)</span> is <code class="docutils literal"><span class="pre">density_fecundity_threshold</span></code>, the lower threshold</p>
+<p><span class="math">\(\Delta\)</span> is <code class="docutils literal"><span class="pre">fecundity_reduction_rate</span></code>, the rate of fecundity reduction at the upper threshold</p>
+<p>Prior to other calculations, total offspring (<span class="math">\(b\)</span>) at the current time step are calculated using the total
+population of the reproducing group (ex. females) and the <em>effective fecundity</em> rate <span class="math">\(f_e\)</span>,</p>
+<div class="math">
+\[b(t)=p_o(t)f_e(t)\]</div>
+<p>recalling that <span class="math">\(p_o\)</span> is the total population from <span class="math">\(t-1\)</span>.</p>
+<p>Offspring are allocated to either males, females, or neither (depending on model parameterization) of the minimum age
+in the domain at <span class="math">\(t+1\)</span>.</p>
+</div>
+<div class="section" id="mortality-method">
+<span id="mortality"></span><h3><a class="toc-backref" href="#id6">Mortality Method</a><a class="headerlink" href="#mortality-method" title="Permalink to this headline">¶</a></h3>
+<p>Mortality is applied following the calculation of offspring in three steps while solving the model. The first step
+includes the calculation of mortality as a result of all <strong>mortality driver</strong> parameters. These are calculated using
+<span class="math">\(p_o\)</span>:</p>
+<div class="math">
+\[m(t)=p_o(t)q(t)\]</div>
+<p>where <span class="math">\(m\)</span> is the mortality as a result of the driver rate, <span class="math">\(q\)</span>.</p>
+<p>Following the drivers, the remaining mortality calculations are a result of <strong>Implicit mortality types</strong>. These include:</p>
+<ul class="simple">
+<li>Old age; and</li>
+<li>Density-dependent mortality.</li>
+</ul>
+<p>Populations are first moved using any provided <a class="reference internal" href="#dedispersal"><span>Dispersal</span></a> methods prior to applying
+density-dependent mortality. Density-dependent mortality is calculated using the <code class="docutils literal"><span class="pre">density_threshold</span></code> and
+<code class="docutils literal"><span class="pre">density_scale</span></code> keyword arguments provided to the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> constructor:</p>
+<div class="math">
+\[\frac{(\rho-l)\cdot \Delta \cdot \frac{\rho-l}{1-l}}{\rho}\]</div>
+<p>where,</p>
+<p><span class="math">\(l\)</span> is <code class="docutils literal"><span class="pre">density_threshold</span></code>, and is the lower limit of density dependent mortality</p>
+<p><span class="math">\(\Delta\)</span> is <code class="docutils literal"><span class="pre">density_scale</span></code>, and is the rate of density dependent mortality at a density of 1.</p>
+<p>Old age mortality is only applied if the <code class="docutils literal"><span class="pre">live_past_max</span></code> keyword argument in the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> instance is <code class="docutils literal"><span class="pre">False</span></code>.
+In this case, populations of the maximum specified age in the domain will not propagate to <span class="math">\(t+1\)</span>, and will be
+tracked as mortality as a result of old age.</p>
+</div>
+<div class="section" id="dispersal-method">
+<span id="dedispersal"></span><h3><a class="toc-backref" href="#id7">Dispersal Method</a><a class="headerlink" href="#dispersal-method" title="Permalink to this headline">¶</a></h3>
+<p>Dispersal is applied prior to implementing density-dependent mortality to give populations a chance to move before they
+succumb to the effects of density. Dispersal is applied using any number of the <a class="reference internal" href="dispersal.html#dispersal"><span>Dispersal</span></a> methods inherent to
+species, in the order that they were applied to the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> object.</p>
+<p><strong>The Discrete Explicit Class</strong></p>
+<dl class="class">
+<dt id="solvers.discrete_explicit">
+<em class="property">class </em><code class="descclassname">solvers.</code><code class="descname">discrete_explicit</code><span class="sig-paren">(</span><em>domain</em>, <em>start_time</em>, <em>end_time</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the domain from a start time to an end time on a discrete time step associated with the Domain.</p>
+<p>The total populations from the previous year are used to calculate derived
+parameters (density, fecundity, inter-species relationships, etc.).</p>
+<p>Parameters used during execution are stored in the domain under the <code class="docutils literal"><span class="pre">params</span></code> key, while magnitude
+related to mortality and fecundity are stored under the <code class="docutils literal"><span class="pre">flux</span></code> key at each time step.</p>
+<p>To run the simulation, use .execute()</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>domain</strong> (<a class="reference internal" href="domain.html#popdyn.Domain" title="popdyn.Domain"><em>Domain</em></a>) &#8211; Domain instance populated with at least one species</li>
+<li><strong>start_time</strong> (<em>int</em>) &#8211; Start time of the simulation</li>
+<li><strong>end_time</strong> (<em>int</em>) &#8211; End time of the simulation</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
+<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>total_density</strong> (<em>bool</em>) &#8211;</dt>
+<dd><p class="first last">Use the total species population for density calculations (as opposed to
+populations of sexes or groups) (Default: True)</p>
+</dd>
+</dl>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="solvers.discrete_explicit.carrying_capacity_total">
+<code class="descname">carrying_capacity_total</code><span class="sig-paren">(</span><em>species</em>, <em>datasets</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.carrying_capacity_total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the total carrying capacity for a species with the provided datasets, usually a result of a
+<a class="reference internal" href="domain.html#popdyn.Domain.get_carrying_capacity" title="popdyn.Domain.get_carrying_capacity"><code class="xref py py-func docutils literal"><span class="pre">Domain.get_carrying_capacity()</span></code></a> call. This updates <code class="docutils literal"><span class="pre">self.carrying_capacity_arrays</span></code> to avoid repetitive IO</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>datasets</strong> &#8211; list of tuples with instance - data pairs</li>
+<li><strong>dependent</strong> (<em>list</em>) &#8211; Tracks the species used in species-dependent carrying capacity calculations</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">dask array of total carrying capacity</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.collect_parameter">
+<code class="descname">collect_parameter</code><span class="sig-paren">(</span><em>param</em>, <em>data</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.collect_parameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect data associated with a Fecundity, CarryingCapacity, or Mortality instance. If a species is linked,
+data will be None and density of the linked species will be calculated.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>param</strong> &#8211; CarryingCapacity, Fecundity, or Mortality instance</li>
+<li><strong>data</strong> &#8211; array data or None</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dask array with the collected data</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.execute">
+<code class="descname">execute</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the simulation</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.interspecies_carrying_capacity">
+<code class="descname">interspecies_carrying_capacity</code><span class="sig-paren">(</span><em>parent_species</em>, <em>param</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.interspecies_carrying_capacity" title="Permalink to this definition">¶</a></dt>
+<dd><p>Because inter-species dependencies may be nested or circular, the carrying capacity of all connected
+species is calculated herein and added to the <code class="docutils literal"><span class="pre">self.carrying_capacity_arrays</span></code> object. Future calls of any
+of the connected species will have data available, avoiding redundant calculations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>param</strong> &#8211; input instance of CarryingCapacity</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">coefficient array for the given carrying capacity parameter</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.population_total">
+<code class="descname">population_total</code><span class="sig-paren">(</span><em>species</em>, <em>datasets</em>, <em>honor_density=True</em>, <em>honor_reproduction=False</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.population_total" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the total population for a species with the provided datasets, usually a result of a
+<a class="reference internal" href="domain.html#popdyn.Domain.all_population" title="popdyn.Domain.all_population"><code class="xref py py-func docutils literal"><span class="pre">Domain.all_population()</span></code></a> call. This updates <code class="docutils literal"><span class="pre">self.population_arrays</span></code> to avoid repetitive IO</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>species</strong> &#8211; Species key</li>
+<li><strong>datasets</strong> &#8211; population datasets, retrieved from popdyn.Domain.all_population()</li>
+<li><strong>honor_density</strong> (<em>bool</em>) &#8211; Use the density contribution attribute from a species</li>
+<li><strong>honor_reproduction</strong> (<em>bool</em>) &#8211; Use the density contribution to fecundity attribute from a species</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Dask array of total population</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.prepare_domain">
+<code class="descname">prepare_domain</code><span class="sig-paren">(</span><em>start_time</em>, <em>end_time</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.prepare_domain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Error check and apply inheritance to domain</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.propagate">
+<code class="descname">propagate</code><span class="sig-paren">(</span><em>species</em>, <em>sex</em>, <em>group</em>, <em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.propagate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a graph of calculations to propagate populations and record parameters.
+A dict of key pointers - dask array pairs are created and returned</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<ul class="last simple">
+<li>If age gaps exist, they will be filled by empty groups and will propagate</li>
+<li>Currently, female:male ratio uses the total species population even if densities are calculated at the
+age group level</li>
+</ul>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>species</strong> (<em>str</em>) &#8211; Species key (<code class="docutils literal"><span class="pre">Species.name_key</span></code>)</li>
+<li><strong>sex</strong> (<em>str</em>) &#8211; Sex (<code class="docutils literal"><span class="pre">'male'</span></code>, <code class="docutils literal"><span class="pre">'female'</span></code>, or <code class="docutils literal"><span class="pre">None</span></code>)</li>
+<li><strong>group</strong> (<em>str</em>) &#8211; Group key (<code class="docutils literal"><span class="pre">AgeGroup.group_key</span></code>)</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="solvers.discrete_explicit.totals">
+<code class="descname">totals</code><span class="sig-paren">(</span><em>all_species</em>, <em>time</em><span class="sig-paren">)</span><a class="headerlink" href="#solvers.discrete_explicit.totals" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all population and carrying capacity datasets, and calculate species totals if necessary.
+Dynamic calculations of carrying capacity are made by calling collect_parameter, which may also
+update the carrying_capacity or population array dicts.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>all_species</strong> (<em>list</em>) &#8211; All species in the domain</li>
+<li><strong>time</strong> (<em>int</em>) &#8211; Time slice to collect totals</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 </div>
 
