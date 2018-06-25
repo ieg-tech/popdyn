@@ -89,6 +89,7 @@
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="qanda.html">Questions &amp; Answers</a></li>
 </ul>
 
     
@@ -201,6 +202,10 @@ presented in the conceptual figure below.</p>
 <blockquote>
 <div><img alt="_images/density_flux_neighbourhood.png" class="align-center" src="_images/density_flux_neighbourhood.png" />
 </div></blockquote>
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">No dispersal will occur if the provided distance is less than the distance between elements (grid cells) in the model domain, as none will be included in the neighbourhood</p>
+</div>
 <p>The mean density (<span class="math">\(\rho\)</span>) of all elements in the neighbourhood is calculated as:</p>
 <div class="math">
 \[\rho=\frac{\sum_{i=1}^{n} \frac{pop_T(i)}{k_T(i)}}{n}\]</div>
@@ -279,6 +284,10 @@ populations at each element (node, or grid cell) in the study area array (raster
 at a radius that is defined by the input distance (<span class="math">\(d\)</span>), as presented in the conceptual
 figure below.</p>
 <img alt="_images/distance_propagation_neighbourhood.png" class="align-center" src="_images/distance_propagation_neighbourhood.png" />
+<div class="admonition attention">
+<p class="first admonition-title">Attention</p>
+<p class="last">No dispersal will occur if the provided distance is less than the distance between elements (grid cells) in the model domain, as none will be included in the neighbourhood</p>
+</div>
 <p>The density (<span class="math">\(\rho\)</span>) of all distal elements (<span class="math">\(i\)</span>) is calculated as:</p>
 <div class="math">
 \[\rho(i)=\frac{pop_T(i)}{k_T(i)}\]</div>
@@ -443,7 +452,48 @@ values are not less than 0 and do not exceed 1:</p>
 </div>
 <div class="section" id="minimum-viable-population">
 <span id="mvp"></span><h2><a class="toc-backref" href="#id7">Minimum Viable Population</a><a class="headerlink" href="#minimum-viable-population" title="Permalink to this headline">¶</a></h2>
-<p>mvp</p>
+<dl class="function">
+<dt id="dispersal.minimum_viable_population">
+<code class="descclassname">dispersal.</code><code class="descname">minimum_viable_population</code><span class="sig-paren">(</span><em>population</em>, <em>min_pop</em>, <em>area</em>, <em>csx</em>, <em>csy</em>, <em>filter_std=3</em><span class="sig-paren">)</span><a class="headerlink" href="#dispersal.minimum_viable_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Eliminate clusters of low populations using a minimum population and area thresholds</p>
+<p>The spatial distribution of populations are assessed using a gaussian filter over a neighourhood of elements that is
+calculated using the <code class="docutils literal"><span class="pre">filter_std</span></code> (standard deviation) argument:</p>
+<div class="math">
+\[k=\frac{4\sigma}{2}\]</div>
+<p>where <span class="math">\(k\)</span> is the neighbourhood size (in elements), and <span class="math">\(\sigma\)</span> is the standard deviation.</p>
+<p>A threshold <span class="math">\(T\)</span> is then calculated to be used as a contour to constrain regions:</p>
+<p>Calculate an areal density, <span class="math">\(\rho_a\)</span>:</p>
+<div class="math">
+\[\rho_a=\frac{p}{(A/(dx\cdot dy)}\]</div>
+<p>where <span class="math">\(p\)</span> is the population, <span class="math">\(A\)</span> is the minimum area, and <span class="math">\(dx\)</span> and <span class="math">\(dy\)</span> are the spatial
+gradients in the x and y direction, respectively.</p>
+<p>Calculate the mean population, <span class="math">\(p_m\)</span>, over all elements:</p>
+<div class="math">
+\[p_m=\frac{\sum_{i=1}^{n}p(i)}{n}\]</div>
+<p>Calculate the threshold using a percentile:</p>
+<div class="math">
+\[T=min\{k\}+\bigg[\frac{((\rho_a/p_m)+(\rho_a/max\{p\})}{2}\cdot (max\{k\}-min\{k\})\bigg]\]</div>
+<p>Populations in the study area within the threshold contour are removed and applied to mortality as a result of the
+minimum viable population.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>population</strong> (<em>dask.array</em>) &#8211; Input population</li>
+<li><strong>min_pop</strong> (<em>float</em>) &#8211; Minimum population of cluster</li>
+<li><strong>area</strong> (<em>float</em>) &#8211; Minimum cluster area</li>
+<li><strong>filter_std</strong> (<em>int</em>) &#8211; Standard deviation of gaussian filter to find clusters</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Population and mortality data</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
 </div>
 </div>
 

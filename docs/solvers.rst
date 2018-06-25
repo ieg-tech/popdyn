@@ -150,19 +150,29 @@ recalling that :math:`p_o` is the total population from :math:`t-1`.
 Offspring are allocated to either males, females, or neither (depending on model parameterization) of the minimum age
 in the domain at :math:`t+1`.
 
+Following the calcualtion of offspring, all ages in the group (stage) are iterated and mortality, dispersal, and
+:math:`t+1` propagation are completed.
+
 .. _mortality:
 
 Mortality Method
 ^^^^^^^^^^^^^^^^
 
-Mortality is applied following the calculation of offspring in three steps while solving the model. The first step
-includes the calculation of mortality as a result of all **mortality driver** parameters. These are calculated using
-:math:`p_o`:
+Mortality is applied following the calculation of offspring in four steps while solving the model. The first step
+includes the calculation of mortality as a result of all **mortality driver** parameters. Mortality as a result of each
+driver, :math:`m`, is calculated using :math:`p_o`:
 
 .. math::
-    m(t)=p_o(t)q(t)
 
-where :math:`m` is the mortality as a result of the driver rate, :math:`q`.
+    m_{i(t)}=p_{o(t)}q_{i(t)}
+
+where :math:`i` is the mortality driver with the rate :math:`q`.
+
+In the case where the sum of all mortality driver rates exceed 1, they are scaled proportionally:
+
+.. math::
+
+    m_{i(t)}=\frac{q_{i(t)}}{\sum_{i=1}^{n}q_{i(t)}}\cdot p_{o(t)}
 
 Following the drivers, the remaining mortality calculations are a result of **Implicit mortality types**. These include:
 
@@ -175,9 +185,11 @@ density-dependent mortality. Density-dependent mortality is calculated using the
 
 .. math::
 
-    \frac{(\rho-l)\cdot \Delta \cdot \frac{\rho-l}{1-l}}{\rho}
+    \frac{max\{0,\rho-l\}}{1-l}\cdot \Delta
 
 where,
+
+:math:`\rho` is the population density
 
 :math:`l` is ``density_threshold``, and is the lower limit of density dependent mortality
 
@@ -187,6 +199,10 @@ Old age mortality is only applied if the ``live_past_max`` keyword argument in t
 In this case, populations of the maximum specified age in the domain will not propagate to :math:`t+1`, and will be
 tracked as mortality as a result of old age.
 
+Prior to propagating a population to :math:`t+1`, the ``minimum_viable_population`` keyword argument of the species is
+checked to determine whether a :ref:`minimum viable population <mvp>` calculation should take place. This form of
+mortality is applied last at the current time step.
+
 .. _dedispersal:
 
 Dispersal Method
@@ -195,6 +211,14 @@ Dispersal Method
 Dispersal is applied prior to implementing density-dependent mortality to give populations a chance to move before they
 succumb to the effects of density. Dispersal is applied using any number of the :ref:`dispersal` methods inherent to
 species, in the order that they were applied to the :ref:`species` object.
+
+Conversion & Immigration/Emigration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Two processes that take place during solving are :ref:`conversion <conversion>` from one species to another, and
+immigration/emigration. The latter are applied by adding populations to the domain at time slices other than the first
+time in the simulation. Positive values will apply (immigrate) populations to the domain at a given time, while
+negative values will enforce a population loss from the system (emigration).
 
 **The Discrete Explicit Class**
 

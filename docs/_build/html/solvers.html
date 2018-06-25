@@ -86,6 +86,7 @@
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="qanda.html">Questions &amp; Answers</a></li>
 </ul>
 
     
@@ -103,6 +104,7 @@
 <li><a class="reference internal" href="#fecundity-method">Fecundity Method</a></li>
 <li><a class="reference internal" href="#mortality-method">Mortality Method</a></li>
 <li><a class="reference internal" href="#dispersal-method">Dispersal Method</a></li>
+<li><a class="reference internal" href="#conversion-immigration-emigration">Conversion &amp; Immigration/Emigration</a></li>
 </ul>
 </li>
 </ul>
@@ -151,6 +153,7 @@
 <li><a class="reference internal" href="#fecundity-method" id="id5">Fecundity Method</a></li>
 <li><a class="reference internal" href="#mortality-method" id="id6">Mortality Method</a></li>
 <li><a class="reference internal" href="#dispersal-method" id="id7">Dispersal Method</a></li>
+<li><a class="reference internal" href="#conversion-immigration-emigration" id="id8">Conversion &amp; Immigration/Emigration</a></li>
 </ul>
 </li>
 </ul>
@@ -299,15 +302,20 @@ population of the reproducing group (ex. females) and the <em>effective fecundit
 <p>recalling that <span class="math">\(p_o\)</span> is the total population from <span class="math">\(t-1\)</span>.</p>
 <p>Offspring are allocated to either males, females, or neither (depending on model parameterization) of the minimum age
 in the domain at <span class="math">\(t+1\)</span>.</p>
+<p>Following the calcualtion of offspring, all ages in the group (stage) are iterated and mortality, dispersal, and
+<span class="math">\(t+1\)</span> propagation are completed.</p>
 </div>
 <div class="section" id="mortality-method">
 <span id="mortality"></span><h3><a class="toc-backref" href="#id6">Mortality Method</a><a class="headerlink" href="#mortality-method" title="Permalink to this headline">¶</a></h3>
-<p>Mortality is applied following the calculation of offspring in three steps while solving the model. The first step
-includes the calculation of mortality as a result of all <strong>mortality driver</strong> parameters. These are calculated using
-<span class="math">\(p_o\)</span>:</p>
+<p>Mortality is applied following the calculation of offspring in four steps while solving the model. The first step
+includes the calculation of mortality as a result of all <strong>mortality driver</strong> parameters. Mortality as a result of each
+driver, <span class="math">\(m\)</span>, is calculated using <span class="math">\(p_o\)</span>:</p>
 <div class="math">
-\[m(t)=p_o(t)q(t)\]</div>
-<p>where <span class="math">\(m\)</span> is the mortality as a result of the driver rate, <span class="math">\(q\)</span>.</p>
+\[m_{i(t)}=p_{o(t)}q_{i(t)}\]</div>
+<p>where <span class="math">\(i\)</span> is the mortality driver with the rate <span class="math">\(q\)</span>.</p>
+<p>In the case where the sum of all mortality driver rates exceed 1, they are scaled proportionally:</p>
+<div class="math">
+\[m_{i(t)}=\frac{q_{i(t)}}{\sum_{i=1}^{n}q_{i(t)}}\cdot p_{o(t)}\]</div>
 <p>Following the drivers, the remaining mortality calculations are a result of <strong>Implicit mortality types</strong>. These include:</p>
 <ul class="simple">
 <li>Old age; and</li>
@@ -317,19 +325,30 @@ includes the calculation of mortality as a result of all <strong>mortality drive
 density-dependent mortality. Density-dependent mortality is calculated using the <code class="docutils literal"><span class="pre">density_threshold</span></code> and
 <code class="docutils literal"><span class="pre">density_scale</span></code> keyword arguments provided to the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> constructor:</p>
 <div class="math">
-\[\frac{(\rho-l)\cdot \Delta \cdot \frac{\rho-l}{1-l}}{\rho}\]</div>
+\[\frac{max\{0,\rho-l\}}{1-l}\cdot \Delta\]</div>
 <p>where,</p>
+<p><span class="math">\(\rho\)</span> is the population density</p>
 <p><span class="math">\(l\)</span> is <code class="docutils literal"><span class="pre">density_threshold</span></code>, and is the lower limit of density dependent mortality</p>
 <p><span class="math">\(\Delta\)</span> is <code class="docutils literal"><span class="pre">density_scale</span></code>, and is the rate of density dependent mortality at a density of 1.</p>
 <p>Old age mortality is only applied if the <code class="docutils literal"><span class="pre">live_past_max</span></code> keyword argument in the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> instance is <code class="docutils literal"><span class="pre">False</span></code>.
 In this case, populations of the maximum specified age in the domain will not propagate to <span class="math">\(t+1\)</span>, and will be
 tracked as mortality as a result of old age.</p>
+<p>Prior to propagating a population to <span class="math">\(t+1\)</span>, the <code class="docutils literal"><span class="pre">minimum_viable_population</span></code> keyword argument of the species is
+checked to determine whether a <a class="reference internal" href="dispersal.html#mvp"><span>minimum viable population</span></a> calculation should take place. This form of
+mortality is applied last at the current time step.</p>
 </div>
 <div class="section" id="dispersal-method">
 <span id="dedispersal"></span><h3><a class="toc-backref" href="#id7">Dispersal Method</a><a class="headerlink" href="#dispersal-method" title="Permalink to this headline">¶</a></h3>
 <p>Dispersal is applied prior to implementing density-dependent mortality to give populations a chance to move before they
 succumb to the effects of density. Dispersal is applied using any number of the <a class="reference internal" href="dispersal.html#dispersal"><span>Dispersal</span></a> methods inherent to
 species, in the order that they were applied to the <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> object.</p>
+</div>
+<div class="section" id="conversion-immigration-emigration">
+<h3><a class="toc-backref" href="#id8">Conversion &amp; Immigration/Emigration</a><a class="headerlink" href="#conversion-immigration-emigration" title="Permalink to this headline">¶</a></h3>
+<p>Two processes that take place during solving are <a class="reference internal" href="parameters.html#conversion"><span>conversion</span></a> from one species to another, and
+immigration/emigration. The latter are applied by adding populations to the domain at time slices other than the first
+time in the simulation. Positive values will apply (immigrate) populations to the domain at a given time, while
+negative values will enforce a population loss from the system (emigration).</p>
 <p><strong>The Discrete Explicit Class</strong></p>
 <dl class="class">
 <dt id="solvers.discrete_explicit">

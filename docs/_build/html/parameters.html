@@ -86,6 +86,7 @@
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="qanda.html">Questions &amp; Answers</a></li>
 </ul>
 
     
@@ -98,7 +99,10 @@
       <ul>
 <li><a class="reference internal" href="#">Parameters</a><ul>
 <li><a class="reference internal" href="#carrying-capacity">Carrying Capacity</a></li>
-<li><a class="reference internal" href="#mortality">Mortality</a></li>
+<li><a class="reference internal" href="#mortality">Mortality</a><ul>
+<li><a class="reference internal" href="#conversion">Conversion</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#fecundity">Fecundity</a></li>
 </ul>
 </li>
@@ -136,14 +140,17 @@
           <div class="document clearer body">
             
   <div class="section" id="parameters">
-<span id="id1"></span><h1><a class="toc-backref" href="#id5">Parameters</a><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
+<span id="id1"></span><h1><a class="toc-backref" href="#id6">Parameters</a><a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
 <div class="contents topic" id="table-of-contents">
 <p class="topic-title first">Table of Contents</p>
 <ul class="simple">
-<li><a class="reference internal" href="#parameters" id="id5">Parameters</a><ul>
-<li><a class="reference internal" href="#carrying-capacity" id="id6">Carrying Capacity</a></li>
-<li><a class="reference internal" href="#mortality" id="id7">Mortality</a></li>
-<li><a class="reference internal" href="#fecundity" id="id8">Fecundity</a></li>
+<li><a class="reference internal" href="#parameters" id="id6">Parameters</a><ul>
+<li><a class="reference internal" href="#carrying-capacity" id="id7">Carrying Capacity</a></li>
+<li><a class="reference internal" href="#mortality" id="id8">Mortality</a><ul>
+<li><a class="reference internal" href="#conversion" id="id9">Conversion</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fecundity" id="id10">Fecundity</a></li>
 </ul>
 </li>
 </ul>
@@ -204,7 +211,7 @@ normal distribution and a delta will be calculated at each element using the ran
 <p>where,</p>
 <p><span class="math">\(k_T\)</span> is the total carrying capacity of the species.</p>
 <div class="section" id="carrying-capacity">
-<h2><a class="toc-backref" href="#id6">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id7">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
 <p>Carrying Capacity is used in popdyn models to define means to enhance or reduce the ability for populations to exist in
 a model domain. It is used numerically to relate populations to density, which drives a number of
 model processes. When added to a model domain, Carrying Capacity data are effectively a population potential in the study
@@ -283,7 +290,7 @@ distributions from the
 
 </div>
 <div class="section" id="mortality">
-<h2><a class="toc-backref" href="#id7">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id8">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
 <p>Mortality is used to define and constrain ways for Species populations to decline. Any number of mortality drivers may
 be created and added to a model domain. They are usually added to a model domain with rate data <span class="math">\(q\)</span>, which are used to
 calculate a number of deaths (<span class="math">\(m\)</span>):</p>
@@ -293,6 +300,8 @@ calculate a number of deaths (<span class="math">\(m\)</span>):</p>
 <p>Mortality may also be derived using the density of another species and a lookup table (as outlined above),
 which may be invoked using the <code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. The <span class="math">\(y\)</span> value in the lookup table is a mortality
 rate (<span class="math">\(q\)</span> above) used on the <em>affected</em> species.</p>
+<div class="section" id="conversion">
+<span id="id3"></span><h3><a class="toc-backref" href="#id9">Conversion</a><a class="headerlink" href="#conversion" title="Permalink to this headline">¶</a></h3>
 <p>One additional option when creating mortality is to define a recipient species to apply deaths to. This functionality was
 conceived to perform infection and disease modelling, whereby infected and non-infected populations are treated as
 separate species with their own unique traits. The rate of mortality in these cases would be the rate of infection, and
@@ -377,8 +386,9 @@ distributions from the
 </dd></dl>
 
 </div>
+</div>
 <div class="section" id="fecundity">
-<h2><a class="toc-backref" href="#id8">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
+<h2><a class="toc-backref" href="#id10">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
 <p>Fecundity is used to create means for species to reproduce. Fecundity is used to specify:</p>
 <ul class="simple">
 <li>Whether a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> is able to reproduce</li>

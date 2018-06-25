@@ -62,6 +62,9 @@ class ModelSummary(object):
                'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')] + \
                          ['{},{:.4f}'.format(key, val) for key, val in domain.profiler.items()]
                }
+        for spec in domain.species_instances:
+            for key, val in spec.__dict__.items():
+                log['Parameterization'][spec.name + ' ' + key] = val
 
         self.summary = {sp: deepcopy(log) for sp in domain.species.keys()}
 

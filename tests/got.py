@@ -158,7 +158,7 @@ def single_species_emigration():
 
 def single_species_mvp():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
-        stark_with_mvp = pd.Species('stark', minimum_viable_population=100, minimum_viable_area=500)
+        stark_with_mvp = pd.Species('stark', minimum_viable_population=100, minimum_viable_area=shape[0] * shape[1])
 
         domain.add_carrying_capacity(stark_with_mvp, stark_k, 0, stark_k_data, distribute=False)
         domain.add_population(stark_with_mvp, 10000., 0, distribute_by_habitat=True)
@@ -512,13 +512,29 @@ def circular_species():
             raise Exception('Stark carrying capacity should be {}, but it is {}'.format(10, cc))
 
 
+def max_age():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1, csy=1, shape=(1, 1), top=1, left=0) as domain:
+        gp = pd.AgeGroup('Stark', 'Infant', 'male', 0, 3)
+        gp.live_past_max = True
+        domain.add_carrying_capacity(gp, stark_k, 0, 100)
+        domain.add_population(gp, 20, 0)
+
+        pd.solvers.discrete_explicit(domain, 0, 10).execute()
+
+        # The age range of the group should have changed
+        if domain.species['stark']['male']['infant'].max_age != 13:
+            raise Exception('The max age is {}, and it should be 13'.format(domain.species['stark']['male']['infant'].max_age))
+
+
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
-             single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-             species_as_carrying_capacity, circular_species]
+    # tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
+    #          single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
+    #          single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+    #          species_as_carrying_capacity, circular_species, max_age]
+
+    tests = [max_age]
 
     error_check = 0
     for test in antitests:

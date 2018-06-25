@@ -6,6 +6,7 @@ Devin Cairns, 2018
 
 import numpy as np
 import dask.array as da
+from dask import delayed
 from numba import jit
 from scipy import ndimage
 
@@ -88,6 +89,8 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
 
         .. image:: images/density_flux_neighbourhood.png
             :align: center
+
+    .. attention:: No dispersal will occur if the provided distance is less than the distance between elements (grid cells) in the model domain, as none will be included in the neighbourhood
 
     The mean density (:math:`\\rho`) of all elements in the neighbourhood is calculated as:
 
@@ -327,6 +330,8 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     .. image:: images/distance_propagation_neighbourhood.png
         :align: center
 
+    .. attention:: No dispersal will occur if the provided distance is less than the distance between elements (grid cells) in the model domain, as none will be included in the neighbourhood
+
     The density (:math:`\\rho`) of all distal elements (:math:`i`) is calculated as:
 
     .. math::
@@ -508,53 +513,88 @@ def fixed_network(args):
     raise NotImplementedError('Not implemented yet')
 
 
-def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=3):
+def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=5):
     """
-    Eliminate clusters of low populations using minimum population and area thresholds
-    :param population: Input population (dask array expected)
-    :param min_pop: Minimum population of cluster
-    :param area: Minimum cluster area
-    :param filter_std: Standard deviation of gaussian filter to find clusters
-    :return: Mask where population eliminated
+    Eliminate clusters of low populations using a minimum population and area thresholds
+
+    The spatial distribution of populations are assessed using a gaussian filter over a neighourhood of elements that is
+    calculated using the ``filter_std`` (standard deviation) argument:
+
+    .. math::
+        k=(4\\sigma)+0.5
+
+    where :math:`k` is the neighbourhood size (in elements), and :math:`\\sigma` is the standard deviation.
+
+    A threshold :math:`T` is then calculated to be used as a contour to constrain regions:
+
+    Calculate an areal density per element, :math:`\\rho_a`:
+
+    .. math::
+        \\rho_a=\\frac{p}{(A/(dx\\cdot dy)}
+
+    where :math:`p` is the population, :math:`A` is the minimum area, and :math:`dx` and :math:`dy` are the spatial
+    gradients in the x and y direction, respectively.
+
+    Calculate the threshold within the filtered regions by normalizing the region range with the population range
+
+    .. math::
+        T=min\{k\}+\\bigg[\\frac{((\\rho_a/p_m)+(\\rho_a/max\{p\})}{2}\\cdot (max\{k\}-min\{k\})\\bigg]
+
+    Populations in the study area within the threshold contour are removed and applied to mortality as a result of the
+    minimum viable population.
+
+    :param dask.Array population: Input population
+    :param float min_pop: Minimum population of cluster
+    :param float area: Minimum cluster area
+    :param int filter_std: Standard deviation of gaussian filter to find clusters
+    :return: Population and mortality data
     """
     # If the area is zero, just filter the population values directly
     if area == 0:
         return da.where(population < min_pop, 0, population)
 
-    # Normalize population using gaussian kernel
-    # ------------------------------------------
-    # Calculate the padding using sigma (borrowed from scipy.ndimage.gaussian_filter1d)
-    m = int(4. * filter_std + 0.5)
+    chunks = tuple(c[0] if c else 0 for c in population.chunks)[:2]
 
-    depth = {0: m, 1: m}  # Padding
-    boundary = {0: 'reflect', 1: 'reflect'}  # Constant padding value
-    a = da.ghost.ghost(population, depth, boundary)
+    @delayed
+    def _label(population):
+        # If the region is close to the study area size, avoid region delineation
+        # ---------------------------------------------
+        if area > (population.size * csx * csy) * .9:
+            p = min(1., population.sum() / min_pop)
+            ext = np.random.choice([0, 1], p=[1 - p, p])
+            return np.full(population.shape, ext, np.bool)
 
-    regions = a.map_blocks(ndimage.gaussian_filter, filter_std, dtype=np.float32)
-    regions = da.ghost.trim_internal(regions, depth)
+        # Normalize population using gaussian kernel
+        # ------------------------------------------
+        regions = ndimage.gaussian_filter(population, filter_std)
 
-    # Cluster populations and label using percentile based on n
-    breakpoint = min_pop / (area / (csx * csy))
-    breakpoint = (regions.min() + (
-        (((breakpoint / population.mean()) + (breakpoint / population.max())) / 2) *
-        (regions.max() - regions.min())))
+        # Create a breakpoint at one standard deviation below the mean to create regions
+        breakpoint = regions.mean() - np.std(regions)
 
-    # Label the output and collect sums
-    # TODO: This is incomplete from here onwards (but works)- the dask tree is computed to gather the labels
-    # How does one ghost for a label operation??
-    labels, num = ndimage.label(regions < breakpoint, np.ones(shape=(3, 3)))
-    areas = ndimage.sum(np.ones(shape=labels.shape) * (csx * csy), labels, np.arange(num) + 1)
-    pops = ndimage.sum(population, labels, np.arange(num) + 1)
-    takeLabels = (np.arange(num) + 1)[(pops < min_pop) & (areas >= area)]
-    indices = np.argsort(labels.ravel())
-    bins = np.bincount(labels.ravel())
-    indices = np.split(indices.ravel(), np.cumsum(bins[bins > 0][:-1]))
-    indices = dict(zip(np.unique(labels.ravel()), indices))
-    output = np.ones(shape=labels.ravel().shape, dtype='bool')
-    for lab in takeLabels:
-        output[indices[lab]] = 0
+        # Label the output and collect sums
+        # ---------------------------------
+        loc = regions < breakpoint
+        labels, num = ndimage.label(loc, np.ones(shape=(3, 3)))
+        areas = ndimage.sum(np.ones(shape=labels.shape) * (csx * csy), labels, np.arange(num) + 1)
+        pops = ndimage.sum(population, labels, np.arange(num) + 1)
+        takeLabels = (np.arange(num) + 1)[(pops < min_pop) & (areas >= area)]
+        indices = np.argsort(labels.ravel())
+        bins = np.bincount(labels.ravel())
+        indices = np.split(indices.ravel(), np.cumsum(bins[bins > 0][:-1]))
+        indices = dict(zip(np.unique(labels.ravel()), indices))
+        output = np.ones(shape=labels.ravel().shape, dtype='bool')
+        for lab in takeLabels:
+            # The probability of region-based extinction is scaled using the population
+            p = min(1, pops[lab - 1] / min_pop)
+            ext = np.random.choice([0, 1], p=[1 - p, p])
+            output[indices[lab]] = ext
+        return output.reshape(population.shape)
 
-    return population * da.from_array(output.reshape(labels.shape), chunks=population.chunks)
+    # Note - this is delayed and not chunked. The entire arrays will be loaded into memory upon execution
+    output = da.from_delayed(_label(population), population.shape, np.bool)
+    output.rechunk(chunks)
+
+    return population * output, population * ~output
 
 
 def convolve(a, kernel):

@@ -60,4 +60,4 @@ Fixed Network Dispersal
 Minimum Viable Population
 -------------------------
 
-mvp
+.. autofunction:: minimum_viable_population

@@ -775,7 +775,7 @@ class discrete_explicit(object):
 
             # Lastly, apply minimum viable population calculations if necessary
             if species_instance.minimum_viable_population > 0:
-                population = dispersal.minimum_viable_population(
+                population, mvp_mort = dispersal.minimum_viable_population(
                     population, species_instance.minimum_viable_population, species_instance.minimum_viable_area,
                     self.D.csx, self.D.csy
                 )

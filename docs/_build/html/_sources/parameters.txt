@@ -111,6 +111,11 @@ Mortality may also be derived using the density of another species and a lookup 
 which may be invoked using the :func:`add_as_species` method. The :math:`y` value in the lookup table is a mortality
 rate (:math:`q` above) used on the *affected* species.
 
+.. _conversion:
+
+Conversion
+^^^^^^^^^^
+
 One additional option when creating mortality is to define a recipient species to apply deaths to. This functionality was
 conceived to perform infection and disease modelling, whereby infected and non-infected populations are treated as
 separate species with their own unique traits. The rate of mortality in these cases would be the rate of infection, and
