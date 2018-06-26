@@ -49,7 +49,7 @@ class ModelSummary(object):
 
         log = {'Time': self.model_times,
                'Habitat': {}, 'Population': {}, 'Natality': {}, 'Mortality': {},
-               'Parameterization': {'Domain size': str(domain.shape),
+               'Domain': {'Domain size': str(domain.shape),
                                     'Cell size (x)': domain.csx,
                                     'Cell size (y)': domain.csy,
                                     'Top corner': domain.top,
@@ -59,12 +59,30 @@ class ModelSummary(object):
                                     'Spatial Reference': domain.projection,
                                     'Avoid Inheritance': domain.avoid_inheritance,
                                     'Age Groups': {}},
+               'Species': {},
+               'Mortality Params': {},
+               'Fecundity Params': {},
+               'K Params': {},
                'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')] + \
                          ['{},{:.4f}'.format(key, val) for key, val in domain.profiler.items()]
                }
+
+
         for spec in domain.species_instances:
             for key, val in spec.__dict__.items():
-                log['Parameterization'][spec.name + ' ' + key] = val
+                log['Species'][spec.name + ' ' + key] = val
+
+        for inst in domain.mortality_instances:
+            for key, val in inst.__dict__.items():
+                log['Mortality Params'][inst.name + ' ' + key] = val
+
+        for inst in domain.fecundity_instances:
+            for key, val in inst.__dict__.items():
+                log['Fecundity Params'][inst.name + ' ' + key] = val
+
+        for inst in domain.carrying_capacity_instances:
+            for key, val in inst.__dict__.items():
+                log['K Params'][inst.name + ' ' + key] = val
 
         self.summary = {sp: deepcopy(log) for sp in domain.species.keys()}
 
@@ -477,7 +495,7 @@ class ModelSummary(object):
 
             # Iterate groups and populate data
             for sex in ['male', 'female']:
-                sp_log['Parameterization']['Age Groups'][sex] = []
+                sp_log['Domain']['Age Groups'][sex] = []
                 sex_str = sex
 
                 # Collect total population by sex
@@ -563,7 +581,7 @@ class ModelSummary(object):
                     except IndexError:
                         raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
                     if sex is not None:
-                        sp_log['Parameterization']['Age Groups'][sex].append(group_name)
+                        sp_log['Domain']['Age Groups'][sex].append(group_name)
 
                     # Collect the total population of the group, which is only needed once
                     if 'Population/{}/{}/Total'.format(species_name, group_name) not in lcl_cmp.keys():

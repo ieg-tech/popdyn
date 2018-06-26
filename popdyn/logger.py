@@ -154,8 +154,8 @@ def write_xlsx(domain, output_directory):
         normal_num = wb.add_format()
         normal_num.set_num_format('#,##0.0000')
 
-        male_age_groups = file_dict['Parameterization']['Age Groups']['male']
-        female_age_groups = file_dict['Parameterization']['Age Groups']['female']
+        male_age_groups = file_dict['Domain']['Age Groups']['male']
+        female_age_groups = file_dict['Domain']['Age Groups']['female']
 
         col_width = 0
         col_count = None
@@ -165,7 +165,47 @@ def write_xlsx(domain, output_directory):
             if tab_key == 'Time':
                 continue
             tb = wb.add_worksheet(tab_key)
-            if tab_key == 'Parameterization':
+            if tab_key == 'Domain':
+                _row = -1
+                col_count = len(species_dict)
+                for col_1, col_2 in species_dict.items():
+                    _row += 1
+                    tb.write(_row, 0, col_1, bold)
+                    tb.write(_row, 1, str(col_2))
+                tb.set_column(0, 0, max(len(str(key)) for key in species_dict.keys()))
+                tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
+                continue
+            elif tab_key == 'Species':
+                _row = -1
+                col_count = len(species_dict)
+                for col_1, col_2 in species_dict.items():
+                    _row += 1
+                    tb.write(_row, 0, col_1, bold)
+                    tb.write(_row, 1, str(col_2))
+                tb.set_column(0, 0, max(len(str(key)) for key in species_dict.keys()))
+                tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
+                continue
+            elif tab_key == 'Mortality Params':
+                _row = -1
+                col_count = len(species_dict)
+                for col_1, col_2 in species_dict.items():
+                    _row += 1
+                    tb.write(_row, 0, col_1, bold)
+                    tb.write(_row, 1, str(col_2))
+                tb.set_column(0, 0, max(len(str(key)) for key in species_dict.keys()))
+                tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
+                continue
+            elif tab_key == 'Fecundity Params':
+                _row = -1
+                col_count = len(species_dict)
+                for col_1, col_2 in species_dict.items():
+                    _row += 1
+                    tb.write(_row, 0, col_1, bold)
+                    tb.write(_row, 1, str(col_2))
+                tb.set_column(0, 0, max(len(str(key)) for key in species_dict.keys()))
+                tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
+                continue
+            elif tab_key == 'K Params':
                 _row = -1
                 col_count = len(species_dict)
                 for col_1, col_2 in species_dict.items():

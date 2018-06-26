@@ -775,6 +775,62 @@ class Domain(object):
         is_instance(self.species)
         return instances
 
+    @property
+    def mortality_instances(self):
+        """
+        Collect all mortality instances in the model domain
+
+        :return list: Mortality instances
+        """
+        def is_instance(d):
+            for key, val in d.items():
+                if isinstance(val, dict):
+                    is_instance(val)
+                elif isinstance(val[0], Parameter):
+                    instances.append(val[0])
+
+        instances = []
+        is_instance(self.mortality)
+        return np.unique(instances).tolist()
+
+    @property
+    def fecundity_instances(self):
+        """
+        Collect all fecundity instances in the model domain
+
+        :return list: Fecundity instances
+        """
+
+        def is_instance(d):
+            for key, val in d.items():
+                if isinstance(val, dict):
+                    is_instance(val)
+                elif isinstance(val[0], Parameter):
+                    instances.append(val[0])
+
+        instances = []
+        is_instance(self.fecundity)
+        return np.unique(instances).tolist()
+
+    @property
+    def carrying_capacity_instances(self):
+        """
+        Collect all k instances in the model domain
+
+        :return list: CarryingCapacity instances
+        """
+
+        def is_instance(d):
+            for key, val in d.items():
+                if isinstance(val, dict):
+                    is_instance(val)
+                elif isinstance(val[0], Parameter):
+                    instances.append(val[0])
+
+        instances = []
+        is_instance(self.carrying_capacity)
+        return np.unique(instances).tolist()
+
     def discrete_ages(self, species_key, sex):
         """
         Collect all discrete ages for a species in the model domain
