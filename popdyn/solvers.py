@@ -144,6 +144,7 @@ def inherit(domain, start_time, end_time):
                 if live_past_max and None in domain.species[species][sex].keys():
                     instance = domain.species[species][sex][None]
                     if isinstance(instance, Species):
+                        print('{} {} inheriting live_past_max from {}'.format(species, sex, species))
                         instance.live_past_max = True
 
                 # Collect groups
@@ -218,6 +219,8 @@ def inherit(domain, start_time, end_time):
                         instance = domain.species[species][sex][group]
                         if live_past_max:
                             # Apply the sex-level live-past-max attribute to the child
+                            print('{} {} {} inheriting live_past_max from {} {}'.format(species, sex, group,
+                                                                                        species, sex))
                             instance.live_past_max = True
 
                         if pop_to_groups:
