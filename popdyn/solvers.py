@@ -134,7 +134,7 @@ def inherit(domain, start_time, end_time):
                     # Remove each dataset under the name key
                     domain.remove_dataset('carrying_capacity', species, None, None, time, cc[0].name_key)
 
-            if None in sex_keys:
+            if None in domain.species[species].keys():
                 if (None in domain.species[species][None].keys() and
                     isinstance(domain.species[species][None][None], Species)):
                     live_past_max = domain.species[species][None][None].live_past_max
@@ -268,6 +268,9 @@ class discrete_explicit(object):
         self.D = domain
         self.prepare_domain(start_time, end_time)
 
+        # Dask pointers to HDF5 datasets are tracked to avoid redundant I/O
+        self.dsts = {}
+
         # Extra toggles
         # -------------
         self.total_density = kwargs.get('total_density', True)
@@ -286,7 +289,7 @@ class discrete_explicit(object):
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
             # -------------------------------------------------------------------------------------------
-            # Create dicts to store IO to avoid repetitive reads in the dask graph
+            # Create dicts to store species-level totals and datasets
             all_species = self.D.species.keys()
             self.population_arrays = {sp: {} for sp in all_species}
             self.carrying_capacity_arrays = {sp: {} for sp in all_species}
