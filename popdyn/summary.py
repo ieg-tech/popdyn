@@ -68,9 +68,9 @@ class ModelSummary(object):
                }
 
 
-        for spec in domain.species_instances:
+        for spec in np.unique(domain.species_instances).tolist():
             for key, val in spec.__dict__.items():
-                log['Species'][spec.name + ' ' + key] = val
+                log['Species']['{} {} {} {}'.format(spec.name, spec.sex, spec.group_key, key)] = val
 
         for inst in domain.mortality_instances:
             for key, val in inst.__dict__.items():

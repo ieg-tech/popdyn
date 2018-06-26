@@ -98,7 +98,8 @@ def error_check(domain):
 
 def inherit(domain, start_time, end_time):
     """
-    Divide population and carrying capacity among children of species if they exist.
+    Divide population and carrying capacity among children of species if they exist, and apply max age truncation to
+    all children species.
 
     :param domain: Domain instance
     :param int start_time: A simulation start time that coincides with that of the specified solver time range
@@ -106,6 +107,8 @@ def inherit(domain, start_time, end_time):
     """
     # Iterate all species and times in the domain
     for species in domain.species.keys():
+        # Check on the age truncation
+        live_past_max = False
         sex_keys = [key for key in domain.species[species].keys() if key is not None]
         for time in range(start_time, end_time + 1):
             # Collect the toplevel species datasets if they exist, and distribute them among the sexes
@@ -131,14 +134,25 @@ def inherit(domain, start_time, end_time):
                     # Remove each dataset under the name key
                     domain.remove_dataset('carrying_capacity', species, None, None, time, cc[0].name_key)
 
+            if None in sex_keys:
+                if (None in domain.species[species][None].keys() and
+                    isinstance(domain.species[species][None][None], Species)):
+                    live_past_max = domain.species[species][None][None].live_past_max
+
             # Iterate any sexes in the domain
             for sex in sex_keys:
+                if live_past_max and None in domain.species[species][sex].keys():
+                    instance = domain.species[species][sex][None]
+                    if isinstance(instance, Species):
+                        instance.live_past_max = True
+
                 # Collect groups
                 group_keys = [key for key in domain.species[species][sex].keys() if key is not None]
                 if len(group_keys) == 0:
                     # Apply any species-level data to the sex dataset
                     if population_ds is not None:
                         instance = domain.species[species][sex][None]
+
                         print("Cascading population {} --> {}".format(species, sex))
                         domain.add_population(instance, population_ds, time,
                                               distribute=False, overwrite='add')
@@ -202,6 +216,10 @@ def inherit(domain, start_time, end_time):
                     # Apply populations and carrying capacity to groups
                     for group in group_keys:
                         instance = domain.species[species][sex][group]
+                        if live_past_max:
+                            # Apply the sex-level live-past-max attribute to the child
+                            instance.live_past_max = True
+
                         if pop_to_groups:
                             print("Cascading population {}{}".format(sp_sex_prefix, group))
                             domain.add_population(instance, next_ds, time,
@@ -831,7 +849,23 @@ class discrete_explicit(object):
         if not self.total_density:
             population = self.population_total(species, population_dsts)
         else:
+            # Look for a minimum viable population value in a Species-level instance, and apply it to the total
+            # population in advance of propagating the species
+            mvp = 0
+            for sex in self.D.species[species].keys():
+                if sex is None:
+                    for gp in self.D.species[species][sex].keys():
+                        if gp is None:
+                            if isinstance(self.D.species[species][sex][gp], Species):
+                                species_instance = self.D.species[species][sex][gp]
+                                mvp = species_instance.minimum_viable_population
+            if mvp > 0:
+                self.population_arrays[species]['total'], mvp_mort = dispersal.minimum_viable_population(
+                    self.population_arrays[species]['total'], species_instance.minimum_viable_population,
+                    species_instance.minimum_viable_area, self.D.csx, self.D.csy
+                )
             population = self.population_arrays[species]['total']
+
 
         # Calculate density
         # ---------------------

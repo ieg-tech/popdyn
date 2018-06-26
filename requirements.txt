@@ -1,5 +1,5 @@
 cython
-h5py
+h5py==2.8.0
 dask
 numba
 xlsxwriter
