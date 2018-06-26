@@ -186,6 +186,8 @@ def write_xlsx(domain, output_directory):
                 tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
                 continue
             elif tab_key == 'Mortality Params':
+                if len(species_dict) == 0:
+                    continue
                 _row = -1
                 col_count = len(species_dict)
                 for col_1, col_2 in species_dict.items():
@@ -196,6 +198,8 @@ def write_xlsx(domain, output_directory):
                 tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
                 continue
             elif tab_key == 'Fecundity Params':
+                if len(species_dict) == 0:
+                    continue
                 _row = -1
                 col_count = len(species_dict)
                 for col_1, col_2 in species_dict.items():
@@ -206,6 +210,8 @@ def write_xlsx(domain, output_directory):
                 tb.set_column(1, 1, max(len(str(key)) for key in species_dict.values()))
                 continue
             elif tab_key == 'K Params':
+                if len(species_dict) == 0:
+                    continue
                 _row = -1
                 col_count = len(species_dict)
                 for col_1, col_2 in species_dict.items():

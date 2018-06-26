@@ -86,8 +86,6 @@ class ModelSummary(object):
 
         self.summary = {sp: deepcopy(log) for sp in domain.species.keys()}
 
-
-
         # TODO: Make this an HDF5 file to avoid loading all computations into memory
         self.to_compute = []
 
