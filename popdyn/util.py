@@ -87,8 +87,7 @@ def store(sources, targets):
         )
 
         # Ensure the store keys are unique with a uuid, as duplicate graphs will result in missed stores
-        unique_store_id = str(uuid.uuid4())
-        each_store_dsk = {(key[0] + unique_store_id,) + key[1:]: val
+        each_store_dsk = {(key[0] + '-' + str(uuid.uuid4()),) + key[1:]: val
                           for key, val in each_store_dsk.items()}
 
         store_keys.extend(each_store_dsk.keys())

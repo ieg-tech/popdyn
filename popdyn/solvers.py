@@ -283,6 +283,7 @@ class discrete_explicit(object):
 
         # Iterate time. The first time step cannot be solved and serves to provide initial parameters
         for time in self.simulation_range:
+            print('Solving {}'.format(time))
             self.current_time = time
 
             # Dask pointers to HDF5 datasets are tracked to avoid redundant I/O
