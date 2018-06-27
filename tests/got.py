@@ -160,16 +160,17 @@ def single_species_mvp():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         stark_with_mvp = pd.Species('stark', minimum_viable_population=100, minimum_viable_area=shape[0] * shape[1])
 
-        domain.add_carrying_capacity(stark_with_mvp, stark_k, 0, stark_k_data, distribute=False)
-        domain.add_population(stark_with_mvp, 10000., 0, distribute_by_habitat=True)
+        domain.add_carrying_capacity(stark_with_mvp, stark_k, 0, shape[0] * shape[1] * 100.)
+        domain.add_population(stark_with_mvp, 50., 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        pd.solvers.discrete_explicit(domain, 0, 10).execute()
 
         # Population should be reduced
-        for i in range(1, 3):
-            tot_pop = summary.total_population(domain, 'stark', i).sum()
-            if not tot_pop < 10000:
-                raise Exception('The population did not succumb to MVP (population: {})'.format(tot_pop))
+        tp = []
+        for i in range(0, 11):
+            tp.append(summary.total_population(domain, 'stark', i).sum())
+        if not any([t == 0 for t in tp]):
+            raise Exception('The population did not succumb to MVP (populations: {})'.format(tp))
 
 
 def single_species_random_k():
@@ -291,9 +292,7 @@ def single_species_fecundity():
 
 
 def single_species_dispersion():
-    for _iter, method in enumerate(dispersal.METHODS.keys()):
-        if method == 'masked density-based dispersion':
-            continue
+    for _iter, method in enumerate(['density-based dispersion', 'distance propagation']):
         with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
             starks = pd.Species('Stark')
 
@@ -322,11 +321,8 @@ def single_species_dispersion():
                     raise Exception('The population did not disperse using {}'.format(method))
                 prv_pop = _pop
 
-        if _iter != len(dispersal.METHODS.keys()) - 1:
-            try:
-                os.remove('seven_kingdoms.popdyn')
-            except OSError:
-                pass
+        if _iter == 0:
+            os.remove('seven_kingdoms.popdyn')
 
 
 def single_species_agegroups():
@@ -529,12 +525,10 @@ def max_age():
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    # tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
-    #          single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-    #          single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-    #          species_as_carrying_capacity, circular_species, max_age]
-
-    tests = [max_age]
+    tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
+             single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
+             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+             species_as_carrying_capacity, circular_species, max_age]
 
     error_check = 0
     for test in antitests:

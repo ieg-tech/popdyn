@@ -987,11 +987,11 @@ class Domain(object):
             # The covariate is collected using a function call that is constructed using the data type name
             co = getattr(self, 'get_{}'.format(distribute_by_co))(species_key, time, sex, group, inherit=True)
             # Only collect HDF5 data
-            co = [_co[1] for _co in co if _co[1] is not None]
+            co = [self[_co[1]] for _co in co if _co[1] is not None]
 
             # Use dask to aggregate data because this could be memory-heavy
             if len(co) > 0:
-                co = dstack([da.from_array(ds, ds.chunks) for ds in co]).sum(axis=-1).compute()
+                co = dsum([da.from_array(ds, ds.chunks) for ds in co]).compute()
 
             # Compute the sum. If no data are available or the dataset is empty, the sum will be 0
             co_sum = np.sum(co)
@@ -1030,7 +1030,7 @@ class Domain(object):
         :param int time: Time slice
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
-        :return: list of instance - :class:`h5py.dataset` pairs
+        :return: list of instance - :class:`h5py.dataset` key pairs
         """
         time = self._get_time_input(time)
 
@@ -1062,7 +1062,7 @@ class Domain(object):
                 datasets.update(self.mortality[species_key][_sex][group][time])
 
         # If there are data in the domain, return the HDF5 dataset, else None
-        return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
+        return [ds for ds in datasets.values()]
 
     def get_fecundity(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
         """
@@ -1074,7 +1074,7 @@ class Domain(object):
         :param int time: Time slice
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
-        :return: list of instance - :class:`h5py.dataset` pairs
+        :return: list of instance - :class:`h5py.dataset` key pairs
         """
         time = self._get_time_input(time)
 
@@ -1106,7 +1106,7 @@ class Domain(object):
                 datasets.update(self.fecundity[species_key][_sex][group][time])
 
         # If there are data in the domain, return the HDF5 dataset, else None
-        return [(ds[0], None) if ds[1] is None else (ds[0], self[ds[1]]) for ds in datasets.values()]
+        return [ds for ds in datasets.values()]
 
     def get_mask(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
         """
@@ -1164,7 +1164,7 @@ class Domain(object):
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param bool inherit: Collect data from parent species if they do not exist for the input. Used primarily for distributing by a covariate,
             and should not be used during simulations (the values may change during pre-solving inheritance)
-        :return: list of instance - :class:`h5py.dataset` pairs
+        :return: list of instance - :class:`h5py.Dataset` keys
         """
         time = self._get_time_input(time)
 
@@ -1189,11 +1189,8 @@ class Domain(object):
             datasets = self.carrying_capacity[species_key][sex][group_key][time].keys()
             name_dict = self.carrying_capacity[species_key][sex][group_key][time]
 
-            # If there are data in the domain, return the HDF5 dataset, else None
-            return [(name_dict[key][0], None)
-                    if name_dict[key][1] is None
-                    else (name_dict[key][0], self[name_dict[key][1]])
-                    for key in datasets]
+            # If there are data in the domain, return the HDF5 dataset key, else None
+            return [name_dict[key] for key in datasets]
 
         if inherit:
             for _sex in [sex, None]:
@@ -1214,7 +1211,7 @@ class Domain(object):
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
         :param bool snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
-        :return: all Carrying Capacity dataset keys
+        :return list: All Carrying Capacity instances - :class:`h5py.Dataset` key pairs
         """
         time = self._get_time_input(time)
 
@@ -1279,7 +1276,7 @@ class Domain(object):
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
         :param int age: Absolute age
-        :return: dict of key - :class:'h5py.Dataset` pairs
+        :return: list of :class:'h5py.Dataset` keys
         """
         time = self._get_time_input(time)
 
@@ -1304,7 +1301,7 @@ class Domain(object):
                     if len(val) > 0:  # Could be a defaultdict, or string
                         keys.append(val)
 
-        return {key: self[key] for key in np.unique(keys)}
+        return np.unique(keys)
 
 
 # Species classes

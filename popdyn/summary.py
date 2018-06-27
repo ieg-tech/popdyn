@@ -153,7 +153,7 @@ class ModelSummary(object):
         if len(populations) == 0:
             self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
-            self.to_compute.append(pd.dstack(populations).sum(axis=-1))
+            self.to_compute.append(pd.dsum(populations))
 
     def average_age(self, species=None, time=None, sex=None, group=None):
         """
@@ -237,7 +237,7 @@ class ModelSummary(object):
         if len(carrying_capacity) == 0:
             self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
-            self.to_compute.append(pd.dstack(carrying_capacity).sum(axis=-1))
+            self.to_compute.append(pd.dsum(carrying_capacity))
 
     def list_mortality_types(self, species=None, time=None, sex=None, group=None):
         """
@@ -305,7 +305,7 @@ class ModelSummary(object):
         if len(mortality) == 0:
             self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
-            self.to_compute.append(pd.dstack(mortality).sum(axis=-1))
+            self.to_compute.append(pd.dsum(mortality))
 
     def total_offspring(self, species=None, time=None, sex=None, group=None, offspring_sex=None):
         """
@@ -339,7 +339,7 @@ class ModelSummary(object):
         if len(offspring) == 0:
             self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
-            self.to_compute.append(pd.dstack(offspring).sum(axis=-1))
+            self.to_compute.append(pd.dsum(offspring))
 
     def fecundity(self, species=None, time=None, sex=None, group=None, coeff=False):
         """
@@ -375,9 +375,9 @@ class ModelSummary(object):
             self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
             if coeff:
-                self.to_compute.append(pd.dstack(_fecundity).mean(axis=-1))
+                self.to_compute.append(pd.dmean(_fecundity))
             else:
-                self.to_compute.append(pd.dstack(_fecundity).sum(axis=-1))
+                self.to_compute.append(pd.dsum(_fecundity))
 
     def model_summary(self):
         """

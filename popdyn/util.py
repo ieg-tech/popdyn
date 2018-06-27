@@ -19,9 +19,32 @@ def dstack(dsts):
         return da.atleast_3d(dsts[0])
 
 
+def dsum(dsts):
+    """Apply a sum reduction along of all arrays"""
+    if len(dsts) == 1:
+        return dsts[0]
+
+    out = da.zeros_like(dsts[0])
+    for d in dsts:
+        out += d
+
+    return out
+
+def dmean(dsts):
+    """Apply a mean reduction along of all arrays"""
+    if len(dsts) == 1:
+        return dsts[0]
+
+    out = da.zeros_like(dsts[0])
+    for d in dsts:
+        out += d
+
+    return out / len(dsts)
+
+
 def da_zeros(shape, chunks):
     """Create a dask array of broadcasted zeros"""
-    return da.from_array(np.broadcast_to(np.float32(0), shape), chunks)
+    return da.zeros(shape, dtype=np.float32, chunks=chunks)
 
 
 def store(sources, targets):
@@ -33,9 +56,9 @@ def store(sources, targets):
     """
     # For debugging
     # -------------
-    for source, target in zip(sources, targets):
-        target[:] = source.compute()
-    return
+    # for source, target in zip(sources, targets):
+    #     target[:] = source.compute()
+    # return
     # -------------
 
     # Optimize all sources together
