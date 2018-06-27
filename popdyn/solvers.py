@@ -863,7 +863,7 @@ class discrete_explicit(object):
                 if _sex is None:
                     for _gp in self.D.species[species][_sex].keys():
                         if _gp is None:
-                            if isinstance(self.D.species[species][sex][_gp], Species):
+                            if isinstance(self.D.species[species][_sex][_gp], Species):
                                 species_instance = self.D.species[species][_sex][_gp]
                                 mvp = species_instance.minimum_viable_population
             if mvp > 0:
