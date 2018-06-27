@@ -799,9 +799,11 @@ class discrete_explicit(object):
 
             # Lastly, apply minimum viable population calculations if necessary
             if species_instance.minimum_viable_population > 0:
+                study_area = da.sum(params['Carrying Capacity'] > 0) * self.D.csx * self.D.csy
+
                 population, mvp_mort = dispersal.minimum_viable_population(
                     population, species_instance.minimum_viable_population, species_instance.minimum_viable_area,
-                    self.D.csx, self.D.csy
+                    self.D.csx, self.D.csy, study_area
                 )
 
             key = '{}/{}/{}/{}/{}'.format(species, sex, new_group, time, new_age)
@@ -842,7 +844,6 @@ class discrete_explicit(object):
         if not self.total_density:
             carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
             parameters['Carrying Capacity'] = self.carrying_capacity_total(species, carrying_capacity)
-
         else:
             parameters['Carrying Capacity'] = self.carrying_capacity_arrays[species]['total']
 
@@ -856,19 +857,21 @@ class discrete_explicit(object):
             population = self.population_total(species, population_dsts)
         else:
             # Look for a minimum viable population value in a Species-level instance, and apply it to the total
-            # population in advance of propagating the species
+            #   population in advance of propagating the species
             mvp = 0
-            for sex in self.D.species[species].keys():
-                if sex is None:
-                    for gp in self.D.species[species][sex].keys():
-                        if gp is None:
-                            if isinstance(self.D.species[species][sex][gp], Species):
-                                species_instance = self.D.species[species][sex][gp]
+            for _sex in self.D.species[species].keys():
+                if _sex is None:
+                    for _gp in self.D.species[species][_sex].keys():
+                        if _gp is None:
+                            if isinstance(self.D.species[species][sex][_gp], Species):
+                                species_instance = self.D.species[species][_sex][_gp]
                                 mvp = species_instance.minimum_viable_population
             if mvp > 0:
+                study_area = da.sum(parameters['Carrying Capacity'] > 0) * self.D.csx * self.D.csy
+
                 self.population_arrays[species]['total'], mvp_mort = dispersal.minimum_viable_population(
                     self.population_arrays[species]['total'], species_instance.minimum_viable_population,
-                    species_instance.minimum_viable_area, self.D.csx, self.D.csy
+                    species_instance.minimum_viable_area, self.D.csx, self.D.csy, study_area
                 )
             population = self.population_arrays[species]['total']
 

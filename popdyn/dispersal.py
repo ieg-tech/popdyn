@@ -513,7 +513,7 @@ def fixed_network(args):
     raise NotImplementedError('Not implemented yet')
 
 
-def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=5):
+def minimum_viable_population(population, min_pop, area, csx, csy, domain_area, filter_std=5):
     """
     Eliminate clusters of low populations using a minimum population and area thresholds
 
@@ -559,7 +559,7 @@ def minimum_viable_population(population, min_pop, area, csx, csy, filter_std=5)
     def _label(population):
         # If the region is close to the study area size, avoid region delineation
         # ---------------------------------------------
-        if area > (population.size * csx * csy) * .9:
+        if area > domain_area * .9:
             p = min(1., population.sum() / min_pop)
             ext = np.random.choice([0, 1], p=[1 - p, p])
             return np.full(population.shape, ext, np.bool)
