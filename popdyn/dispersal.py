@@ -53,24 +53,6 @@ def calculate_kernel(distance, csx, csy, outer_ring=False):
     return np.asarray([i, j]).T, m, n
 
 
-def pd_trim_internal():
-    """
-    Borrowed from da.trim_internal, refactored to add the edges of ghosted chunks together
-    :return: dask array via map_blocks
-    """
-    olist = []
-    for i, bd in enumerate(x.chunks):
-        ilist = []
-        for d in bd:
-            ilist.append(d - axes.get(i, 0) * 2)
-        olist.append(tuple(ilist))
-
-    chunks = tuple(olist)
-
-    return map_blocks(partial(chunk.trim, axes=axes), x, chunks=chunks,
-                      dtype=x.dtype)
-
-
 """
 Density flux, also known as inter-habitat dispersal. Calculates a mean density over a neighbourhood and
 reallocates populations within the neighbourhood in attempt to flatten the gradient.
@@ -135,9 +117,9 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     .. math::
         pop_a(i)=pop_a(i)-\\frac{\\Delta(i)[\\Delta(i) < 0]k_T(i)}{candidates}dispersal\\frac{pop_a(i)}{pop_T(i)}
 
-    :param array population: Sub-population to redistribute (subset of the ``total_population``)
-    :param array total_population: Total population
-    :param array carrying_capacity: Total Carrying Capacity (k)
+    :param da.Array population: Sub-population to redistribute (subset of the ``total_population``)
+    :param da.Array total_population: Total population
+    :param da.Array carrying_capacity: Total Carrying Capacity (k)
     :param float distance: Maximum dispersal distance
     :param float csx: Cell size of the domain in the x-direction
     :param float csy: Cell size of the domain in the y-direction
@@ -156,10 +138,11 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
         # Don't do anything
         return population
 
+    chunks = tuple(c[0] if c else 0 for c in population.chunks)[:2]
+
     mask = kwargs.get('mask', None)
     if mask is None:
-        mask = da.ones(shape=population.shape, dtype='float32',
-                       chunks=tuple(c[0] if c else 0 for c in population.chunks))
+        mask = da.ones(shape=population.shape, dtype='float32', chunks=chunks)
 
     # Normalize the mask
     mask_min = da.min(mask)
@@ -169,28 +152,24 @@ def density_flux(population, total_population, carrying_capacity, distance, csx,
     # Calculate the kernel indices and shape
     kernel = calculate_kernel(distance, csx, csy)
     if kernel is None:
+        # Not enough distance to cover a grid cell
         return population
     kernel, m, n = kernel
-    # Dask does not like numpy types in depth
     m = int(m)
-    n = int(m)
-    depth = {0: m, 1: n, 2: 0}  # Padding
-    boundary = {0: 0, 1: 0, 2:0}  # Constant padding value
+    n = int(n)
 
-    # Dstack and ghost the input arrays for the jitted function
-    a = da.ghost.ghost(
-        da.dstack([population, total_population, carrying_capacity, mask]),
-        depth, boundary
-    )
-    chunks = tuple(c[0] if c else 0 for c in a.chunks)[:2]
-    a = a.rechunk((chunks + (4,)))  # Need all of the last dimension passed at once
+    a = da.pad(da.dstack([population, total_population, carrying_capacity, mask]), ((m, m), (n, n), (0, 0)),
+               'constant', constant_values=0)
+    _m = -m
+    if m == 0:
+        _m = None
+    _n = -n
+    if n == 0:
+        _n = None
+    output = delayed(density_flux_task)(a, kernel, m, n)[m:_m, n:_n, 0]
+    output = da.from_delayed(output, population.shape, np.float32)
 
-    # Perform the dispersal
-    # args: population, total_population, carrying_capacity, kernel
-    output = a.map_blocks(density_flux_task, kernel, m, n, dtype='float32',
-                          chunks=(chunks + (1,)))
-    # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
-    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze().astype('float32')
+    return output.rechunk(chunks)
 
 
 def masked_density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
@@ -373,9 +352,9 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     .. math::
         pop_a(i_1)=pop_a(i_1)-dispersal
 
-    :param array population: Sub-population to redistribute (subset of the ``total_population``)
-    :param array total_population: Total population
-    :param array carrying_capacity: Total Carrying Capacity (n)
+    :param da.Array population: Sub-population to redistribute (subset of the ``total_population``)
+    :param da.Array total_population: Total population
+    :param da.Array carrying_capacity: Total Carrying Capacity (n)
     :param float distance: Maximum dispersal distance
     :param float csx: Cell size of the domain in the x-direction
     :param float csy: Cell size of the domain in the y-direction
@@ -392,32 +371,32 @@ def distance_propagation(population, total_population, carrying_capacity, distan
         # Don't do anything
         return population
 
+    chunks = tuple(c[0] if c else 0 for c in population.chunks)[:2]
+
     # Calculate the kernel indices and shape
     kernel = calculate_kernel(distance, csx, csy)
     if kernel is None:
         return population
     kernel, m, n = kernel
+    m = int(m)
+    n = int(n)
 
     # Dask does not like numpy types in depth
-    m = int(m)
-    n = int(m)
-    depth = {0: m, 1: n, 2: 0}  # Padding
-    boundary = {0: 0, 1: 0, 2:0}  # Constant padding value
-
-    # Dstack and ghost the input arrays for the jitted function
-    a = da.ghost.ghost(
-        da.dstack([population, total_population, carrying_capacity]),
-        depth, boundary
-    )
-    chunks = tuple(c[0] if c else 0 for c in a.chunks)[:2]
-    a = a.rechunk((chunks + (3,)))  # Need all of the last dimension passed at once
+    a = da.pad(da.dstack([population, total_population, carrying_capacity]), ((m, m), (n, n), (0, 0)),
+               'constant', constant_values=0)
 
     # Perform the dispersal
     # args: population, total_population, carrying_capacity, kernel
-    output = a.map_blocks(distance_propagation_task, kernel, m, n, dtype='float32',
-                          chunks=(chunks + (1,)))
-    # TODO: Fix trim internal, as overlapping blocks will not correctly propagate populations
-    return da.ghost.trim_internal(output, {0: m, 1: n, 2: 0}).squeeze().astype('float32')
+    _m = -m
+    if m == 0:
+        _m = None
+    _n = -n
+    if n == 0:
+        _n = None
+    output = delayed(distance_propagation_task)(a, kernel, m, n)[m:_m, n:_n, 0]
+    output = da.from_delayed(output, population.shape, np.float32)
+
+    return output.rechunk(chunks)
 
 
 @jit(nopython=True, nogil=True)
@@ -547,11 +526,11 @@ def minimum_viable_population(population, min_pop, area, csx, csy, domain_area, 
     :param float min_pop: Minimum population of cluster
     :param float area: Minimum cluster area
     :param int filter_std: Standard deviation of gaussian filter to find clusters
-    :return: Population and mortality data
+    :return: A coefficient for populations. I.e. 1 (No Extinction) or 0 (Extinction)
     """
     # If the area is zero, just filter the population values directly
     if area == 0:
-        return da.where(population < min_pop, 0, population)
+        return ~(population < min_pop)
 
     chunks = tuple(c[0] if c else 0 for c in population.chunks)[:2]
 
@@ -592,9 +571,8 @@ def minimum_viable_population(population, min_pop, area, csx, csy, domain_area, 
 
     # Note - this is delayed and not chunked. The entire arrays will be loaded into memory upon execution
     output = da.from_delayed(_label(population), population.shape, np.bool)
-    output.rechunk(chunks)
 
-    return population * output, population * ~output
+    return output.rechunk(chunks)
 
 
 def convolve(a, kernel):
