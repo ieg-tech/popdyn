@@ -9,12 +9,11 @@ import os
 import pickle
 from string import punctuation
 import numpy as np
-import dask.array as da
 import h5py
 from osgeo import gdal, osr
+from logger import Timer
 import dispersal
 import dynamic
-from logger import time_this
 from util import *
 
 
@@ -68,6 +67,9 @@ class Domain(object):
             self._load()
         else:
             self._build_new(popdyn_path, domain_raster, **kwargs)
+
+        if not hasattr(self, 'timer'):
+            self.timer = Timer()
 
     # File management and builtins
     # ==================================================================================================
@@ -187,7 +189,7 @@ class Domain(object):
                 raise PopdynError('The domain cannot be empty. Check the input raster "{}"'.format(domain_raster))
 
         # Create some other attributes
-        self.profiler = {}  # Used for profiling function times
+        self.timer = Timer()  # Used for profiling function times
         self.species = rec_dd()
         self.population = rec_dd()
         self.mortality = rec_dd()
@@ -335,7 +337,6 @@ class Domain(object):
 
         return _time
 
-    @time_this
     @_save
     def _domain_compute(self, first_datasets, delayed_datasets):
         """
@@ -350,15 +351,21 @@ class Domain(object):
             if len(datasets) == 0:
                 continue
 
+            self.timer.start('cast all data')
             # Force all data to float32, and place in a delayed location first
             sources = list(ds.astype(np.float32) for ds in datasets.values())
+            self.timer.stop('cast all data')
 
+            self.timer.start('create target datasets')
             # Create all necessary datasets in the file
             targets = [self.file.require_dataset(dp, shape=self.shape, dtype=np.float32,
                                                  chunks=self.chunks, **{'compression': 'lzf'})
                        for dp in datasets.keys()]
+            self.timer.stop('create target datasets')
 
+            self.timer.start('compute and store')
             store(sources, targets)
+            self.timer.stop('compute and store')
 
             for key in list(datasets.keys()):
                 # Add population keys to domain
@@ -366,7 +373,6 @@ class Domain(object):
                 if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
                     self.population[species][sex][group][time][age] = key
 
-    @time_this
     def _get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
         # First, try for a file
@@ -950,7 +956,6 @@ class Domain(object):
 
         self.species[species.name_key][species.sex][species.group_key] = species
 
-    @time_this
     def _add_data(self, key, data, **kwargs):
         """
         Prepare and write data to the popdyn file

@@ -19,25 +19,41 @@ class LoggerError(Exception):
     pass
 
 
-def time_this(func):
-    """Decorator for profiling methods in classes"""
-    def inner(*args, **kwargs):
-        instance = args[0]
-        start = profile_time.time()
-        execution = func(*args, **kwargs)
-        if hasattr(instance, 'D'):
+class Timer(object):
+
+    def __init__(self):
+        self.methods = {}
+        self.timer = {}
+
+    def time_this(self, func):
+        """Decorator"""
+        def inner(*args, **kwargs):
+            start = profile_time.time()
+            execution = func(*args, **kwargs)
+            exec_time = profile_time.time() - start
             try:
-                instance.D.profiler[func.__name__] += profile_time.time() - start
+                self.methods[func.__name__] += exec_time
             except KeyError:
-                instance.D.profiler[func.__name__] = profile_time.time() - start
+                self.methods[func.__name__] = exec_time
             return execution
-        else:
-            try:
-                instance.profiler[func.__name__] += profile_time.time() - start
-            except KeyError:
-                instance.profiler[func.__name__] = profile_time.time() - start
-            return execution
-    return inner
+
+        return inner
+
+    def start(self, method_name):
+        """start the timer"""
+        self.timer[method_name] = profile_time.time()
+
+    def stop(self, method_name):
+        """stop the timer"""
+        try:
+            exec_time = profile_time.time() - self.timer[method_name]
+        except KeyError:
+            raise LoggerError('No timer for {} started!'.format(method_name))
+
+        try:
+            self.methods[method_name] += exec_time
+        except KeyError:
+            self.methods[method_name] = exec_time
 
 
 def name_key(name):

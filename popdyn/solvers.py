@@ -4,7 +4,6 @@ Population dynamics numerical solvers
 Devin Cairns, 2018
 """
 from popdyn import *
-from logger import time_this
 import dask.array as da
 
 
@@ -279,6 +278,7 @@ class discrete_explicit(object):
 
     def execute(self):
         """Run the simulation"""
+        self.D.timer.start('execute')
         all_species = self.D.species.keys()
 
         # Iterate time. The first time step cannot be solved and serves to provide initial parameters
@@ -308,9 +308,9 @@ class discrete_explicit(object):
                     sex_keys = [key for key in sex_keys if key is not None]
 
                 # All births are recorded from each sex and are added to the age 0 slot
+                # Age zero populations are updated with offspring calculated in self.propagate()
                 self.age_zero_population[species] = {key: da_zeros(self.D.shape, self.D.chunks)
                                                      for key in sex_keys}
-                # Age zero populations are updated with offspring calculated in self.propagate()
 
                 # Iterate sexes and groups and calculate each individually
                 for sex in sex_keys:
@@ -367,6 +367,8 @@ class discrete_explicit(object):
             del output, _delayed
             del self.dsts
             del self.population_arrays
+
+        self.D.timer.stop('execute')
 
     def totals(self, all_species, time):
         """
@@ -853,7 +855,6 @@ class discrete_explicit(object):
         # Return output so that it may be included in the final compute call
         return output, _delayed
 
-    @time_this
     def calculate_parameters(self, species, sex, group, time):
         """Collect all required parameters at a time step"""
         parameters = {}

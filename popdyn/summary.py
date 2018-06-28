@@ -64,7 +64,7 @@ class ModelSummary(object):
                'Fecundity Params': {},
                'K Params': {},
                'Solver': [datetime.now(tzlocal()).strftime('%A, %B %d, %Y %I:%M%p %Z')] + \
-                         ['{},{:.4f}'.format(key, val) for key, val in domain.profiler.items()]
+                         ['{},{:.4f}'.format(key, val) for key, val in domain.timer.methods.items()]
                }
 
 
