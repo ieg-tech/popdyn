@@ -373,6 +373,9 @@ class Domain(object):
                 if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
                     self.population[species][sex][group][time][age] = key
 
+            # Flush buffers to the disk
+            self.file.flush()
+
     def _get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
         # First, try for a file
