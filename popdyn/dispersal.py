@@ -213,7 +213,7 @@ def masked_density_flux(population, total_population, carrying_capacity, distanc
     return density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs)
 
 
-@jit(nopython=True, nogil=True)
+@jit(nopython=True, nogil=True, cache=True)
 def density_flux_task(a, kernel, i_pad, j_pad):
     """
     Reallocate mass based on density gradients over the kernel
@@ -374,7 +374,7 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     chunks = tuple(c[0] if c else 0 for c in population.chunks)[:2]
 
     # Calculate the kernel indices and shape
-    kernel = calculate_kernel(distance, csx, csy)
+    kernel = calculate_kernel(distance, csx, csy, True)
     if kernel is None:
         return population
     kernel, m, n = kernel
@@ -399,7 +399,7 @@ def distance_propagation(population, total_population, carrying_capacity, distan
     return output.rechunk(chunks)
 
 
-@jit(nopython=True, nogil=True)
+@jit(nopython=True, nogil=True, cache=True)
 def distance_propagation_task(a, kernel, i_pad, j_pad):
     """
     Reallocate mass to the best habitat at a specified distance
