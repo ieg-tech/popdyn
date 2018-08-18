@@ -30,6 +30,7 @@ def dsum(dsts):
 
     return out
 
+
 def dmean(dsts):
     """Apply a mean reduction along of all arrays"""
     if len(dsts) == 1:

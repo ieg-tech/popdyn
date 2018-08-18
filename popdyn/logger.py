@@ -173,6 +173,14 @@ def write_xlsx(domain, output_directory):
         male_age_groups = file_dict['Domain']['Age Groups']['male']
         female_age_groups = file_dict['Domain']['Age Groups']['female']
 
+        # Sort by ages
+        male_age_sort = np.argsort([ar[0] for ar in file_dict['Domain']['Age Ranges']['male']])
+        female_age_sort = np.argsort([ar[0] for ar in file_dict['Domain']['Age Ranges']['female']])
+
+        male_age_groups = [male_age_groups[i] for i in male_age_sort]
+        female_age_groups = [female_age_groups[i] for i in female_age_sort]
+
+
         col_width = 0
         col_count = None
 
@@ -594,16 +602,16 @@ def write_xlsx(domain, output_directory):
         # Styling
         black = wb.add_format({'bg_color': '#000000', 'font_color': 'white'})
         purple = wb.add_format({'bg_color': '#800080', 'font_color': 'white'})
-        purple.set_num_format('#,##0.0')
+        purple.set_num_format('#,##0.000')
         green = wb.add_format({'bg_color': '#98FB98', 'align': 'right'})
-        green.set_num_format('#,##0.0')
+        green.set_num_format('#,##0.000')
         green_sr = wb.add_format({'bg_color': '#98FB98', 'align': 'right'})
-        green_sr.set_num_format('#,##0.00')
+        green_sr.set_num_format('#,##0.000')
         orange = wb.add_format({'bg_color': '#FFDEAD', 'align': 'right'})
         yellow = wb.add_format({'bg_color': '#FFFF00'})
-        yellow.set_num_format('#,##0.0')
+        yellow.set_num_format('#,##0.000')
         brown = wb.add_format({'bg_color': '#CD853F', 'align': 'right'})
-        brown.set_num_format('#,##0.0')
+        brown.set_num_format('#,##0.000')
         bold_orange = wb.add_format({'bg_color': '#FFDEAD', 'bold': True})
 
         afw.write(0, 3, 'Computing "Harvest Permits" in Alces Online Population Dynamics', bold)
@@ -630,7 +638,7 @@ def write_xlsx(domain, output_directory):
         afw.write(8, len(male_age_groups) + 4, '={0}7/{0}6'.format(index_to_char(len(male_age_groups) + 4)), green_sr)
 
         # Block 2
-        afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for Permitted Harvest', bold)
+        afw.write(10, 3, 'Simulated Annual Harvest Fraction (% of cohort) for License Harvest', bold)
         for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Average']):
             afw.write(row + 11, 3, heading, black)
         for col, gp in enumerate(male_age_groups):
@@ -667,7 +675,7 @@ def write_xlsx(domain, output_directory):
             ), green)
 
         # Block 3
-        afw.write(16, 3, 'Simulated "Total" Permit Harvest Number', bold)
+        afw.write(16, 3, 'Simulated "Total" License Harvest Number', bold)
         afw.write(16, 6, 'Note: These values will include non-permitted mortality if not address in AO PD explicitly')
         for row, heading in enumerate(['Gender/Stage', 'Males', 'Females', 'Total']):
             afw.write(row + 17, 3, heading, black)

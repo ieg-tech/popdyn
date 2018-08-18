@@ -337,45 +337,6 @@ class Domain(object):
 
         return _time
 
-    @_save
-    def _domain_compute(self, first_datasets, delayed_datasets):
-        """
-        Takes dask arrays and dataset pointers and computes/writes to the file
-
-        NOTE: dask.store optimization will not allow multiple writes of the same output from the graph
-
-        :param dict datasets: dataset pointers (keys) and respective dask arrays
-        :return: None
-        """
-        for datasets in [first_datasets, delayed_datasets]:
-            if len(datasets) == 0:
-                continue
-
-            self.timer.start('cast all data')
-            # Force all data to float32, and place in a delayed location first
-            sources = list(ds.astype(np.float32) for ds in datasets.values())
-            self.timer.stop('cast all data')
-
-            self.timer.start('create target datasets')
-            # Create all necessary datasets in the file
-            targets = [self.file.require_dataset(dp, shape=self.shape, dtype=np.float32,
-                                                 chunks=self.chunks, **{'compression': 'lzf'})
-                       for dp in datasets.keys()]
-            self.timer.stop('create target datasets')
-
-            self.timer.start('compute and store')
-            store(sources, targets)
-            self.timer.stop('compute and store')
-
-            for key in list(datasets.keys()):
-                # Add population keys to domain
-                species, sex, group, time, age = self._deconstruct_key(key)[:5]
-                if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
-                    self.population[species][sex][group][time][age] = key
-
-            # Flush buffers to the disk
-            self.file.flush()
-
     def _get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
         # First, try for a file
@@ -519,7 +480,8 @@ class Domain(object):
         Mortality is added to the domain with species and Mortality objects in tandem.
 
         Multiple mortality datasets may added to a single species,
-        as they are stacked in the domain for each species (or sex/age group).
+        as they are stacked in the domain for each species (or sex/age group). If the mortality being added is
+        derived from another species, or is time-based, data does not need to be provided.
 
         :param Species species: Species instance
         :param Morality mortality: Mortality instance.
@@ -540,15 +502,16 @@ class Domain(object):
         if data is not None:
             data = self._get_data_type(data)  # Parse input data
         else:
-            # Mortality must be tied to a species if there are no input data
-            if not hasattr(mortality, 'species'):
-                raise PopdynError('Mortality data must be provided with {}, as it is not attached to a species'.format(
-                    mortality.name
-                ))
+            # Mortality must be tied to a species or be time-based if there are no input data
+            if not hasattr(mortality, 'species') and not hasattr(mortality, 'time_based_rates'):
+                raise PopdynError(
+                    'Mortality data must be provided with {}, as it is not attached to a species and does not have '
+                    'time-based rate dependence'.format(mortality.name)
+                )
 
         m_key = mortality.name_key
 
-        # If mortality is defined only by a lookup table, the key is None
+        # If mortality is defined only by a lookup table or a time-based rate, the key is None
         if data is None:
             key = None
         else:
@@ -1615,6 +1578,7 @@ class Mortality(Parameter):
     table. Multiple mortality instances may be added to a given Species. The mortality name cannot be any of "mortality",
     "density dependent", or "old age" because of implicit mortality types used in solvers.
     """
+    forbidden_names = ['mortality', 'density dependent', 'old age']
 
     def __init__(self, name, **kwargs):
         """
@@ -1625,9 +1589,8 @@ class Mortality(Parameter):
         """
         super(Mortality, self).__init__(name, **kwargs)
 
-        forbidden_names = ['mortality', 'density dependent', 'old age']
-        if name.strip().lower() in forbidden_names:
-            raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(forbidden_names)))
+        if name.strip().lower() in self.forbidden_names:
+            raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(self.forbidden_names)))
 
         self.recipient_species = None
 
@@ -1642,3 +1605,13 @@ class Mortality(Parameter):
             raise PopdynError('Input parameter is not a species')
 
         self.recipient_species = species
+
+    def add_time_based_mortality(self, rates, random_std=None):
+        """
+        Time-based mortality defines a set of mortality rates over a given duration
+
+        :param rates: An iterable of mortality rates that applies from time 0 to time len(rates)
+        :param float random_std: A standard deviation to generate random variation on rates using a normal distribution
+        """
+        self.time_based_rates = rates
+        self.time_based_std = random_std

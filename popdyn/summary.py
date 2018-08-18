@@ -58,7 +58,8 @@ class ModelSummary(object):
                           'Popdyn file': domain.path,
                           'Spatial Reference': domain.projection,
                           'Avoid Inheritance': domain.avoid_inheritance,
-                          'Age Groups': {}},
+                          'Age Groups': {},
+                          'Age Ranges': {}},
                'Species': {},
                'Mortality Params': {},
                'Fecundity Params': {},
@@ -494,6 +495,7 @@ class ModelSummary(object):
             # Iterate groups and populate data
             for sex in ['male', 'female']:
                 sp_log['Domain']['Age Groups'][sex] = []
+                sp_log['Domain']['Age Ranges'][sex] = []
                 sex_str = sex
 
                 # Collect total population by sex
@@ -580,6 +582,8 @@ class ModelSummary(object):
                         raise pd.PopdynError('Unable to gather the group name from the key {}'.format(gp))
                     if sex is not None:
                         sp_log['Domain']['Age Groups'][sex].append(group_name)
+                        age_range = self.domain.age_from_group(species, sex, gp)
+                        sp_log['Domain']['Age Ranges'][sex].append(age_range)
 
                     # Collect the total population of the group, which is only needed once
                     if 'Population/{}/{}/Total'.format(species_name, group_name) not in lcl_cmp.keys():

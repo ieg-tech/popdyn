@@ -236,6 +236,47 @@ def inherit(domain, start_time, end_time):
                                                              distribute=False, overwrite='add')
 
 
+def compute_domain(solver, domain, first_datasets, delayed_datasets, first_aux=None, delayed_aux=None):
+    """
+    Takes dask arrays and dataset pointers and computes/writes to the file
+
+    NOTE: dask.store optimization will not allow multiple writes of the same output from the graph
+
+    :param dict datasets: dataset pointers (keys) and respective dask arrays
+    :return: None
+    """
+    for datasets, aux in [(first_datasets, first_aux), (delayed_datasets, delayed_aux)]:
+        if len(datasets) == 0:
+            continue
+        if aux is None:
+            aux = {}
+
+        domain.timer.start('cast all data')
+        # Force all data to float32, and place in a delayed location first
+        sources = list(ds.astype(np.float32) for ds in datasets.values()) + list(aux.values())
+        domain.timer.stop('cast all data')
+
+        domain.timer.start('create target datasets')
+        # Create all necessary datasets in the file, including counter objects
+        targets = [domain.file.require_dataset(dp, shape=domain.shape, dtype=np.float32,
+                                               chunks=domain.chunks, **{'compression': 'lzf'})
+                   for dp in datasets.keys()] + [Counter(solver, aux_key) for aux_key in aux.keys()]
+        domain.timer.stop('create target datasets')
+
+        domain.timer.start('compute and store')
+        store(sources, targets)
+        domain.timer.stop('compute and store')
+
+        for key in list(datasets.keys()):
+            # Add population keys to domain
+            species, sex, group, time, age = domain._deconstruct_key(key)[:5]
+            if age not in ['params', 'flux']:  # Avoid offspring, carrying capacity, and mortality
+                domain.population[species][sex][group][time][age] = key
+
+        # Flush buffers to the disk
+        domain.file.flush()
+
+
 class discrete_explicit(object):
     """
     Solve the domain from a start time to an end time on a discrete time step associated with the Domain.
@@ -267,6 +308,9 @@ class discrete_explicit(object):
         self.D = domain
         self.prepare_domain(start_time, end_time)
 
+        # A counter is used to track consecutive years of non-zero populations
+        self.counter = {}
+
         # Extra toggles
         # -------------
         self.total_density = kwargs.get('total_density', True)
@@ -291,7 +335,7 @@ class discrete_explicit(object):
             self.population_arrays = {sp: {} for sp in all_species}
             self.carrying_capacity_arrays = {sp: {} for sp in all_species}
             self.age_zero_population = {}
-            output, _delayed = {}, {}
+            output, _delayed, counter_update, delayed_counter_update = {}, {}, {}, {}
 
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
@@ -336,9 +380,12 @@ class discrete_explicit(object):
                 # Iterate sexes and groups and calculate each individually
                 for sex in sex_keys:
                     for group in self.D.species[species][sex].keys():  # Group - may not exist and will be None
-                        _output, __delayed = self.propagate(species, sex, group, time)
+                        _output, __delayed, _counter_update, _delayed_counter_update =\
+                            self.propagate(species, sex, group, time)
                         output.update(_output)
                         _delayed.update(__delayed)
+                        counter_update.update(_counter_update)
+                        delayed_counter_update.update(_delayed_counter_update)
 
                 # Update the output with the age 0 populations
                 for _sex in self.age_zero_population[species].keys():
@@ -378,9 +425,10 @@ class discrete_explicit(object):
                         output[key] += self.age_zero_population[species][_sex]
                     except KeyError:
                         output[key] = self.age_zero_population[species][_sex]
+                    counter_update[key] = da.all(output[key] > 0)
 
             # Compute this time slice and write to the domain file
-            self.D._domain_compute(output, _delayed)
+            compute_domain(self, self.D, output, _delayed, counter_update, delayed_counter_update)
 
             # Clean up dataset pointers
             del self.carrying_capacity_arrays
@@ -442,6 +490,7 @@ class discrete_explicit(object):
 
         :param param: CarryingCapacity, Fecundity, or Mortality instance
         :param data: :class:`h5py.Dataset` key
+
         :return: A dask array with the collected data
         """
         kwargs = {}
@@ -619,6 +668,25 @@ class discrete_explicit(object):
 
         return da.where(array > 0, array * coeff, 0)
 
+    def get_counter(self, species, group, sex, age, time):
+        """
+        Collect the consecutive number of years a non-zero population has existed
+
+        :param str species: Species name key
+        :param str group: Group name key
+        :param str sex: Sex name key
+        :param int age: Age of the population
+        :param int time: Current model time
+        :return: Integer count
+        """
+        key = '{}/{}/{}/{}/{}'.format(species, sex, group, time, age)
+
+        try:
+            return self.counter[key]
+        except KeyError:
+            return None
+
+
     def propagate(self, species, sex, group, time):
         """
         Create a graph of calculations to propagate populations and record parameters.
@@ -647,7 +715,7 @@ class discrete_explicit(object):
         # Ensure there are populations to propagate
         # -----------------------------------------------------------------
         if all([self.D.get_population(species, time - 1, sex, group, age) is None for age in ages]):
-            return {}, {}
+            return {}, {}, {}, {}
 
         # Collect parameters from the current time step.
         # All dynamic modifications are also applied in this step
@@ -658,7 +726,7 @@ class discrete_explicit(object):
         mort_types = [mort_type[0] for mort_type in self.D.get_mortality(species, time, sex, group)]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
-        output, _delayed = {}, {}
+        output, _delayed, counter_update, delayed_counter_update = {}, {}, {}, {}
         for mort_type in mort_types:
             mort_name = mort_type.name
             output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
@@ -730,15 +798,38 @@ class discrete_explicit(object):
             # Use population total to avoid re-read from disk
             population = self.population_total([population], False)
 
-            # Mortality is applied on each age, as they need to be removed from the population
-            # Aggregate mortality must be scaled so as to not exceed 1.
-            if len(mort_types) > 0:
-                agg_mort = dsum([params[mort_type.name] for mort_type in mort_types])
+            # Aggregate mortality and collect time-based mortality if necessary
+            mortality_data = []
+            for mort_type in mort_types:
+                if isinstance(params[mort_type.name], dict):
+                    # This is time-based mortality
+                    time_based_rate = params[mort_type.name]['time_based_rate']
+                    time_based_index = self.get_counter(species, group, sex, age, time)
+                    if time_based_index is None:
+                        # There has never been a population of this nature
+                        continue
+                    try:
+                        time_based_mortality = time_based_rate[time_based_index]
+                    except IndexError:
+                        # The timer has surpassed the range of rates
+                        continue
+                    if params[mort_type.name]['time_based_std'] is not None:
+                        time_based_mortality = np.random.normal(time_based_mortality,
+                                                                params[mort_type.name]['time_based_std'])
+                    time_based_mortality = min(1, max(0, time_based_mortality))
+                    mortality_data.append(da.broadcast_to(time_based_mortality, self.D.shape, self.D.chunks))
+                else:
+                    mortality_data.append(params[mort_type.name])
+
+            # Mortality must be scaled to not exceed 1
+            if len(mortality_data) > 0:
+                agg_mort = dsum(mortality_data)
                 mort_coeff = da.where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
 
+            # All mortality types are applied to each age to record sub-populations for each group
             mort_fluxes = []
-            for mort_type in mort_types:
-                mort_fluxes.append(params[mort_type.name] * mort_coeff * population)
+            for mort_type, mort_data in zip(mort_types, mortality_data):
+                mort_fluxes.append(mort_data * mort_coeff * population)
                 output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
 
                 # Apply mortality to any recipients
@@ -777,6 +868,7 @@ class discrete_explicit(object):
                         _delayed[other_species_key] += other_species_data
                     except KeyError:
                         _delayed[other_species_key] = other_species_data
+                    delayed_counter_update[other_species_key] = da.all(_delayed[other_species_key] > 0)
 
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
@@ -872,13 +964,15 @@ class discrete_explicit(object):
                 _delayed[key] = ds + population
                 # Do not allow negative populations
                 _delayed[key] = da.where(_delayed[key] < 0, 0, _delayed[key])
+                delayed_counter_update[key] = da.all(_delayed[key] > 0)
 
             else:
                 # Do not allow negative populations
                 output[key] = da.where(population < 0, 0, population)
+                counter_update[key] = da.all(output[key] > 0)
 
         # Return output so that it may be included in the final compute call
-        return output, _delayed
+        return output, _delayed, counter_update, delayed_counter_update
 
     def calculate_parameters(self, species, sex, group, time):
         """Collect all required parameters at a time step"""
@@ -887,14 +981,14 @@ class discrete_explicit(object):
         # Mortality
         # ---------------------
         # Collect Mortality instances and/or data from the domain at the current time step
-        mortality = self.D.get_mortality(species, time, sex, group)
-        if len(mortality) == 0:
-            # Defaults to 0
-            parameters['Mortality'] = da_zeros(self.D.shape, self.D.chunks)
-        else:
-            for instance, key in mortality:
-                # Mortality types remain separated by name in order to track numbers associated with types,
-                # and cannot be less than 0
+        for instance, key in self.D.get_mortality(species, time, sex, group):
+            # Mortality types remain separated by name to track numbers associated with types
+            if hasattr(instance, 'time_based_rates'):
+                # Data are not collected, as the age timer dictates the rate
+                parameters[instance.name] = {'time_based_rates': instance.time_based_rates,
+                                             'time_based_std': instance.time_based_std}
+            else:
+                # Collect non-zero mortality datasets
                 parameters[instance.name] = self.collect_parameter(instance, key)
                 parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
 
@@ -932,7 +1026,7 @@ class discrete_explicit(object):
         # Collect the fecundity instances - HDF5[or None] pairs
         fecundity = self.D.get_fecundity(species, time, sex, group)
 
-        # Calculate the fecundity values]
+        # Calculate the fecundity values
         # Fecundity is collected then aggregated
         fec_arrays = []
         avg_mod = 0
@@ -997,3 +1091,23 @@ class discrete_explicit(object):
             parameters['Density-Based Fecundity Reduction Rate'] = avg_mod / len(fec_arrays)
 
         return parameters
+
+
+class Counter(object):
+    """Used to update population counters with dask computes"""
+    def __init__(self, solver, key):
+        self.S = solver
+        self.key = key
+
+    def __setitem__(self, _, value):
+        """
+        Used during computation to add counter values
+        """
+        try:
+            self.S.counter[self.key] += int(np.squeeze(value))
+        except KeyError:
+            self.S.counter[self.key] = 0
+
+        # The counter should always be reset if value is False
+        if not value:
+            self.S.counter[self.key] = 0
