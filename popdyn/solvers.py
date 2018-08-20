@@ -242,8 +242,12 @@ def compute_domain(solver, domain, first_datasets, delayed_datasets, first_aux=N
 
     NOTE: dask.store optimization will not allow multiple writes of the same output from the graph
 
-    :param dict datasets: dataset pointers (keys) and respective dask arrays
-    :return: None
+    :param solver: Instance of a solver class
+    :param Domain domain: Instance of domain class
+    :param dict first_datasets: dataset pointers (keys) and respective dask arrays
+    :param dict delayed_datasets:
+    :param dict first_aux: delayed auxiliary data
+    :param dict delayed_aux: delayed auxiliary data
     """
     for datasets, aux in [(first_datasets, first_aux), (delayed_datasets, delayed_aux)]:
         if len(datasets) == 0:
@@ -679,13 +683,30 @@ class discrete_explicit(object):
         :param int time: Current model time
         :return: Integer count
         """
-        key = '{}/{}/{}/{}/{}'.format(species, sex, group, time, age)
+        key = '{}/{}/{}'.format(species, sex, group)
 
+        # If no data exists or the counter is 0, no timeline exists yet
         try:
-            return self.counter[key]
+            if self.counter['{}/{}/{}'.format(key, time, age)]:
+                counter = 0
+            else:
+                return None
         except KeyError:
             return None
 
+        # Accumulate the counter using time and age datasets
+        while True:
+            time -= 1
+            if age is not None:
+                age -= 1
+            try:
+                _cnt = self.counter['{}/{}/{}'.format(key, time, age)]
+                if _cnt:
+                    counter += 1
+                else:
+                    return counter
+            except KeyError:
+                return counter
 
     def propagate(self, species, sex, group, time):
         """
@@ -731,7 +752,8 @@ class discrete_explicit(object):
             mort_name = mort_type.name
             output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
             # Write the output mortality parameters
-            output['{}/mortality/{}'.format(param_prefix, mort_name)] = params[mort_name]
+            if not isinstance(params[mort_name], dict):
+                output['{}/mortality/{}'.format(param_prefix, mort_name)] = params[mort_name]
         for mort_name in ['Old Age', 'Density Dependent']:
             output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
 
@@ -803,8 +825,8 @@ class discrete_explicit(object):
             for mort_type in mort_types:
                 if isinstance(params[mort_type.name], dict):
                     # This is time-based mortality
-                    time_based_rate = params[mort_type.name]['time_based_rate']
-                    time_based_index = self.get_counter(species, group, sex, age, time)
+                    time_based_rate = params[mort_type.name]['time_based_rates']
+                    time_based_index = self.get_counter(species, group, sex, age, time - 1)
                     if time_based_index is None:
                         # There has never been a population of this nature
                         continue
@@ -816,8 +838,10 @@ class discrete_explicit(object):
                     if params[mort_type.name]['time_based_std'] is not None:
                         time_based_mortality = np.random.normal(time_based_mortality,
                                                                 params[mort_type.name]['time_based_std'])
-                    time_based_mortality = min(1, max(0, time_based_mortality))
-                    mortality_data.append(da.broadcast_to(time_based_mortality, self.D.shape, self.D.chunks))
+                    time_based_mortality = da.broadcast_to(min(1, max(0, time_based_mortality)),
+                                                           self.D.shape, self.D.chunks)
+                    mortality_data.append(time_based_mortality)
+                    output['{}/mortality/{}'.format(param_prefix, mort_type.name)] = time_based_mortality
                 else:
                     mortality_data.append(params[mort_type.name])
 
@@ -1101,13 +1125,6 @@ class Counter(object):
 
     def __setitem__(self, _, value):
         """
-        Used during computation to add counter values
+        Used during computation to update counter values
         """
-        try:
-            self.S.counter[self.key] += int(np.squeeze(value))
-        except KeyError:
-            self.S.counter[self.key] = 0
-
-        # The counter should always be reset if value is False
-        if not value:
-            self.S.counter[self.key] = 0
+        self.S.counter[self.key] = np.squeeze(value)

@@ -522,13 +522,45 @@ def max_age():
             raise Exception('The max age is {}, and it should be 13'.format(domain.species['stark']['male']['infant'].max_age))
 
 
+def rate_based_mortality():
+    # Pasted from recipient species
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        recipient = pd.Species('recipient')
+
+        time_based_mortality = pd.Mortality('time based')
+        time_based_mortality.add_time_based_mortality([0.2, 0.5, 1.])
+
+        domain.add_mortality(recipient, time_based_mortality, 0)
+
+        test_mortality = pd.Mortality('test recipient')
+        test_mortality.add_recipient_species(recipient)
+
+        domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
+        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
+        domain.add_mortality(starks, test_mortality, 0, 0.1)
+        pd.solvers.discrete_explicit(domain, 0, 5).execute()
+
+        tot_shouldbe = [1000, 900, 810, 729, 656.10004]
+        mort_shouldbe = [0, 200, 450, 810, 0]
+
+        tot_pop, mort = [], []
+        for year in range(1, 6):
+            tot_pop.append(summary.total_population(domain, 'recipient', year).sum())
+            mort.append(np.squeeze(summary.total_mortality(domain, 'recipient', year, mortality_name='time based')))
+
+        if not np.allclose(tot_pop, tot_shouldbe) or not np.allclose(mort, mort_shouldbe):
+            raise Exception('Population should be {}, got {}\nMortality should be {}, got {}'.format(
+                tot_shouldbe, tot_pop, mort_shouldbe, mort)
+            )
+
+
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
     tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
              single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
              single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-             species_as_carrying_capacity, circular_species, max_age]
+             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality]
 
     error_check = 0
     for test in antitests:
