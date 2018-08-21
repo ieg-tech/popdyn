@@ -1,11 +1,11 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
   
   <!-- Licensed under the Apache 2.0 License -->
   <link rel="stylesheet" type="text/css" href="_static/fonts/open-sans/stylesheet.css" />
@@ -15,32 +15,22 @@
   <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-    <title>Parameters &mdash; Popdyn  documentation</title>
-    
+    <title>Parameters &#8212; Popdyn  documentation</title>
     <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     '',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <link rel="top" title="Popdyn  documentation" href="index.html" />
+    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Model Domain" href="domain.html" />
     <link rel="prev" title="Dispersal" href="dispersal.html" />
   
    
 
-  </head>
-  <body role="document">
+  </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
       <ul>
@@ -53,7 +43,7 @@
         <li class="right" >
           <a href="dispersal.html" title="Dispersal"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="container-wrapper">
@@ -75,7 +65,7 @@
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Parameters</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Parameters</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#carrying-capacity">Carrying Capacity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#mortality">Mortality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#fecundity">Fecundity</a></li>
@@ -155,9 +145,9 @@
 </li>
 </ul>
 </div>
-<p>Sets of parameters may be customized and prepared prior to adding them to a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>. They
-may be created to be used with multiple <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> or <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> objects, and are usually accompanied by a gridded
-(or <em>raster</em>) dataset when added to the <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>. Inter-species relationships are also defined using <a class="reference internal" href="#parameters"><span>Parameters</span></a>,
+<p>Sets of parameters may be customized and prepared prior to adding them to a <a class="reference internal" href="species.html#species"><span class="std std-ref">Species (Populations)</span></a> or a <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a>. They
+may be created to be used with multiple <a class="reference internal" href="species.html#species"><span class="std std-ref">Species (Populations)</span></a> or <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a> objects, and are usually accompanied by a gridded
+(or <em>raster</em>) dataset when added to the <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a>. Inter-species relationships are also defined using <a class="reference internal" href="#parameters"><span class="std std-ref">Parameters</span></a>,
 whereby tables of correlations between population density and parameter values or coefficients are provided.</p>
 <p>Paramters consist of:</p>
 <table border="1" class="longtable docutils">
@@ -166,64 +156,64 @@ whereby tables of correlations between population density and parameter values o
 <col width="90%" />
 </colgroup>
 <tbody valign="top">
-<tr class="row-odd"><td><a class="reference internal" href="#popdyn.CarryingCapacity" title="popdyn.CarryingCapacity"><code class="xref py py-obj docutils literal"><span class="pre">CarryingCapacity</span></code></a>(name,&nbsp;**kwargs)</td>
+<tr class="row-odd"><td><a class="reference internal" href="#popdyn.CarryingCapacity" title="popdyn.CarryingCapacity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CarryingCapacity</span></code></a>(name,&nbsp;**kwargs)</td>
 <td>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain.</td>
 </tr>
-<tr class="row-even"><td><a class="reference internal" href="#popdyn.Mortality" title="popdyn.Mortality"><code class="xref py py-obj docutils literal"><span class="pre">Mortality</span></code></a>(name,&nbsp;**kwargs)</td>
+<tr class="row-even"><td><a class="reference internal" href="#popdyn.Mortality" title="popdyn.Mortality"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Mortality</span></code></a>(name,&nbsp;**kwargs)</td>
 <td>Mortality drivers are used to define rates of population decline for one or more Species.</td>
 </tr>
-<tr class="row-odd"><td><a class="reference internal" href="#popdyn.Fecundity" title="popdyn.Fecundity"><code class="xref py py-obj docutils literal"><span class="pre">Fecundity</span></code></a>(name,&nbsp;**kwargs)</td>
+<tr class="row-odd"><td><a class="reference internal" href="#popdyn.Fecundity" title="popdyn.Fecundity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Fecundity</span></code></a>(name,&nbsp;**kwargs)</td>
 <td>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species.</td>
 </tr>
 </tbody>
 </table>
 <p id="lookup">When inter-species relationships are specified, the following describes the input lookup table format:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span><span class="hll"><span class="p">[(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">),</span> <span class="o">...</span><span class="p">,</span> <span class="p">(</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">)]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="hll"><span class="p">[(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">),</span> <span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">),</span> <span class="o">...</span><span class="p">,</span> <span class="p">(</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">)]</span>
 </span></pre></div>
 </div>
 <p>Where <cite>x</cite> is the density of the <em>affecting</em> species, and <cite>y</cite> is the parameter value applied to the <em>affected</em> species.
-Parameter values <span class="math">\(y_m\)</span> are linearly interpolated between lookup points, given the density <span class="math">\(x_m\)</span>:</p>
-<div class="math">
+Parameter values <span class="math notranslate nohighlight">\(y_m\)</span> are linearly interpolated between lookup points, given the density <span class="math notranslate nohighlight">\(x_m\)</span>:</p>
+<div class="math notranslate nohighlight">
 \[y_m=y_0+\frac{x_m-x_0}{x_1-x_0}(y_1-y_0)\]</div>
 <p>Stochastic processes may also be represented using Parameters. A single random number generator may be chosen to perturb
-parameter data in a <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a> in one of two ways:</p>
+parameter data in a <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a> in one of two ways:</p>
 <ol class="arabic simple">
 <li>Random numbers are generated at each element (i.e. node or grid cell) in the domain during a simulation; or</li>
 <li>A single random number is generated and applied evenly to all elements in the domain</li>
 </ol>
 <p>The behaviour and type of the random number generators is flexible, and each of the Distributions available in the
 <a class="reference external" href="https://docs.scipy.org/doc/numpy-1.14.0/reference/routines.random.html">numpy.random module</a> are available. For
-example, if random numbers (<span class="math">\(X\)</span>) are chosen from a normal distribution, the input argument for the method would be the <code class="docutils literal"><span class="pre">scale</span></code>,
-or one standard deviation. Using method 1 (above), the value of each element <span class="math">\(param(i)\)</span> would be used for the mean value in the
+example, if random numbers (<span class="math notranslate nohighlight">\(X\)</span>) are chosen from a normal distribution, the input argument for the method would be the <code class="docutils literal notranslate"><span class="pre">scale</span></code>,
+or one standard deviation. Using method 1 (above), the value of each element <span class="math notranslate nohighlight">\(param(i)\)</span> would be used for the mean value in the
 normal distribution:</p>
-<div class="math">
+<div class="math notranslate nohighlight">
 \[param_o(i)=X\sim\mathcal{N}(param(i),\sigma^2)\]</div>
 <p>where,</p>
-<p><span class="math">\(param_o\)</span> is the stochastic parameter</p>
-<p>If using method 2 (above), the mean value of the entire study area (<span class="math">\(\\mu\)</span>) would be used as the mean in the
+<p><span class="math notranslate nohighlight">\(param_o\)</span> is the stochastic parameter</p>
+<p>If using method 2 (above), the mean value of the entire study area (<span class="math notranslate nohighlight">\(\mu\)</span>) would be used as the mean in the
 normal distribution and a delta will be calculated at each element using the random value:</p>
-<div class="math">
+<div class="math notranslate nohighlight">
 \[\mu=\frac{\sum_{i=1}^{n}param(i)[k_T(i)\neq0]}{n}\]</div>
-<div class="math">
+<div class="math notranslate nohighlight">
 \[param_o(i)=param(i)+(X\sim\mathcal{N}(\mu,\sigma^2)-param(i))\]</div>
-<div class="math">
+<div class="math notranslate nohighlight">
 \[param_o(i)=max\{0, param_o(i)\}\]</div>
 <p>where,</p>
-<p><span class="math">\(k_T\)</span> is the total carrying capacity of the species.</p>
+<p><span class="math notranslate nohighlight">\(k_T\)</span> is the total carrying capacity of the species.</p>
 <div class="section" id="carrying-capacity">
 <h2><a class="toc-backref" href="#id7">Carrying Capacity</a><a class="headerlink" href="#carrying-capacity" title="Permalink to this headline">¶</a></h2>
 <p>Carrying Capacity is used in popdyn models to define means to enhance or reduce the ability for populations to exist in
 a model domain. It is used numerically to relate populations to density, which drives a number of
 model processes. When added to a model domain, Carrying Capacity data are effectively a population potential in the study
 area, and are expressed as a total population for each data point. Multiple Carrying Capacity instances may be added to
-a given <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> in a model <a class="reference internal" href="domain.html#domain"><span>Model Domain</span></a>, and they will be summed to yield the total Carrying Capacity <span class="math">\(k\)</span>
-at time <span class="math">\(t\)</span> for each source <span class="math">\(i\)</span>:</p>
-<div class="math">
+a given <a class="reference internal" href="species.html#species"><span class="std std-ref">Species (Populations)</span></a> in a model <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a>, and they will be summed to yield the total Carrying Capacity <span class="math notranslate nohighlight">\(k\)</span>
+at time <span class="math notranslate nohighlight">\(t\)</span> for each source <span class="math notranslate nohighlight">\(i\)</span>:</p>
+<div class="math notranslate nohighlight">
 \[k(t)=\sum_{i=1}^{n} k_i(t)\]</div>
 <p>Carrying Capacity may also be derived using the density of another species and a lookup table (as outlined above),
-which may be invoked using the <code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. The <span class="math">\(y\)</span> value in the lookup table is a coefficient
+which may be invoked using the <code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code> method. The <span class="math notranslate nohighlight">\(y\)</span> value in the lookup table is a coefficient
 that is applied to the Carrying Capacity of the <em>affected</em> species:</p>
-<div class="math">
+<div class="math notranslate nohighlight">
 \[k=yk\]</div>
 <dl class="class">
 <dt id="popdyn.CarryingCapacity">
@@ -231,7 +221,7 @@ that is applied to the Carrying Capacity of the <em>affected</em> species:</p>
 <dd><p>Carrying Capacity is used to define the maximum population that may be supported for one or more Species in a Domain.</p>
 <p>Carrying Capacity effectively represents habitat quality, and is added to a Species or Domain alongside data. Multiple
 types of Carrying Capacity may be added to a given species, as they are added together in the domain.
-When another species is added (using the <a class="reference internal" href="#popdyn.CarryingCapacity.add_as_species" title="popdyn.CarryingCapacity.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method) to a Carrying Capacity instance, the affecting
+When another species is added (using the <a class="reference internal" href="#popdyn.CarryingCapacity.add_as_species" title="popdyn.CarryingCapacity.add_as_species"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code></a> method) to a Carrying Capacity instance, the affecting
 species will scale the Carrying Capacity using a coefficient specified in the lookup table.</p>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
@@ -241,13 +231,13 @@ species will scale the Carrying Capacity using a coefficient specified in the lo
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>name</strong> &#8211; Name of the Carrying Capacity (25 chars). Use something short and intuitive, such as &#8220;Marsh&#8221;.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>name</strong> – Name of the Carrying Capacity (25 chars). Use something short and intuitive, such as “Marsh”.</td>
 </tr>
 </tbody>
 </table>
 <dl class="method">
 <dt id="popdyn.CarryingCapacity.add_as_species">
-<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.CarryingCapacity.add_as_species" title="Permalink to this definition">¶</a></dt>
+<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em>, <em>population_type='density'</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.CarryingCapacity.add_as_species" title="Permalink to this definition">¶</a></dt>
 <dd><p>Inter-species relationships are specified using this method, whereby a parameter is calculated using an
 attribute of another species. The density of the input species is used to calculate either a value, or a
 coefficient that modifies the value using a table.</p>
@@ -256,10 +246,16 @@ coefficient that modifies the value using a table.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
-<li><strong>lookup_table</strong> (<em>iterable</em>) &#8211; A table to define the relationship between the input species density and
-the parameter. The lookup table x-values define the density of the input species, and the y-values
-define this parameter, in the form: <code class="docutils literal"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) – Species instance</li>
+<li><strong>lookup_table</strong> (<em>iterable</em>) – A table to define the relationship between the input species population type and
+the parameter. The lookup table x-values define the population type of the input species, and the y-values
+define this parameter, in the form: <code class="docutils literal notranslate"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>population_type</strong> (<em>str</em>) – Variable related to population of the input species to use to derive the parameter.
+choose from
+-<code class="docutils literal notranslate"><span class="pre">'total</span> <span class="pre">population'</span></code>, which is the total population of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'density'</span></code>, which is the density (n/k) of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'global</span> <span class="pre">ratio'</span></code>, which is the ratio of this species of the global total population (n/n_global).
+See the <a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><code class="xref py py-class docutils literal notranslate"><span class="pre">Species</span></code></a> attribute <code class="docutils literal notranslate"><span class="pre">global_population</span></code>.</li>
 </ul>
 </td>
 </tr>
@@ -277,10 +273,10 @@ distributions from the
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> &#8211; Variance type. Use one of the random distribution generator methods in <code class="docutils literal"><span class="pre">numpy.random</span></code></td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> – Variance type. Use one of the random distribution generator methods in <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code></td>
 </tr>
 <tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
-<tr class="field-even field"><td>&nbsp;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal"><span class="pre">numpy.random</span></code> method</td>
+<tr class="field-even field"><td>&#160;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> method</td>
 </tr>
 </tbody>
 </table>
@@ -292,14 +288,14 @@ distributions from the
 <div class="section" id="mortality">
 <h2><a class="toc-backref" href="#id8">Mortality</a><a class="headerlink" href="#mortality" title="Permalink to this headline">¶</a></h2>
 <p>Mortality is used to define and constrain ways for Species populations to decline. Any number of mortality drivers may
-be created and added to a model domain. They are usually added to a model domain with rate data <span class="math">\(q\)</span>, which are used to
-calculate a number of deaths (<span class="math">\(m\)</span>):</p>
-<div class="math">
+be created and added to a model domain. They are usually added to a model domain with rate data <span class="math notranslate nohighlight">\(q\)</span>, which are used to
+calculate a number of deaths (<span class="math notranslate nohighlight">\(m\)</span>):</p>
+<div class="math notranslate nohighlight">
 \[m=pop\cdot q\]</div>
-<p>where <span class="math">\(pop\)</span> is the population that mortality is applied to.</p>
+<p>where <span class="math notranslate nohighlight">\(pop\)</span> is the population that mortality is applied to.</p>
 <p>Mortality may also be derived using the density of another species and a lookup table (as outlined above),
-which may be invoked using the <code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method. The <span class="math">\(y\)</span> value in the lookup table is a mortality
-rate (<span class="math">\(q\)</span> above) used on the <em>affected</em> species.</p>
+which may be invoked using the <code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code> method. The <span class="math notranslate nohighlight">\(y\)</span> value in the lookup table is a mortality
+rate (<span class="math notranslate nohighlight">\(q\)</span> above) used on the <em>affected</em> species.</p>
 <div class="section" id="conversion">
 <span id="id3"></span><h3><a class="toc-backref" href="#id9">Conversion</a><a class="headerlink" href="#conversion" title="Permalink to this headline">¶</a></h3>
 <p>One additional option when creating mortality is to define a recipient species to apply deaths to. This functionality was
@@ -311,17 +307,17 @@ individuals would be transferred from one species to another.</p>
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Mortality</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality" title="Permalink to this definition">¶</a></dt>
 <dd><p>Mortality drivers are used to define rates of population decline for one or more Species.</p>
 <p>Mortality is added to a Species and a Domain together, optionally with data. When another Species is added (using
-the <a class="reference internal" href="#popdyn.Mortality.add_as_species" title="popdyn.Mortality.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a mortality rate using the included lookup
-table. Multiple mortality instances may be added to a given Species. The mortality name cannot be any of &#8220;mortality&#8221;,
-&#8220;density dependent&#8221;, or &#8220;old age&#8221; because of implicit mortality types used in solvers.</p>
+the <a class="reference internal" href="#popdyn.Mortality.add_as_species" title="popdyn.Mortality.add_as_species"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a mortality rate using the included lookup
+table. Multiple mortality instances may be added to a given Species. The mortality name cannot be any of “mortality”,
+“density dependent”, or “old age” because of implicit mortality types used in solvers.</p>
 <p>Mortality driver instance</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>name</strong> (<em>str</em>) &#8211; Name of the mortality (25 chars). Use something short and intuitive, such as &#8220;Poaching&#8221;.</li>
-<li><strong>is_rate</strong> &#8211; This mortality is defined as a rate, as opposed to an absolute number (default is True)</li>
+<li><strong>name</strong> (<em>str</em>) – Name of the mortality (25 chars). Use something short and intuitive, such as “Poaching”.</li>
+<li><strong>is_rate</strong> – This mortality is defined as a rate, as opposed to an absolute number (default is True)</li>
 </ul>
 </td>
 </tr>
@@ -329,7 +325,7 @@ table. Multiple mortality instances may be added to a given Species. The mortali
 </table>
 <dl class="method">
 <dt id="popdyn.Mortality.add_as_species">
-<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality.add_as_species" title="Permalink to this definition">¶</a></dt>
+<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em>, <em>population_type='density'</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality.add_as_species" title="Permalink to this definition">¶</a></dt>
 <dd><p>Inter-species relationships are specified using this method, whereby a parameter is calculated using an
 attribute of another species. The density of the input species is used to calculate either a value, or a
 coefficient that modifies the value using a table.</p>
@@ -338,10 +334,16 @@ coefficient that modifies the value using a table.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
-<li><strong>lookup_table</strong> (<em>iterable</em>) &#8211; A table to define the relationship between the input species density and
-the parameter. The lookup table x-values define the density of the input species, and the y-values
-define this parameter, in the form: <code class="docutils literal"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) – Species instance</li>
+<li><strong>lookup_table</strong> (<em>iterable</em>) – A table to define the relationship between the input species population type and
+the parameter. The lookup table x-values define the population type of the input species, and the y-values
+define this parameter, in the form: <code class="docutils literal notranslate"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>population_type</strong> (<em>str</em>) – Variable related to population of the input species to use to derive the parameter.
+choose from
+-<code class="docutils literal notranslate"><span class="pre">'total</span> <span class="pre">population'</span></code>, which is the total population of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'density'</span></code>, which is the density (n/k) of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'global</span> <span class="pre">ratio'</span></code>, which is the ratio of this species of the global total population (n/n_global).
+See the <a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><code class="xref py py-class docutils literal notranslate"><span class="pre">Species</span></code></a> attribute <code class="docutils literal notranslate"><span class="pre">global_population</span></code>.</li>
 </ul>
 </td>
 </tr>
@@ -358,7 +360,28 @@ track infection and disease, whereby infected individuals are treated as a diffe
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; The recipient Species for populations that succumb to this mortality</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) – The recipient Species for populations that succumb to this mortality</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="popdyn.Mortality.add_time_based_mortality">
+<code class="descname">add_time_based_mortality</code><span class="sig-paren">(</span><em>rates</em>, <em>random_std=None</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Mortality.add_time_based_mortality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time-based mortality defines a set of mortality rates over a given duration</p>
+<p>Using the Discrete Explicit solver, at any time when a species population is greater than 0, a counter
+accumulates the number of consecutive years that the species has a non-zero population. The input mortality
+rates are used consecutively over the counted duration when time-based mortality is used.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>rates</strong> – An iterable of mortality rates that applies from time 0 to time len(rates)</li>
+<li><strong>random_std</strong> (<em>float</em>) – A standard deviation to generate random variation on rates using a normal distribution</li>
+</ul>
+</td>
 </tr>
 </tbody>
 </table>
@@ -374,10 +397,10 @@ distributions from the
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> &#8211; Variance type. Use one of the random distribution generator methods in <code class="docutils literal"><span class="pre">numpy.random</span></code></td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> – Variance type. Use one of the random distribution generator methods in <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code></td>
 </tr>
 <tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
-<tr class="field-even field"><td>&nbsp;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal"><span class="pre">numpy.random</span></code> method</td>
+<tr class="field-even field"><td>&#160;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> method</td>
 </tr>
 </tbody>
 </table>
@@ -391,36 +414,36 @@ distributions from the
 <h2><a class="toc-backref" href="#id10">Fecundity</a><a class="headerlink" href="#fecundity" title="Permalink to this headline">¶</a></h2>
 <p>Fecundity is used to create means for species to reproduce. Fecundity is used to specify:</p>
 <ul class="simple">
-<li>Whether a <a class="reference internal" href="species.html#species"><span>Species (Populations)</span></a> is able to reproduce</li>
+<li>Whether a <a class="reference internal" href="species.html#species"><span class="std std-ref">Species (Populations)</span></a> is able to reproduce</li>
 <li>The effect of density on reproduction</li>
 <li>Allocation of offspring</li>
 <li>Effects another species may have on reproduction</li>
 </ul>
 <p>Just as the other parameters, Fecundity can have stochasticity and may be derived using the density of another species,
 based on a lookup table (as outlined above). Inter-species effects on fecundity are specified using the
-<code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code> method, where <span class="math">\(y\)</span> in the lookup table is a Fecundity rate (<span class="math">\(q\)</span>) used to determine the
-number of offspring per individual (<span class="math">\(n\)</span>) of the <em>affected</em> species:</p>
-<div class="math">
+<code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code> method, where <span class="math notranslate nohighlight">\(y\)</span> in the lookup table is a Fecundity rate (<span class="math notranslate nohighlight">\(q\)</span>) used to determine the
+number of offspring per individual (<span class="math notranslate nohighlight">\(n\)</span>) of the <em>affected</em> species:</p>
+<div class="math notranslate nohighlight">
 \[n=pop\cdot q\]</div>
 <dl class="class">
 <dt id="popdyn.Fecundity">
 <em class="property">class </em><code class="descclassname">popdyn.</code><code class="descname">Fecundity</code><span class="sig-paren">(</span><em>name</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity" title="Permalink to this definition">¶</a></dt>
 <dd><p>Fecundity is used to define a set of reproductive attributes that may be tied to one or more Species.</p>
 <p>Fecundity is added to a Species and a Domain together, optionally with data. When another Species is added (using
-the <a class="reference internal" href="#popdyn.Fecundity.add_as_species" title="popdyn.Fecundity.add_as_species"><code class="xref py py-func docutils literal"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a fecundity value using the included lookup
+the <a class="reference internal" href="#popdyn.Fecundity.add_as_species" title="popdyn.Fecundity.add_as_species"><code class="xref py py-func docutils literal notranslate"><span class="pre">add_as_species()</span></code></a> method), the affecting species will impose a fecundity value using the included lookup
 table.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> &#8211; Name of the Fecundity (25 chars). Use something short and intuitive, such as &#8220;Normal Adult&#8221;.</p>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><p class="first"><strong>name</strong> – Name of the Fecundity (25 chars). Use something short and intuitive, such as “Normal Adult”.</p>
 </td>
 </tr>
 <tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
-<tr class="field-even field"><td>&nbsp;</td><td class="field-body"><dl class="first last docutils">
-<dt><strong>birth_ratio</strong> (<em>bool</em>) &#8211;</dt>
+<tr class="field-even field"><td>&#160;</td><td class="field-body"><dl class="first last docutils">
+<dt><strong>birth_ratio</strong> (<em>bool</em>) –</dt>
 <dd><p class="first last">The birth ratio is used to allocate offspring as a ratio of males to females. The birth ratio may also
-be random (use <code class="docutils literal"><span class="pre">'random'</span></code>), which uses a uniform random number generator to select a ratio between 0
+be random (use <code class="docutils literal notranslate"><span class="pre">'random'</span></code>), which uses a uniform random number generator to select a ratio between 0
 and 1 for each element in the domain. (Default: 0.5)</p>
 </dd>
 </dl>
@@ -430,7 +453,7 @@ and 1 for each element in the domain. (Default: 0.5)</p>
 </table>
 <dl class="method">
 <dt id="popdyn.Fecundity.add_as_species">
-<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity.add_as_species" title="Permalink to this definition">¶</a></dt>
+<code class="descname">add_as_species</code><span class="sig-paren">(</span><em>species</em>, <em>lookup_table</em>, <em>population_type='density'</em><span class="sig-paren">)</span><a class="headerlink" href="#popdyn.Fecundity.add_as_species" title="Permalink to this definition">¶</a></dt>
 <dd><p>Inter-species relationships are specified using this method, whereby a parameter is calculated using an
 attribute of another species. The density of the input species is used to calculate either a value, or a
 coefficient that modifies the value using a table.</p>
@@ -439,10 +462,16 @@ coefficient that modifies the value using a table.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) &#8211; Species instance</li>
-<li><strong>lookup_table</strong> (<em>iterable</em>) &#8211; A table to define the relationship between the input species density and
-the parameter. The lookup table x-values define the density of the input species, and the y-values
-define this parameter, in the form: <code class="docutils literal"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>species</strong> (<a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><em>Species</em></a>) – Species instance</li>
+<li><strong>lookup_table</strong> (<em>iterable</em>) – A table to define the relationship between the input species population type and
+the parameter. The lookup table x-values define the population type of the input species, and the y-values
+define this parameter, in the form: <code class="docutils literal notranslate"><span class="pre">[(x1,</span> <span class="pre">y1),</span> <span class="pre">(x2,</span> <span class="pre">y2)...(xn,</span> <span class="pre">yn)]</span></code></li>
+<li><strong>population_type</strong> (<em>str</em>) – Variable related to population of the input species to use to derive the parameter.
+choose from
+-<code class="docutils literal notranslate"><span class="pre">'total</span> <span class="pre">population'</span></code>, which is the total population of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'density'</span></code>, which is the density (n/k) of the affecting species
+-<code class="docutils literal notranslate"><span class="pre">'global</span> <span class="pre">ratio'</span></code>, which is the ratio of this species of the global total population (n/n_global).
+See the <a class="reference internal" href="species.html#popdyn.Species" title="popdyn.Species"><code class="xref py py-class docutils literal notranslate"><span class="pre">Species</span></code></a> attribute <code class="docutils literal notranslate"><span class="pre">global_population</span></code>.</li>
 </ul>
 </td>
 </tr>
@@ -460,10 +489,10 @@ distributions from the
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> &#8211; Variance type. Use one of the random distribution generator methods in <code class="docutils literal"><span class="pre">numpy.random</span></code></td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>type</strong> – Variance type. Use one of the random distribution generator methods in <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code></td>
 </tr>
 <tr class="field-even field"><th class="field-name" colspan="2">Keyword Arguments:</th></tr>
-<tr class="field-even field"><td>&nbsp;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal"><span class="pre">numpy.random</span></code> method</td>
+<tr class="field-even field"><td>&#160;</td><td class="field-body">Keyword arguments should match all required arguments to the selected <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> method</td>
 </tr>
 </tbody>
 </table>
@@ -504,7 +533,7 @@ distributions from the
         <li class="right" >
           <a href="dispersal.html" title="Dispersal"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &#187;</li> 
       </ul>
     </div>
 <script type="text/javascript">

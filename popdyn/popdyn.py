@@ -579,14 +579,14 @@ class Domain(object):
         self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
 
     @_save
-    def add_mask(self, species, time, data=None, **kwargs):
+    def add_mask(self, species, time, data=None, function='masked dispersal', **kwargs):
         """
-        A mask is a general-use dataset associated with a species. It is currently only used for masked density-based
-        dispersal. Only one mask may exist for a species - sex - age group.
+        A mask is a general-use dataset associated with a species, and must be associated with a function
 
         :param Species species: Species instance
-        :param data: Mask data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
         :param time: The time slice to insert fecundity
+        :param data: Mask data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
+        :param str function: The purpose of the mask (where it is used in solvers)
 
         :Keyword Arguments:
             **distribute** (*bool*) --
@@ -598,7 +598,7 @@ class Domain(object):
         time = self._get_time_input(time)  # Gather time
         data = self._get_data_type(data)  # Parse input data
 
-        key = '{}/{}/{}/{}/mask'.format(species.name_key, species.sex, species.group_key, time)
+        key = '{}/{}/{}/{}/masks/{}'.format(species.name_key, species.sex, species.group_key, time, function)
 
         # Add the data to the file
         self._add_data(key, data,
@@ -607,7 +607,7 @@ class Domain(object):
                        distribute_by_co=kwargs.get('distribute_by_co', None)
                        )
 
-        self.masks[species.name_key][species.sex][species.group_key][time] = key
+        self.masks[species.name_key][species.sex][species.group_key][time][function] = key
 
     @_save
     def remove_dataset(self, ds_type, species_key, sex, group, time, name):
@@ -1079,7 +1079,7 @@ class Domain(object):
         # If there are data in the domain, return the HDF5 dataset, else None
         return [ds for ds in datasets.values()]
 
-    def get_mask(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
+    def get_mask(self, species_key, time, sex, group_key, function='masked dispersal', snap_to_time=True, inherit=True):
         """
         Collect the key associated with the mask query
 
@@ -1087,8 +1087,10 @@ class Domain(object):
         :param str sex: sex ('male', or 'female')
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
-        :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
-        :param avoid_inheritance: Do not inherit a dataset from the sex or species
+        :param str function: The purposed of the mask being retrieved
+        :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the
+            nearest available dataset
+        :param inherit: Do not inherit a dataset from the sex or species
         :return: Dataset key
         """
         time = self._get_time_input(time)
@@ -1097,7 +1099,7 @@ class Domain(object):
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
                 times = self.masks[species_key][sex][group_key].keys()
-                times = [t for t in times if len(self.masks[species_key][sex][group_key][t]) > 0]
+                times = [t for t in times if function in self.masks[species_key][sex][group_key][t].keys()]
 
                 times = np.unique(times)
                 delta = time - times
@@ -1108,7 +1110,7 @@ class Domain(object):
                     delta = delta[backwards]
                     i = np.argmin(delta)
                     time = times[i]
-            key = self.masks[species_key][sex][group_key][time]
+            key = self.masks[species_key][sex][group_key][time][function]
             if len(key) > 0:
                 return key
             else:
@@ -1300,6 +1302,7 @@ def name_key(name):
 
 class Species(object):
     """Top-level species customization"""
+    restricted_names = ['global']
 
     def __init__(self, name, **kwargs):
         """
@@ -1321,13 +1324,19 @@ class Species(object):
             **minimum_viable_area** (*float*) --
                 The minimum statistically-derived area to apply the ``minimum_viable_population`` to (default: 0.)
             **live_past_max** (*bool*) --
-                This is a swtich that determines whether a species may live past the oldest age group maximum age.
+                This is a switch that determines whether a species may live past the oldest age group maximum age.
                 (default: False)
+            **global_population** (*bool*) --
+                The global total population in a :class:`Domain` is calculated using all :class:`Species` with the
+                `global_population` `kwarg` set to `True`. (default: True)
         """
         # Limit species names to 25 chars
         if len(name) > 25:
             raise PopdynError('Species names must not exceed 25 characters. '
                               'Use something simple, like "Moose".')
+
+        if name.lower() in self.restricted_names:
+            raise PopdynError('Species names may not be any of {}'.format(self.restricted_names))
 
         self.name = name
         self.name_key = name_key(name)
@@ -1351,6 +1360,8 @@ class Species(object):
 
         # sex and age group are none
         self.sex = self.group_key = None
+
+        self.global_population = kwargs.get('global_population', True)
 
     def add_dispersal(self, dispersal_type, args=()):
         """
@@ -1475,26 +1486,38 @@ class Parameter(object):
         self.name = name
         self.name_key = name_key(name)
 
-        self.species = self.species_table = None
+        self.species = self.species_table = self.population_type = None
 
         self.__dict__.update(kwargs)
 
-    def add_as_species(self, species, lookup_table):
+    def add_as_species(self, species, lookup_table, population_type='density'):
         """
         Inter-species relationships are specified using this method, whereby a parameter is calculated using an
         attribute of another species. The density of the input species is used to calculate either a value, or a
         coefficient that modifies the value using a table.
 
         :param Species species: Species instance
-        :param iterable lookup_table: A table to define the relationship between the input species density and
-            the parameter. The lookup table x-values define the density of the input species, and the y-values
+        :param iterable lookup_table: A table to define the relationship between the input species population type and
+            the parameter. The lookup table x-values define the population type of the input species, and the y-values
             define this parameter, in the form: ``[(x1, y1), (x2, y2)...(xn, yn)]``
+        :param str population_type: Variable related to population of the input species to use to derive the parameter.
+            choose from
+            -``'total population'``, which is the total population of the affecting species
+            -``'density'``, which is the density (n/k) of the affecting species
+            -``'global ratio'``, which is the ratio of this species of the global total population (n/n_global).
+            See the :class:`Species` attribute ``global_population``.
         """
         if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
             raise PopdynError('Input parameter is not a species')
 
         self.species = species
         self.species_table = dynamic.collect_lookup(lookup_table)
+
+        population_types = ['total population', 'density', 'global ratio']
+        if population_type.lower() not in population_types:
+            raise PopdynError('Input population type not supported')
+
+        self.population_type = population_type.lower()
 
     def random(self, type, **kwargs):
         """
@@ -1509,6 +1532,10 @@ class Parameter(object):
         """
         if type not in dir(np.random):
             raise PopdynError('Unsupported random distribution generator "{}"'.format(type))
+
+        # *
+        # Note, the presence of random inputs is queried through a `hasattr` call
+        # *
 
         self.apply_using_mean = kwargs.pop('apply_using_mean', True)
 
@@ -1609,6 +1636,10 @@ class Mortality(Parameter):
     def add_time_based_mortality(self, rates, random_std=None):
         """
         Time-based mortality defines a set of mortality rates over a given duration
+
+        Using the Discrete Explicit solver, at any time when a species population is greater than 0, a counter
+        accumulates the number of consecutive years that the species has a non-zero population. The input mortality
+        rates are used consecutively over the counted duration when time-based mortality is used.
 
         :param rates: An iterable of mortality rates that applies from time 0 to time len(rates)
         :param float random_std: A standard deviation to generate random variation on rates using a normal distribution

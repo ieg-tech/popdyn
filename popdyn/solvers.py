@@ -446,25 +446,30 @@ class discrete_explicit(object):
     def totals(self, all_species, time):
         """
         Collect all population and carrying capacity datasets, and calculate species totals if necessary.
-        Dynamic calculations of carrying capacity are made by calling collect_parameter, which may also
-        update the carrying_capacity or population array dicts.
+        Dynamic calculations of carrying capacity are made by calling :func:`collect_parameter`, which may also
+        update the ``carrying_capacity`` or ``population`` array ``dicts``.
 
         :param list all_species: All species in the domain
         :param int time: Time slice to collect totals
         """
-        for species in all_species:
-            # Need to collect the total population for fecundity and density if not otherwise specified
-            if self.total_density:
-                # Population
-                population = self.D.all_population(species, time - 1)
-                # Total population of contributing groups
-                self.population_arrays[species]['total {}'.format(time)] = self.population_total(population)
+        # Accumulate the global population
+        global_population = []
 
-                # Carrying Capacity
-                # -----------------------------------
-                # Collect all carrying capacity keys
-                cc = self.D.all_carrying_capacity(species, time)
-                self.carrying_capacity_arrays[species]['total'] = self.carrying_capacity_total(species, cc)
+        for species in all_species:
+            # Collect the total population for fecundity and density
+
+            # Population
+            population = self.D.all_population(species, time - 1)
+            global_population += population.tolist()
+
+            # Total population of contributing groups
+            self.population_arrays[species]['total {}'.format(time)] = self.population_total(population)
+
+            # Carrying Capacity
+            # -----------------------------------
+            # Collect all carrying capacity keys
+            cc = self.D.all_carrying_capacity(species, time)
+            self.carrying_capacity_arrays[species]['total'] = self.carrying_capacity_total(species, cc)
 
             # Calculate species-wide male and female populations that reproduce
             # Note: Species that do not contribute to density contribute to the reproduction totals
@@ -487,6 +492,9 @@ class discrete_explicit(object):
                 np.inf
             )
 
+        # The global population includes all species that have the global_population attr set to True
+        self.population_arrays['global {}'.format(time)] = self.population_total(global_population, honor_global=True)
+
     def collect_parameter(self, param, data):
         """
         Collect data associated with a Fecundity, CarryingCapacity, or Mortality instance. If a species is linked,
@@ -502,17 +510,26 @@ class discrete_explicit(object):
         # Collect the total species population from the previous time step
         if data is None:
             # There must be a species attached to the parameter instance if there are no data
-            # Generate lookup data using the density of the attached species
+            # Generate lookup data using the population type of the attached species
             population = self.D.all_population(param.species.name_key, self.current_time - 1,
                                                param.species.sex, param.species.group_key)
             p = self.population_total(population)
 
-            carrying_capacity = self.D.all_carrying_capacity(
-                    param.species.name_key, self.current_time, param.species.sex, param.species.group_key
-                )
-            cc = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
+            if param.population_type == 'population':
+                population_data = p
 
-            kwargs.update({'lookup_data': da.where(cc > 0, p / cc, np.inf), 'lookup_table': param.species_table})
+            elif param.population_type == 'density':
+                carrying_capacity = self.D.all_carrying_capacity(
+                        param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+                    )
+                cc = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
+
+                population_data = da.where(cc > 0, p / cc, np.inf)
+
+            elif param.population_type == 'global ratio':
+                population_data = p / self.population_arrays['global {}'.format(self.current_time)]
+
+            kwargs.update({'lookup_data': population_data, 'lookup_table': param.species_table})
         else:
             try:
                 data = self.dsts[data]
@@ -590,7 +607,7 @@ class discrete_explicit(object):
         complete = []
         next_species_edge(param, parent_species)
 
-    def population_total(self, datasets, honor_density=True, honor_reproduction=False):
+    def population_total(self, datasets, honor_density=True, honor_reproduction=False, honor_global=False):
         """
         Calculate the total population for a species with the provided datasets, usually a result of a
         :func:`Domain.all_population` call. This updates ``self.population_arrays`` to avoid repetitive IO
@@ -608,6 +625,10 @@ class discrete_explicit(object):
 
             if honor_density and not instance.contributes_to_density:
                 continue
+
+            if honor_global and not instance.global_population:
+                continue
+
             if honor_reproduction:
                 # Collect fecundity to see if it is present
                 species_key, sex, group_key, time = self.D._deconstruct_key(key)[:4]
@@ -856,8 +877,16 @@ class discrete_explicit(object):
                 mort_fluxes.append(mort_data * mort_coeff * population)
                 output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
 
-                # Apply mortality to any recipients
+                # Apply mortality to any recipients (a conversion that serves to simulate disease)
                 if mort_type.recipient_species is not None:
+                    # Check if an input mask (multiplicative modifier) for conversion exists
+                    conversion_mask = self.D.get_mask(species, time, sex, group, 'conversion')
+                    if conversion_mask is None:
+                        conversion_mask = 1.
+                    else:
+                        # Enforce a maximum of 1
+                        conversion_mask = da.where(conversion_mask > 1., 1., conversion_mask)
+
                     # The population is added to the model domain for the same age,
                     # and is added to any existing population
                     other_species = mort_type.recipient_species
@@ -871,21 +900,23 @@ class discrete_explicit(object):
                             other_species.name, age, other_species.group_name)
                         )
 
+                    converted = mort_fluxes[-1] * conversion_mask
+
                     try:
                         output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] += mort_fluxes[-1]
+                            flux_prefix, other_species.name)] += converted
                     except KeyError:
                         output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] = mort_fluxes[-1]
+                            flux_prefix, other_species.name)] = converted
 
                     other_species_key = '{}/{}/{}/{}/{}'.format(
                         other_species.name_key, other_species.sex, other_species.group_key, time, age
                     )
 
                     if existing_pop is not None:
-                        other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
+                        other_species_data = self.population_total([existing_pop], False) + converted
                     else:
-                        other_species_data = mort_fluxes[-1]
+                        other_species_data = converted
 
                     # If multiple species are contributing to the recipient, they must be added in a delayed fashion
                     try:

@@ -15,27 +15,20 @@
   <link rel="stylesheet" type="text/css" href="_static/css/bootstrap-theme.min.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-    <title>Search &#8212; Popdyn  documentation</title>
+    <title>Solver Development Guidelines &#8212; Popdyn  documentation</title>
     <link rel="stylesheet" href="_static/guzzle.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    
     <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <script type="text/javascript" src="_static/searchtools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="#" />
-  <script type="text/javascript">
-    jQuery(function() { Search.loadIndex("searchindex.js"); });
-  </script>
-  
-  <script type="text/javascript" id="searchindexloader"></script>
-  
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Questions &amp; Answers" href="qanda.html" />
+    <link rel="prev" title="Tutorial" href="tutorial.html" />
   
    
-
 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
@@ -44,6 +37,12 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="qanda.html" title="Questions &amp; Answers"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &#187;</li> 
       </ul>
     </div>
@@ -62,7 +61,7 @@
   <div class="sidebar-toc">
     
     
-      <ul>
+      <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="species.html">Species (Populations)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="dispersal.html">Dispersal</a></li>
@@ -71,11 +70,24 @@
 <li class="toctree-l1"><a class="reference internal" href="solvers.html">Numerical Solvers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="data_summary.html">Domain Data Summary</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial</a></li>
-<li class="toctree-l1"><a class="reference internal" href="solver_development.html">Solver Development Guidelines</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Solver Development Guidelines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="qanda.html">Questions &amp; Answers</a></li>
 </ul>
 
     
+  </div>
+</div>
+<div class="sidebar-block">
+  <div class="sidebar-wrapper">
+    <div id="main-search">
+      <form class="form-inline" action="search.html" method="GET" role="form">
+        <div class="input-group">
+          <input name="q" type="text" class="form-control" placeholder="Search...">
+        </div>
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+      </form>
+    </div>
   </div>
 </div>
       
@@ -87,46 +99,34 @@
             <ol class="breadcrumb">
               <li><a href="index.html">Docs</a></li>
               
-              <li>Search</li>
+              <li>Solver Development Guidelines</li>
             </ol>
           </div>
           
           <div class="document clearer body">
             
-  <h1 id="search-documentation">Search</h1>
-  <div id="fallback" class="admonition warning">
-  <script type="text/javascript">$('#fallback').hide();</script>
-  <p>
-    Please activate JavaScript to enable the search
-    functionality.
-  </p>
-  </div>
-  <p>
-    From here you can search these documents. Enter your search
-    words into the box below and click "search". Note that the search
-    function will automatically search for all of the words. Pages
-    containing fewer words won't appear in the result list.
-  </p>
+  <div class="section" id="solver-development-guidelines">
+<span id="solverdev"></span><h1>Solver Development Guidelines<a class="headerlink" href="#solver-development-guidelines" title="Permalink to this headline">¶</a></h1>
+<p>Development of popdyn numerical solvers must adhere some several loose guidelines related to the structure of
+<a class="reference internal" href="species.html#species"><span class="std std-ref">Species (Populations)</span></a>, <a class="reference internal" href="parameters.html#parameters"><span class="std std-ref">Parameters</span></a>, the <a class="reference internal" href="domain.html#domain"><span class="std std-ref">Model Domain</span></a>, and <a class="reference internal" href="data_summary.html#summary"><span class="std std-ref">Domain Data Summary</span></a> requirements.</p>
+<p>This documentation is in progress, and will be updated on an ongoing basis.</p>
+</div>
 
-  <div class="search-page-form">
-    <form class="form-inline" action="#" method="GET" role="form">
-      <div class="input-group">
-        <input name="q" type="text" class="form-control" />
-        <span class="input-group-btn">
-          <button class="btn btn-default" type="button">search</button>
-        </span>
-      </div>
-      <span id="search-progress" style="padding-left: 10px"></span>
-    </form>
-  </div>
-
-  
-  <div id="search-results">
-  
-  </div>
 
           </div>
             
+  <div class="footer-relations">
+    
+      <div class="pull-left">
+        <a class="btn btn-default" href="tutorial.html" title="previous chapter (use the left arrow)">Tutorial</a>
+      </div>
+    
+      <div class="pull-right">
+        <a class="btn btn-default" href="qanda.html" title="next chapter (use the right arrow)">Questions &amp; Answers</a>
+      </div>
+    </div>
+    <div class="clearer"></div>
+  
         </div>
         <div class="clearfix"></div>
     </div>
@@ -136,6 +136,12 @@
         <li class="right" style="margin-right: 10px">
           <a href="genindex.html" title="General Index"
              >index</a></li>
+        <li class="right" >
+          <a href="qanda.html" title="Questions &amp; Answers"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">Popdyn  documentation</a> &#187;</li> 
       </ul>
     </div>
