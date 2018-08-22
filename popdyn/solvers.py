@@ -303,6 +303,10 @@ class discrete_explicit(object):
             **total_density** (*bool*) --
                 Use the total species population for density calculations (as opposed to
                 populations of sexes or groups) (Default: True)
+            **global_density** (*bool*) --
+                Use the global population and carrying capacity of all species for density calculations (as opposed to
+                populations of individual species, sexes, or groups). Note, this overrides ``total_density``, however
+                the reported carrying capacity will reflect that of only the single species. (Default: False)
         """
         # Prepare time
         start_time = Domain._get_time_input(start_time)
@@ -318,6 +322,7 @@ class discrete_explicit(object):
         # Extra toggles
         # -------------
         self.total_density = kwargs.get('total_density', True)
+        self.global_density = kwargs.get('global_density', False)
 
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
@@ -454,22 +459,28 @@ class discrete_explicit(object):
         """
         # Accumulate the global population
         global_population = []
+        global_carrying_capacity = {}
 
         for species in all_species:
             # Collect the total population for fecundity and density
 
-            # Population
+            # Population keys
             population = self.D.all_population(species, time - 1)
-            global_population += population.tolist()
-
-            # Total population of contributing groups
-            self.population_arrays[species]['total {}'.format(time)] = self.population_total(population)
-
-            # Carrying Capacity
-            # -----------------------------------
-            # Collect all carrying capacity keys
+            # Carrying capacity keys
             cc = self.D.all_carrying_capacity(species, time)
-            self.carrying_capacity_arrays[species]['total'] = self.carrying_capacity_total(species, cc)
+
+            global_population += population.tolist()
+            try:
+                global_carrying_capacity[species] += cc
+            except KeyError:
+                global_carrying_capacity[species] = cc
+
+            if self.total_density:
+                # Total population of contributing groups
+                self.population_arrays[species]['total {}'.format(time)] = self.population_total(population)
+
+                # Carrying Capacity
+                self.carrying_capacity_arrays[species]['total'] = self.carrying_capacity_total(species, cc)
 
             # Calculate species-wide male and female populations that reproduce
             # Note: Species that do not contribute to density contribute to the reproduction totals
@@ -494,6 +505,11 @@ class discrete_explicit(object):
 
         # The global population includes all species that have the global_population attr set to True
         self.population_arrays['global {}'.format(time)] = self.population_total(global_population, honor_global=True)
+
+        if self.global_density:
+            self.carrying_capacity_arrays['global {}'.format(time)] = da_zeros(self.D.shape, self.D.chunks)
+            for species, cc_ds in global_carrying_capacity.items():
+                self.carrying_capacity_arrays['global {}'.format(time)] += self.carrying_capacity_total(species, cc_ds)
 
     def collect_parameter(self, param, data):
         """
@@ -1047,31 +1063,30 @@ class discrete_explicit(object):
                 parameters[instance.name] = self.collect_parameter(instance, key)
                 parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
 
-        # Carrying Capacity
-        # ---------------------
-        # Collect CarryingCapacity instances and/or data from the domain at the current time step
-        if not self.total_density:
-            carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
-            parameters['Carrying Capacity'] = self.carrying_capacity_total(species, carrying_capacity)
-        else:
-            parameters['Carrying Capacity'] = self.carrying_capacity_arrays[species]['total']
-
+        # Carrying Capacity, Population, & Density
+        # ----------------------------------------
         # Total Population from previous time step (all population, without regard to contribution filtering)
-        # ---------------------
         population_dsts = self.D.all_population(species, time - 1, sex, group)
         parameters['Population'] = self.population_total(population_dsts, False)
 
-        # Population only includes contributing species instances
-        if not self.total_density:
-            population = self.population_total(population_dsts)
-        else:
+        # Collect CarryingCapacity instances and/or data from the domain at the current time step and
+        # the total population used for density
+        if self.total_density:
+            global_cc = self.carrying_capacity_arrays[species]['total']
+            parameters['Carrying Capacity'] = global_cc
             population = self.population_arrays[species]['total {}'.format(time)]
+        else:
+            carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
+            global_cc = self.carrying_capacity_total(species, carrying_capacity)
+            parameters['Carrying Capacity'] = global_cc
+            population = self.population_total(population_dsts)
 
-        # Calculate density
-        # ---------------------
-        # This will reflect the child density if domain.total_density is False
-        parameters['Density'] = da.where(parameters['Carrying Capacity'] > 0,
-                                         population / parameters['Carrying Capacity'],
+        if self.global_density:
+            global_cc = self.carrying_capacity_arrays['global {}'.format(time)]
+            population = self.population_arrays['global {}'.format(time)]
+
+        parameters['Density'] = da.where(global_cc > 0,
+                                         population / global_cc,
                                          np.inf)
 
         # Collect fecundity parameters

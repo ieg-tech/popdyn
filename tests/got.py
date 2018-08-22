@@ -455,7 +455,7 @@ def species_as_mortality():
         # 50% density, mortality should be 0.8
         domain.add_carrying_capacity(white_walker, white_walker_k, 2, 60)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        pd.solvers.discrete_explicit(domain, 0, 2, global_density=True).execute()
 
         tot_pop = summary.total_population(domain, 'stark', 1).sum()
         if not np.isclose(tot_pop, 100 - (100 * 0.45)):

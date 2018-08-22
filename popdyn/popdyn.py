@@ -351,10 +351,10 @@ class Domain(object):
                 raise PopdynError('Unable to parse the input data {} into the domain'.format(data))
 
     # Domain-species interaction methods
-    #==================================================================================================
+    # ==================================================================================================
 
     # These are the methods to call for primary purposes
-    #---------------------------------------------------
+    # ---------------------------------------------------
     @_save
     def add_population(self, species, data, time, **kwargs):
         """
@@ -1302,7 +1302,7 @@ def name_key(name):
 
 class Species(object):
     """Top-level species customization"""
-    restricted_names = ['global']
+    restricted_names = ['global', 'total']
 
     def __init__(self, name, **kwargs):
         """
