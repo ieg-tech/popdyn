@@ -522,6 +522,32 @@ def max_age():
             raise Exception('The max age is {}, and it should be 13'.format(domain.species['stark']['male']['infant'].max_age))
 
 
+def global_n_interspecies():
+    # White Walker mortality lookup: [(0, 0), (0.1, 0.1), (0.5, 0.8), (1, 0.9)]
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        domain.add_carrying_capacity(starks, stark_k, 0, 100)
+        domain.add_population(starks, 100, 0)
+
+        white_walker_death = pd.Mortality('White Walker')
+        white_walker_death.add_as_species(white_walker, [(0, 0), (1/3., 0.1), (0.35714, 0.5), (1, 1)],
+                                          population_type='global ratio')
+
+        domain.add_mortality(starks, white_walker_death, 0)
+
+        # should be 1/3, making mortality 0.1
+        domain.add_carrying_capacity(white_walker, white_walker_k, 0, 100)
+        domain.add_population(white_walker, 50., 0)
+
+        pd.solvers.discrete_explicit(domain, 0, 2, global_density=True).execute()
+
+        tot_pop = summary.total_population(domain, 'stark', 1).sum()
+        if not np.isclose(tot_pop, 90):
+            raise Exception('Population is {}, but should be {} at time step 1'.format(tot_pop, 90))
+        tot_pop = summary.total_population(domain, 'stark', 2).sum()
+        if not np.isclose(tot_pop, 90 * .5):
+            raise Exception('Population is {}, but should be {} at time step 2'.format(tot_pop, 90 * .5))
+
+
 def rate_based_mortality():
     # Pasted from recipient species
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
@@ -560,7 +586,7 @@ if __name__ == '__main__':
     tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
              single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
              single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality]
+             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies]
 
     error_check = 0
     for test in antitests:
