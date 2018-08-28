@@ -890,7 +890,7 @@ class discrete_explicit(object):
                 # Apply mortality to any recipients (a conversion that serves to simulate disease)
                 if mort_type.recipient_species is not None:
                     # Check if an input mask (multiplicative modifier) for conversion exists
-                    conversion_mask = self.D.get_mask(species, time, sex, group, 'conversion')
+                    conversion_mask = self.D.get_mask(species, time, sex, group, mort_type.name)
                     if conversion_mask is None:
                         conversion_mask = 1.
                     else:
