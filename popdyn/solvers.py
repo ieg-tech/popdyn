@@ -135,7 +135,7 @@ def inherit(domain, start_time, end_time):
 
             if None in domain.species[species].keys():
                 if (None in domain.species[species][None].keys() and
-                    isinstance(domain.species[species][None][None], Species)):
+                        isinstance(domain.species[species][None][None], Species)):
                     live_past_max = domain.species[species][None][None].live_past_max
 
             # Iterate any sexes in the domain
@@ -303,10 +303,6 @@ class discrete_explicit(object):
             **total_density** (*bool*) --
                 Use the total species population for density calculations (as opposed to
                 populations of sexes or groups) (Default: True)
-            **global_density** (*bool*) --
-                Use the global population and carrying capacity of all species for density calculations (as opposed to
-                populations of individual species, sexes, or groups). Note, this overrides ``total_density``, however
-                the reported carrying capacity will reflect that of only the single species. (Default: False)
         """
         # Prepare time
         start_time = Domain._get_time_input(start_time)
@@ -322,7 +318,6 @@ class discrete_explicit(object):
         # Extra toggles
         # -------------
         self.total_density = kwargs.get('total_density', True)
-        self.global_density = kwargs.get('global_density', False)
 
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
@@ -506,10 +501,9 @@ class discrete_explicit(object):
         # The global population includes all species that have the global_population attr set to True
         self.population_arrays['global {}'.format(time)] = self.population_total(global_population, honor_global=True)
 
-        if self.global_density:
-            self.carrying_capacity_arrays['global {}'.format(time)] = da_zeros(self.D.shape, self.D.chunks)
-            for species, cc_ds in global_carrying_capacity.items():
-                self.carrying_capacity_arrays['global {}'.format(time)] += self.carrying_capacity_total(species, cc_ds)
+        self.carrying_capacity_arrays['global {}'.format(time)] = da_zeros(self.D.shape, self.D.chunks)
+        for species, cc_ds in global_carrying_capacity.items():
+            self.carrying_capacity_arrays['global {}'.format(time)] += self.carrying_capacity_total(species, cc_ds)
 
     def collect_parameter(self, param, data):
         """
@@ -1081,7 +1075,9 @@ class discrete_explicit(object):
             parameters['Carrying Capacity'] = global_cc
             population = self.population_total(population_dsts)
 
-        if self.global_density:
+        # Species-level toggle to use global density
+        species_instance = self.D.species[species][sex][group]
+        if species_instance.use_global_density:
             global_cc = self.carrying_capacity_arrays['global {}'.format(time)]
             population = self.population_arrays['global {}'.format(time)]
 

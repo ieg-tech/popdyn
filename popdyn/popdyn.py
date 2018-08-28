@@ -1329,6 +1329,9 @@ class Species(object):
             **global_population** (*bool*) --
                 The global total population in a :class:`Domain` is calculated using all :class:`Species` with the
                 `global_population` `kwarg` set to `True`. (default: True)
+            **use_global_density** (*bool*) --
+                If True, density-based calculations (i.e. density-dependent mortality, fecundity) will be completed
+                using the global density, and not the species-level density. (default: False)
         """
         # Limit species names to 25 chars
         if len(name) > 25:
@@ -1362,6 +1365,7 @@ class Species(object):
         self.sex = self.group_key = None
 
         self.global_population = kwargs.get('global_population', True)
+        self.use_global_density = kwargs.get('use_global_density', False)
 
     def add_dispersal(self, dispersal_type, args=()):
         """
