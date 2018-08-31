@@ -889,14 +889,6 @@ class discrete_explicit(object):
 
                 # Apply mortality to any recipients (a conversion that serves to simulate disease)
                 if mort_type.recipient_species is not None:
-                    # Check if an input mask (multiplicative modifier) for conversion exists
-                    conversion_mask = self.D.get_mask(species, time, sex, group, mort_type.name)
-                    if conversion_mask is None:
-                        conversion_mask = 1.
-                    else:
-                        # Enforce a maximum of 1
-                        conversion_mask = da.where(conversion_mask > 1., 1., conversion_mask)
-
                     # The population is added to the model domain for the same age,
                     # and is added to any existing population
                     other_species = mort_type.recipient_species
@@ -910,23 +902,21 @@ class discrete_explicit(object):
                             other_species.name, age, other_species.group_name)
                         )
 
-                    converted = mort_fluxes[-1] * conversion_mask
-
                     try:
                         output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] += converted
+                            flux_prefix, other_species.name)] += mort_fluxes[-1]
                     except KeyError:
                         output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] = converted
+                            flux_prefix, other_species.name)] = mort_fluxes[-1]
 
                     other_species_key = '{}/{}/{}/{}/{}'.format(
                         other_species.name_key, other_species.sex, other_species.group_key, time, age
                     )
 
                     if existing_pop is not None:
-                        other_species_data = self.population_total([existing_pop], False) + converted
+                        other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
                     else:
-                        other_species_data = converted
+                        other_species_data = mort_fluxes[-1]
 
                     # If multiple species are contributing to the recipient, they must be added in a delayed fashion
                     try:
@@ -1055,7 +1045,16 @@ class discrete_explicit(object):
             else:
                 # Collect non-zero mortality datasets
                 parameters[instance.name] = self.collect_parameter(instance, key)
+
+                # Ensure no negatives
                 parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
+
+                # Check if a multiplicative modifier mask exists (used to explicitly spatially
+                #   constrain inter-species mortality)
+                mort_mask = self.D.get_mask(species, time, sex, group, instance.name)
+                if mort_mask is not None:
+                    # Enforce a maximum of 1
+                    parameters[instance.name] *= da.where(mort_mask > 1., 1., mort_mask)
 
         # Carrying Capacity, Population, & Density
         # ----------------------------------------
