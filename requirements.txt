@@ -2,7 +2,7 @@ cython
 h5py==2.8.0
 dask
 numba
-xlsxwriter
+xlsxwriter=1.1.0
 python-dateutil
 toolz
 scipy
