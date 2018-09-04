@@ -489,7 +489,7 @@ def write_xlsx(domain, output_directory):
                                  'Deaths', '{} Total Mortality by Mortality Type (anthro, natural)'.format(species))
                                 for mm in ms.list_mortality_types(
                                    name_key(species), None
-                               ).tolist() if mm != 'Density Dependent Rate'],
+                               ).tolist() if mm != 'Density Dependent Rate' and 'Converted to' not in mm],
                                [('Total Male Deaths', '=Mortality!$D${}:${}${}'.format(
                                    chartRows['Total male deaths'][0],
                                    index_to_char(chartRows['Total male deaths'][1]),
@@ -504,7 +504,7 @@ def write_xlsx(domain, output_directory):
                                  'Deaths', '{} Total Male Mortality by Mortality Type'.format(species))
                                 for mm in ms.list_mortality_types(
                                    name_key(species), None, 'male'
-                               ).tolist() if mm != 'Density Dependent Rate'],
+                               ).tolist() if mm != 'Density Dependent Rate' and 'Converted to' not in mm],
                                [('Total Female Deaths', '=Mortality!$D${}:${}${}'.format(
                                    chartRows['Total female deaths'][0],
                                    index_to_char(chartRows['Total female deaths'][1]),
@@ -519,7 +519,7 @@ def write_xlsx(domain, output_directory):
                                  'Deaths', '{} Total Female Mortality by Mortality Type'.format(species))
                                 for mm in ms.list_mortality_types(
                                    name_key(species), None, 'female'
-                               ).tolist() if mm != 'Density Dependent Rate'],
+                               ).tolist() if mm != 'Density Dependent Rate' and 'Converted to' not in mm],
                                # Lambda
                                [('Total', '=Population!$D${}:${}${}'.format(
                                    chartRows['Total Population Lambda'][0],
