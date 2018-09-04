@@ -429,7 +429,7 @@ class discrete_explicit(object):
                         output[key] += self.age_zero_population[species][_sex]
                     except KeyError:
                         output[key] = self.age_zero_population[species][_sex]
-                    counter_update[key] = da.all(output[key] > 0)
+                    counter_update[key] = da.any(output[key] > 0)
 
             # Compute this time slice and write to the domain file
             compute_domain(self, self.D, output, _delayed, counter_update, delayed_counter_update)
@@ -923,7 +923,7 @@ class discrete_explicit(object):
                         _delayed[other_species_key] += other_species_data
                     except KeyError:
                         _delayed[other_species_key] = other_species_data
-                    delayed_counter_update[other_species_key] = da.all(_delayed[other_species_key] > 0)
+                    delayed_counter_update[other_species_key] = da.any(_delayed[other_species_key] > 0)
 
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
@@ -1019,12 +1019,12 @@ class discrete_explicit(object):
                 _delayed[key] = ds + population
                 # Do not allow negative populations
                 _delayed[key] = da.where(_delayed[key] < 0, 0, _delayed[key])
-                delayed_counter_update[key] = da.all(_delayed[key] > 0)
+                delayed_counter_update[key] = da.any(_delayed[key] > 0)
 
             else:
                 # Do not allow negative populations
                 output[key] = da.where(population < 0, 0, population)
-                counter_update[key] = da.all(output[key] > 0)
+                counter_update[key] = da.any(output[key] > 0)
 
         # Return output so that it may be included in the final compute call
         return output, _delayed, counter_update, delayed_counter_update
