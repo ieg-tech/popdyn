@@ -1508,7 +1508,8 @@ class Parameter(object):
             choose from
             -``'total population'``, which is the total population of the affecting species
             -``'density'``, which is the density (n/k) of the affecting species
-            -``'global ratio'``, which is the ratio of this species of the global total population (n/n_global).
+            -``global population`` is the global total population (n_global)
+            -``'global ratio'``, which is the ratio of this species of the global total population (n/n_global)
             See the :class:`Species` attribute ``global_population``.
         """
         if all([not isinstance(species, obj) for obj in [Species, Sex, AgeGroup]]):
@@ -1517,9 +1518,9 @@ class Parameter(object):
         self.species = species
         self.species_table = dynamic.collect_lookup(lookup_table)
 
-        population_types = ['total population', 'density', 'global ratio']
+        population_types = ['total population', 'density', 'global population', 'global ratio']
         if population_type.lower() not in population_types:
-            raise PopdynError('Input population type not supported')
+            raise PopdynError('Input population type "{}" not supported'.format(population_type))
 
         self.population_type = population_type.lower()
 

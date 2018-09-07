@@ -536,6 +536,9 @@ class discrete_explicit(object):
 
                 population_data = da.where(cc > 0, p / cc, np.inf)
 
+            elif param.population_type == 'global population':
+                population_data = self.population_arrays['global {}'.format(self.current_time)]
+
             elif param.population_type == 'global ratio':
                 population_data = p / self.population_arrays['global {}'.format(self.current_time)]
 
