@@ -540,7 +540,9 @@ class discrete_explicit(object):
                 population_data = self.population_arrays['global {}'.format(self.current_time)]
 
             elif param.population_type == 'global ratio':
-                population_data = p / self.population_arrays['global {}'.format(self.current_time)]
+                population_data = da.where(self.population_arrays['global {}'.format(self.current_time)] > 0,
+                                           p / self.population_arrays['global {}'.format(self.current_time)],
+                                           np.inf)
 
             kwargs.update({'lookup_data': population_data, 'lookup_table': param.species_table})
         else:
@@ -781,6 +783,7 @@ class discrete_explicit(object):
         mort_types = [mort_type[0] for mort_type in self.D.get_mortality(species, time, sex, group)]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
+        # output, _delayed, counter_update, delayed_counter_update = NanDict(), NanDict(), NanDict(), NanDict()
         output, _delayed, counter_update, delayed_counter_update = {}, {}, {}, {}
         for mort_type in mort_types:
             mort_name = mort_type.name
@@ -1172,3 +1175,17 @@ class Counter(object):
         Used during computation to update counter values
         """
         self.S.counter[self.key] = np.squeeze(value)
+
+
+class NanDict(dict):
+    """
+    Debugging class to tease out nan's
+    """
+    def __init__(self):
+        super(NanDict, self).__init__()
+
+    def __setitem__(self, key, val):
+        if np.any(np.isnan(val.compute())):
+            raise Exception('The key {} has nans'.format(key))
+
+        super(NanDict, self).__setitem__(key, val)
