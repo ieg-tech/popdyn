@@ -1388,6 +1388,9 @@ class Species(object):
         except AttributeError:
             return [None]
 
+    def __repr__(self):
+        return 'Species {}-{}-{}'.format(self.name_key, self.sex, self.group_key)
+
 
 class Sex(Species):
     """Child of Species, containing sex-based attributes"""

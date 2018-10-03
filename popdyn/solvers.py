@@ -934,6 +934,7 @@ class discrete_explicit(object):
             # Reduce the population by the mortality
             for mort_flux in mort_fluxes:
                 population -= mort_flux
+            population = da.maximum(0, population)
 
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
             if not species_instance.live_past_max and max_age is not None and age == max_age:
