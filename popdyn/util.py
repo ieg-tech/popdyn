@@ -50,6 +50,8 @@ def da_zeros(shape, chunks):
 
 def store(sources, targets):
     """
+    DEPRECATED
+
     Adapted from dask.array.store
     :param sources: sources dask arrays
     :param targets: target data store locations
