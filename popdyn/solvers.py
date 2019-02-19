@@ -268,7 +268,7 @@ def compute_domain(solver, domain, first_datasets, delayed_datasets, first_aux=N
         domain.timer.stop('create target datasets')
 
         domain.timer.start('compute and store')
-        da.store(sources, targets)
+        store(sources, targets)
         domain.timer.stop('compute and store')
 
         for key in list(datasets.keys()):
