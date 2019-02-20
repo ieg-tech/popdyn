@@ -1,6 +1,6 @@
 cython
 h5py==2.8.0
-dask
+dask==0.19.4
 numba
 xlsxwriter=1.1.0
 python-dateutil
