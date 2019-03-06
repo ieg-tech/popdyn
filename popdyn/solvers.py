@@ -525,7 +525,7 @@ class discrete_explicit(object):
                                                param.species.sex, param.species.group_key)
             p = self.population_total(population)
 
-            if param.population_type == 'population':
+            if param.population_type == 'total population':
                 population_data = p
 
             elif param.population_type == 'density':
@@ -543,6 +543,8 @@ class discrete_explicit(object):
                 population_data = da.where(self.population_arrays['global {}'.format(self.current_time)] > 0,
                                            p / self.population_arrays['global {}'.format(self.current_time)],
                                            np.inf)
+            else:
+                raise PopdynError('Unknown population type argument "{}"'.format(param.population_type))
 
             kwargs.update({'lookup_data': population_data, 'lookup_table': param.species_table})
         else:
