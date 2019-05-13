@@ -9,7 +9,7 @@ import os
 import pickle
 from string import punctuation
 import numpy as np
-import h5py
+import h5fake as h5py
 from osgeo import gdal, osr
 from logger import Timer
 import dispersal
@@ -66,11 +66,11 @@ class Domain(object):
             self.file = h5py.File(self.path, libver='latest')
             self._load()
         else:
+
             self._build_new(popdyn_path, domain_raster, **kwargs)
 
         if not hasattr(self, 'timer'):
             self.timer = Timer()
-
     # File management and builtins
     # ==================================================================================================
     @staticmethod
@@ -138,8 +138,17 @@ class Domain(object):
             del self.file[key]
         except KeyError:
             pass
+        if h5py.__name__ == 'h5py':
+            kwargs = {}
+        else:
+            # h5fake
+            kwargs = {
+                'sr': self.projection,
+                'gt': (self.left, self.csx, 0, self.top, 0, self.csy * -1),
+                'nd': [0]
+            }
         _ = self.file.create_dataset(key, data=np.broadcast_to(data, self.shape),
-                                     compression='lzf', chunks=self.chunks)
+                                     compression='lzf', chunks=self.chunks, **kwargs)
 
     def __repr__(self):
         return 'Popdyn domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
@@ -201,11 +210,12 @@ class Domain(object):
             self.avoid_inheritance = False
         # Chunk size is specified for data storage and dask scheduling
         if not hasattr(self, 'chunks'):
-            chunks = [5000, 5000]  # ~100MB chunks. This should be sufficient for most modern computers.
-            if chunks[0] > self.shape[0]:
-                chunks[0] = self.shape[0]
-            if chunks[1] > self.shape[1]:
-                chunks[1] = self.shape[1]
+            chunks = [256, 256]
+            if h5py.__name__ == 'h5py':
+                if chunks[0] > self.shape[0]:
+                    chunks[0] = self.shape[0]
+                if chunks[1] > self.shape[1]:
+                    chunks[1] = self.shape[1]
             self.chunks = tuple(chunks)
 
     def _raster_as_array(self, raster, as_mask=False):
@@ -987,9 +997,9 @@ class Domain(object):
         if overwrite == 'replace':
             self[key] = data
         elif overwrite == 'add':
-            ds[:] = np.add(ds, data)
+            ds[:] = np.add(ds[:], data)
         elif overwrite == 'subtract':
-            ds[:] = np.subtract(ds, data)
+            ds[:] = np.subtract(ds[:], data)
 
     def get_mortality(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
         """

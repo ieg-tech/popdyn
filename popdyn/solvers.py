@@ -262,8 +262,19 @@ def compute_domain(solver, domain, first_datasets, delayed_datasets, first_aux=N
 
         domain.timer.start('create target datasets')
         # Create all necessary datasets in the file, including counter objects
+        if h5py.__name__ == 'h5py':
+            kwargs = {'compression': 'lzf'}
+        else:
+            # h5fake
+            kwargs = {
+                'compression': 'lzf',
+                'sr': domain.projection,
+                'gt': (domain.left, domain.csx, 0, domain.top, 0, domain.csy * -1),
+                'nd': [0]
+            }
+
         targets = [domain.file.require_dataset(dp, shape=domain.shape, dtype=np.float32,
-                                               chunks=domain.chunks, **{'compression': 'lzf'})
+                                               chunks=domain.chunks, **kwargs)
                    for dp in datasets.keys()] + [Counter(solver, aux_key) for aux_key in aux.keys()]
         domain.timer.stop('create target datasets')
 
@@ -278,7 +289,8 @@ def compute_domain(solver, domain, first_datasets, delayed_datasets, first_aux=N
                 domain.population[species][sex][group][time][age] = key
 
         # Flush buffers to the disk
-        domain.file.flush()
+        if hasattr(domain.file, 'flush'):
+            domain.file.flush()
 
 
 class discrete_explicit(object):

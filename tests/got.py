@@ -8,6 +8,8 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
 from popdyn import summary
+import shutil
+import time
 from popdyn import dispersal
 import dask.array as da
 
@@ -254,7 +256,10 @@ def single_species_fecundity():
                 )
             prv_pop = tot_pop
 
-    os.remove('seven_kingdoms.popdyn')
+    if os.path.isfile('seven_kingdoms.popdyn'):
+        os.remove('seven_kingdoms.popdyn')
+    else:
+        shutil.rmtree('seven_kingdoms.popdyn')
 
     # F:M ratio disallows offspring
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
@@ -309,7 +314,10 @@ def single_species_dispersion():
                 pd.solvers.discrete_explicit(domain, 0, 2).execute()
             except NotImplementedError:
                 domain.file.close()
-                os.remove('seven_kingdoms.popdyn')
+                if os.path.isfile('seven_kingdoms.popdyn'):
+                    os.remove('seven_kingdoms.popdyn')
+                else:
+                    shutil.rmtree('seven_kingdoms.popdyn')
                 continue
 
             prv_pop = seed_population
@@ -322,7 +330,10 @@ def single_species_dispersion():
                 prv_pop = _pop
 
         if _iter == 0:
-            os.remove('seven_kingdoms.popdyn')
+            if os.path.isfile('seven_kingdoms.popdyn'):
+                os.remove('seven_kingdoms.popdyn')
+            else:
+                shutil.rmtree('seven_kingdoms.popdyn')
 
 
 def single_species_agegroups():
@@ -589,6 +600,7 @@ if __name__ == '__main__':
              species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies]
 
     error_check = 0
+    now = time.time()
     for test in antitests:
         try:
             test()
@@ -606,7 +618,10 @@ if __name__ == '__main__':
                 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
                       "{}: FAIL:\n{}\n"
                       "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
-        os.remove('seven_kingdoms.popdyn')
+        if os.path.isfile('seven_kingdoms.popdyn'):
+            os.remove('seven_kingdoms.popdyn')
+        else:
+            shutil.rmtree('seven_kingdoms.popdyn')
 
     function_check = 0
     for test in tests:
@@ -620,7 +635,10 @@ if __name__ == '__main__':
             print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
                   "{}: FAIL:\n{}\n"
                   "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
-        os.remove('seven_kingdoms.popdyn')
+        if os.path.isfile('seven_kingdoms.popdyn'):
+            os.remove('seven_kingdoms.popdyn')
+        else:
+            shutil.rmtree('seven_kingdoms.popdyn')
 
     stars = np.array([[' '] * 50 for i in range(10)])
     stars[(np.random.randint(0, 5, 40), np.random.randint(0, 49, 40))] = '*'
@@ -629,8 +647,8 @@ if __name__ == '__main__':
     stars = ''.join(stars.ravel())
 
     print("{}"
-          "\n\n\n                Tests Complete\n\n"
-          "".format(stars))
+          "\n\n\n                Tests Completed in {} seconds\n\n"
+          "".format(stars, time.time() - now))
     print("          {} of {} exception checks passed".format(error_check, len(antitests)))
     print("          {} of {} solver checks passed\n\n\n"
           "___wv_____wwWww____vW___|____wWv___|_|____w____wwvWWv".format(function_check, len(tests)))

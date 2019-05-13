@@ -1,5 +1,6 @@
 cython
 h5py==2.8.0
+numpy==1.15
 dask==0.19.4
 numba
 xlsxwriter==1.1.0
