@@ -43,10 +43,8 @@ class Group(object):
 
     def __getitem__(self, s):
         try:
-            basestring
-        except NameError:
-            basestring = (str, bytes)
-        if not isinstance(s, basestring):
+            s = str(s)
+        except:
             raise H5FError('Only string getters are supported')
 
         f = os.path.join(self.path, self.clean_key(s))
