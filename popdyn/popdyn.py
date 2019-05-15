@@ -113,7 +113,7 @@ class Domain(object):
             )
         else:
             self.file.attrs.update(
-                {key: pickle.dumps(val) for key, val in self.__dict__.items() if key not in ['file', 'path']}
+                {key: val for key, val in self.__dict__.items() if key not in ['file', 'path']}
             )
 
     def _load(self):
@@ -121,7 +121,7 @@ class Domain(object):
         if h5py.__name__ == 'h5py':
             self.__dict__.update({key: pickle.loads(val.tostring()) for key, val in self.file.attrs.items()})
         else:
-            self.__dict__.update({key: pickle.loads(val) for key, val in self.file.attrs.items()})
+            self.__dict__.update({key: val for key, val in self.file.attrs.items()})
 
         print("Domain successfully populated from the file {}".format(self.path))
 
