@@ -57,9 +57,9 @@ def store(sources, targets):
     """
     # For debugging
     # -------------
-    # for source, target in zip(sources, targets):
-    #     target[:] = source.compute()
-    # return
+    for source, target in zip(sources, targets):
+        target[:] = source.compute()
+    return
     # -------------
 
     # Optimize all sources together
