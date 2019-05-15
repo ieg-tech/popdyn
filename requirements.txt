@@ -1,5 +1,5 @@
 cython
-h5py==2.8.0
+h5py
 numpy==1.15
 dask==1.2.2
 numba
