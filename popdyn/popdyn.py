@@ -107,18 +107,21 @@ class Domain(object):
 
     def _dump(self):
         """Dump all of the domain instance to the file"""
-        self.file.attrs.update(
-            {key: np.void(pickle.dumps(val)) for key, val in self.__dict__.items() if key not in ['file', 'path']}
-        )
+        if h5py.__name__ == 'h5py':
+            self.file.attrs.update(
+                {key: np.void(pickle.dumps(val)) for key, val in self.__dict__.items() if key not in ['file', 'path']}
+            )
+        else:
+            self.file.attrs.update(
+                {key: pickle.dumps(val) for key, val in self.__dict__.items() if key not in ['file', 'path']}
+            )
 
     def _load(self):
         """Get the model parameters from an existing popdyn file"""
-        for key, val in self.file.attrs.items():
-            try:
-                self.__dict__[key] = pickle.loads(val.tostring())
-            except:
-                import pdb;pdb.set_trace()
-        # self.__dict__.update({key: pickle.loads(val.tostring()) for key, val in self.file.attrs.items()})
+        if h5py.__name__ == 'h5py':
+            self.__dict__.update({key: pickle.loads(val.tostring()) for key, val in self.file.attrs.items()})
+        else:
+            self.__dict__.update({key: pickle.loads(val) for key, val in self.file.attrs.items()})
 
         print("Domain successfully populated from the file {}".format(self.path))
 
