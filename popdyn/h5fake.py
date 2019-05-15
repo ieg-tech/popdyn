@@ -45,6 +45,7 @@ class Group(object):
         try:
             s = str(s)
         except:
+            import pdb;pdb.set_trace()
             raise H5FError('Only string getters are supported')
 
         f = os.path.join(self.path, self.clean_key(s))

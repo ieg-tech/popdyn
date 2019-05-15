@@ -61,7 +61,7 @@ class Domain(object):
                 Spatial Reference of the study area, which must be an EPSG code
         """
         # If the path exists, parameterize the model based on the previous run
-        if os.path.isfile(popdyn_path):
+        if os.path.isfile(popdyn_path) or os.path.isdir(popdyn_path):
             self.path = popdyn_path  # Files are accessed through the file attribute
             self.file = h5py.File(self.path, libver='latest')
             self._load()
