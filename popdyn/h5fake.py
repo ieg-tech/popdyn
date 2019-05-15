@@ -158,41 +158,44 @@ class Attrs(object):
             with open(self.path, 'wb') as f:
                 pickle.dump({}, f)
 
-    def __getitem__(self, key):
+    @property
+    def d(self):
         with open(self.path, 'rb') as f:
-            return pickle.load(f)[key]
+            return pickle.load(f)
+
+    def __getitem__(self, key):
+        return self.d[key]
 
     def __setitem__(self, key, val):
-        with open(self.path, 'rb') as f:
-            d = pickle.load(f)
+        d = self.d
         d[key] = val
         with open(self.path, 'wb') as f:
             pickle.dump(d, f)
 
     def keys(self):
-        with open(self.path, 'rb') as f:
-            d = pickle.load(f)
-        return d.keys()
+        return self.d.keys()
 
     def values(self):
-        with open(self.path, 'rb') as f:
-            d = pickle.load(f)
-        return d.values()
+        return self.d.values()
 
     def update(self, other_dict):
-        with open(self.path, 'rb') as f:
-            d = pickle.load(f)
+        d = self.d
         d.update(other_dict)
         with open(self.path, 'wb') as f:
             pickle.dump(d, f)
 
     def get(self, key, default=None):
-        with open(self.path, 'rb') as f:
-            d = pickle.load(f)
-            try:
-                return d[key]
-            except KeyError:
-                return default
+        d = self.d
+        try:
+            return d[key]
+        except KeyError:
+            return default
+
+    def items(self):
+        return self.d.items()
+
+    def iteritems(self):
+        return self.items()
 
 
 class Dataset(object):
