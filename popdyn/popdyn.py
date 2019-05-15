@@ -113,7 +113,7 @@ class Domain(object):
 
     def _load(self):
         """Get the model parameters from an existing popdyn file"""
-        self.__dict__.update({key: pickle.loads(val.tostring()) for key, val in self.file.attrs.items()})
+        self.__dict__.update({key: pickle.loads(np.array(val).tostring()) for key, val in self.file.attrs.items()})
 
         print("Domain successfully populated from the file {}".format(self.path))
 
