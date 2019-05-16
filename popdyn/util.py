@@ -57,12 +57,21 @@ def store(sources, targets):
     """
     # For debugging
     # -------------
+    for source, target in zip(sources, targets):
+        da.store(source, target, compute=True)
+    return
+    # -------------
+
+    da.store(sources, targets, compute=True)
+
+    # ---------- OLD ----------- #
+
+    # For debugging
+    # -------------
     # for source, target in zip(sources, targets):
     #     target[:] = source.compute()
     # return
     # -------------
-
-    da.store(sources, targets, compute=True)
 
     # Optimize all sources together
     # sources_dsk = sharedict.merge(*[e.__dask_graph__() for e in sources])

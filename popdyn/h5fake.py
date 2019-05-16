@@ -252,7 +252,6 @@ class Dataset(object):
             if self.nd is None:
                 raise H5FError('A no data list is required for a dataset')
 
-
     def write_data(self, chunks=None, shape=None, data=None, dtype=None):
         if data is None and shape is None:
             raise H5FError('One of either data or shape must be specified when creating a new dataset')
