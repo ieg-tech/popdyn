@@ -97,8 +97,8 @@ def store(sources, targets):
     # For debugging
     # -------------
     for source, target in zip(sources, targets):
-            da.store(source, target, compute=True)
-        return
+        da.store(source, target, compute=True)
+    return
     # -------------
 
     da.store(sources, targets, compute=True)
