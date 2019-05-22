@@ -5,10 +5,15 @@ Devin Cairns, 2018
 """
 from popdyn import *
 import dask.array as da
+# import dafake as da
 
 
 class SolverError(Exception):
     pass
+
+
+# Carrying Capacity is 0
+INF = 0
 
 
 def error_check(domain):
@@ -503,11 +508,11 @@ class discrete_explicit(object):
             )
 
             # Calculate Density
-            self.population_arrays[species]['Female to Male Ratio {}'.format(time)] = da.where(
+            self.population_arrays[species]['Female to Male Ratio {}'.format(time)] = da_where(
                 self.population_arrays[species]['Reproducing Males {}'.format(time)] > 0,
                 self.population_arrays[species]['Reproducing Females {}'.format(time)] /
                 self.population_arrays[species]['Reproducing Males {}'.format(time)],
-                np.inf
+                INF
             )
 
         # The global population includes all species that have the global_population attr set to True
@@ -546,15 +551,15 @@ class discrete_explicit(object):
                     )
                 cc = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
 
-                population_data = da.where(cc > 0, p / cc, np.inf)
+                population_data = da_where(cc > 0, p / cc, INF)
 
             elif param.population_type == 'global population':
                 population_data = self.population_arrays['global {}'.format(self.current_time)]
 
             elif param.population_type == 'global ratio':
-                population_data = da.where(self.population_arrays['global {}'.format(self.current_time)] > 0,
+                population_data = da_where(self.population_arrays['global {}'.format(self.current_time)] > 0,
                                            p / self.population_arrays['global {}'.format(self.current_time)],
-                                           np.inf)
+                                           INF)
             else:
                 raise PopdynError('Unknown population type argument "{}"'.format(param.population_type))
 
@@ -605,7 +610,7 @@ class discrete_explicit(object):
                             d = self.collect_parameter(cc_instance, key)
                             self.carrying_capacity_arrays[param.species.name_key][cc_instance] = d
                         else:
-                            d  = self.carrying_capacity_arrays[param.species.name_key][cc_instance]
+                            d = self.carrying_capacity_arrays[param.species.name_key][cc_instance]
                         density[param.species]['d'] += d
 
         # Collect the sum of all density parameters without inter-species perturbation
@@ -619,7 +624,7 @@ class discrete_explicit(object):
                 complete.append(param)
                 p, d = density[param.species]['p'], density[param.species]['d']
                 kwargs = {
-                    'lookup_data': da.where(d > 0, p / d, np.inf),
+                    'lookup_data': da_where(d > 0, p / d, INF),
                     'lookup_table': param.species_table,
                     'chunks': self.D.chunks
                 }
@@ -720,7 +725,7 @@ class discrete_explicit(object):
             # Use the mean of the coefficients to avoid compounding perturbation
             coeff = dmean(cc_coeff)
 
-        return da.where(array > 0, array * coeff, 0)
+        return da_where(array > 0, array * coeff, 0)
 
     def get_counter(self, species, group, sex, age, time):
         """
@@ -857,12 +862,12 @@ class discrete_explicit(object):
                 linear_proportion = 1.
             else:
                 linear_proportion = da.minimum(1., dd_range / linear_range)
-            ddm_rate = da.where(
+            ddm_rate = da_where(
                 (params['Density'] > 0) & ~da.isinf(params['Density']),
                 (dd_range * (density_scale * linear_proportion)) / params['Density'], 0
             )
             # Make the rate 1 where there is an infinite density
-            ddm_rate = da.where(da.isinf(params['Density']), 1., ddm_rate)
+            ddm_rate = da_where(da.isinf(params['Density']), 1., ddm_rate)
 
         for age in ages:
             # Collect the population of the age from the previous time step
@@ -899,7 +904,7 @@ class discrete_explicit(object):
             # Mortality must be scaled to not exceed 1
             if len(mortality_data) > 0:
                 agg_mort = dsum(mortality_data)
-                mort_coeff = da.where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
+                mort_coeff = da_where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
 
             # All mortality types are applied to each age to record sub-populations for each group
             mort_fluxes = []
@@ -985,12 +990,15 @@ class discrete_explicit(object):
                 #  results in populations being allowed to live where their density has become lower).
                 #  Increasing the rate to account for dispersed populations may result in excessive
                 #  population reduction to below the carrying capacity. Leave those to the next time step.
-                new_ddm_rate = da.where(
-                    population < static_population, ddm_rate - (1 - (population / static_population)),
-                    ddm_rate
+                mask = population < static_population
+                yes = ddm_rate - (1 - (population / static_population))
+                no = ddm_rate
+                new_ddm_rate = da_where(
+                    mask, yes,
+                    no
                 )
 
-                ddm = da.where(new_ddm_rate > 0., population * new_ddm_rate, 0)
+                ddm = da_where(new_ddm_rate > 0., population * new_ddm_rate, 0)
 
                 output['{}/mortality/{}'.format(param_prefix, 'Density Dependent Rate')] = new_ddm_rate
                 output['{}/mortality/{}'.format(flux_prefix, 'Density Dependent')] += ddm
@@ -1039,12 +1047,12 @@ class discrete_explicit(object):
                 # Used the delayed keys to make sure calculations take place first
                 _delayed[key] = ds + population
                 # Do not allow negative populations
-                _delayed[key] = da.where(_delayed[key] < 0, 0, _delayed[key])
+                _delayed[key] = da_where(_delayed[key] < 0, 0, _delayed[key])
                 delayed_counter_update[key] = da.any(_delayed[key] > 0)
 
             else:
                 # Do not allow negative populations
-                output[key] = da.where(population < 0, 0, population)
+                output[key] = da_where(population < 0, 0, population)
                 counter_update[key] = da.any(output[key] > 0)
 
         # Return output so that it may be included in the final compute call
@@ -1068,14 +1076,14 @@ class discrete_explicit(object):
                 parameters[instance.name] = self.collect_parameter(instance, key)
 
                 # Ensure no negatives
-                parameters[instance.name] = da.where(parameters[instance.name] < 0, 0, parameters[instance.name])
+                parameters[instance.name] = da_where(parameters[instance.name] < 0, 0, parameters[instance.name])
 
                 # Check if a multiplicative modifier mask exists (used to explicitly spatially
                 #   constrain inter-species mortality)
                 mort_mask = self.D.get_mask(species, time, sex, group, instance.name)
                 if mort_mask is not None:
                     # Enforce a maximum of 1
-                    parameters[instance.name] *= da.where(mort_mask > 1., 1., mort_mask)
+                    parameters[instance.name] *= da_where(mort_mask > 1., 1., mort_mask)
 
         # Carrying Capacity, Population, & Density
         # ----------------------------------------
@@ -1101,9 +1109,9 @@ class discrete_explicit(object):
             global_cc = self.carrying_capacity_arrays['global {}'.format(time)]
             population = self.population_arrays['global {}'.format(time)]
 
-        parameters['Density'] = da.where(global_cc > 0,
+        parameters['Density'] = da_where(global_cc > 0,
                                          population / global_cc,
-                                         np.inf)
+                                         INF)
 
         # Collect fecundity parameters
         # These may be collected for any species, whether it be male or female. If fecundity exists for
@@ -1144,9 +1152,9 @@ class discrete_explicit(object):
                 density_range = parameters['Density'] - density_fecundity_threshold
 
                 if input_range == 0:
-                    fec_mod = da.where(density_range > 0, fecundity_reduction_rate, 0.)
+                    fec_mod = da_where(density_range > 0, fecundity_reduction_rate, 0.)
                 else:
-                    fec_mod = da.where(
+                    fec_mod = da_where(
                         density_range > 0, da.minimum(1., (density_range / input_range)) * fecundity_reduction_rate, 0.
                     )
 
@@ -1154,7 +1162,7 @@ class discrete_explicit(object):
 
                 avg_mod += fec_mod
 
-                fec = da.where(fec > 0, fec, 0)
+                fec = da_where(fec > 0, fec, 0)
 
                 # If multiple fecundity instances are specified for this species, only the last birth ratio will
                 #  be used

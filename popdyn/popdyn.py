@@ -218,12 +218,14 @@ class Domain(object):
             self.avoid_inheritance = False
         # Chunk size is specified for data storage and dask scheduling
         if not hasattr(self, 'chunks'):
-            chunks = [256, 256]
             if h5py.__name__ == 'h5py':
+                chunks = [5000, 5000]
                 if chunks[0] > self.shape[0]:
                     chunks[0] = self.shape[0]
                 if chunks[1] > self.shape[1]:
                     chunks[1] = self.shape[1]
+            else:
+                chunks = [256, 256]
             self.chunks = tuple(chunks)
 
     def _raster_as_array(self, raster, as_mask=False):
