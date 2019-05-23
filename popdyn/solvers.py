@@ -624,10 +624,27 @@ class discrete_explicit(object):
                 complete.append(param)
                 p, d = density[param.species]['p'], density[param.species]['d']
                 kwargs = {
-                    'lookup_data': da_where(d > 0, p / d, INF),
+                    'lookup_data': None,
                     'lookup_table': param.species_table,
                     'chunks': self.D.chunks
                 }
+
+                if param.population_type == 'total population':
+                    kwargs['lookup_data'] = p
+
+                elif param.population_type == 'density':
+                    kwargs['lookup_data'] = da_where(d > 0, p / d, INF)
+
+                elif param.population_type == 'global population':
+                    kwargs['lookup_data'] = self.population_arrays['global {}'.format(self.current_time)]
+
+                elif param.population_type == 'global ratio':
+                    kwargs['lookup_data'] = da_where(self.population_arrays['global {}'.format(self.current_time)] > 0,
+                                               p / self.population_arrays['global {}'.format(self.current_time)],
+                                               INF)
+                else:
+                    raise PopdynError('Unknown population type argument "{}"'.format(param.population_type))
+
 
                 self.carrying_capacity_arrays[parent_species][param] = dynamic.collect(None, **kwargs)
 
