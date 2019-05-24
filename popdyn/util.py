@@ -1,8 +1,8 @@
 from collections import defaultdict
 import numpy as np
-import dask.array as da
-# import dafake as da
-from numba import jit
+# import dask.array as da
+import dafake as da
+
 # from dask import sharedict, core
 # from dask.delayed import Delayed
 # from dask.base import tokenize
@@ -50,41 +50,10 @@ def da_zeros(shape, chunks):
     return da.zeros(shape, dtype=np.float32, chunks=chunks)
 
 
-@jit(nopython=True, nogil=True)
-def apply_where(mask, yes, no, yes_scalar, no_scalar, yes_is_scalar, no_is_scalar, dtype):
-    shape = mask.shape
-    output = np.empty(shape, dtype)
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            if mask[i, j]:
-                if yes_is_scalar:
-                    output[i, j] = yes_scalar
-                else:
-                    output[i, j] = yes[i, j]
-            else:
-                if no_is_scalar:
-                    output[i, j] = no_scalar
-                else:
-                    output[i, j] = no[i, j]
-    return output
-
-
 def da_where(mask, yes, no):
     """Substitute for da.where for performance enhancement"""
-    yes_scalar = 1
-    yes_is_scalar = False
-    if not isinstance(yes, da.Array):
-        yes_is_scalar = True
-        yes_scalar = yes
-        yes = np.empty(mask.shape, np.bool)
-    no_scalar = 1
-    no_is_scalar = False
-    if not isinstance(no, da.Array):
-        no_is_scalar = True
-        no_scalar = no
-        no = np.empty(mask.shape, np.bool)
-    return da.map_blocks(apply_where, mask, yes, no, yes_scalar, no_scalar,
-                         yes_is_scalar, no_is_scalar, np.float32, dtype='float32')
+
+    return da.where(mask, yes, no)
 
 
 def store(sources, targets):
@@ -96,9 +65,9 @@ def store(sources, targets):
     """
     # For debugging
     # -------------
-    for source, target in zip(sources, targets):
-        da.store(source, target, compute=True)
-    return
+    # for source, target in zip(sources, targets):
+    #     da.store(source, target, compute=True)
+    # return
     # -------------
 
     da.store(sources, targets, compute=True)

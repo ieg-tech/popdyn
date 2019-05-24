@@ -9,13 +9,14 @@ import os
 import pickle
 from string import punctuation
 import numpy as np
-import h5fake as h5py
-# import h5py
 from osgeo import gdal, osr
 from logger import Timer
 import dispersal
 import dynamic
 from util import *
+
+# import h5fake as h5py
+import h5py
 
 
 class PopdynError(Exception):

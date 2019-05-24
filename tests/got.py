@@ -10,8 +10,6 @@ import popdyn as pd
 from popdyn import summary
 import shutil
 import time
-from popdyn import dispersal
-import dask.array as da
 
 
 def some_random_k(shape, factor):
