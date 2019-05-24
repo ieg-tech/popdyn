@@ -4,8 +4,8 @@ Population dynamics numerical solvers
 Devin Cairns, 2018
 """
 from popdyn import *
-# import dask.array as da
-import dafake as da
+import dask.array as da
+# import dafake as da
 
 
 class SolverError(Exception):

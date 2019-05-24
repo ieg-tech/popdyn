@@ -6,8 +6,8 @@ Manipulate datasets used in the popdyn simulation domain. Implemented types are:
 Devin Cairns 2018
 """
 import numpy as np
-# import dask.array as da
-import dafake as da
+import dask.array as da
+# import dafake as da
 from numba import jit
 
 
