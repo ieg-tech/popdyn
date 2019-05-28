@@ -38,7 +38,7 @@ def calculate_kernel(distance, csx, csy, outer_ring=False):
         return
 
     # Use a distance transform to select the active grid locations
-    kernel = np.ones(shape=(int(m * 2), int(n * 2)), dtype='bool')
+    kernel = np.ones(shape=(int(m * 2) + 1, int(n * 2) + 1), dtype='bool')
     kernel[m, n] = 0
     kernel = ndimage.distance_transform_edt(kernel, (csy, csx))
     kernel = (kernel <= distance)
