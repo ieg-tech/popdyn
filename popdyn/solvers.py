@@ -384,7 +384,7 @@ class discrete_explicit(object):
                         self.population_arrays[species]['total {}'.format(time)],
                         species_instance.minimum_viable_population, species_instance.minimum_viable_area,
                         self.D.csx, self.D.csy, study_area
-                        )
+                    )
 
                 # Collect sex keys
                 sex_keys = self.D.species[species].keys()
@@ -401,7 +401,7 @@ class discrete_explicit(object):
                 # Iterate sexes and groups and calculate each individually
                 for sex in sex_keys:
                     for group in self.D.species[species][sex].keys():  # Group - may not exist and will be None
-                        _output, __delayed, _counter_update, _delayed_counter_update =\
+                        _output, __delayed, _counter_update, _delayed_counter_update = \
                             self.propagate(species, sex, group, time)
                         output.update(_output)
                         _delayed.update(__delayed)
@@ -547,8 +547,8 @@ class discrete_explicit(object):
 
             elif param.population_type == 'density':
                 carrying_capacity = self.D.all_carrying_capacity(
-                        param.species.name_key, self.current_time, param.species.sex, param.species.group_key
-                    )
+                    param.species.name_key, self.current_time, param.species.sex, param.species.group_key
+                )
                 cc = self.carrying_capacity_total(param.species.name_key, carrying_capacity)
 
                 population_data = da_where(cc > 0, p / cc, INF)
@@ -640,8 +640,8 @@ class discrete_explicit(object):
 
                 elif param.population_type == 'global ratio':
                     kwargs['lookup_data'] = da_where(self.population_arrays['global {}'.format(self.current_time)] > 0,
-                                               p / self.population_arrays['global {}'.format(self.current_time)],
-                                               INF)
+                                                     p / self.population_arrays['global {}'.format(self.current_time)],
+                                                     INF)
                 else:
                     raise PopdynError('Unknown population type argument "{}"'.format(param.population_type))
 
@@ -815,13 +815,16 @@ class discrete_explicit(object):
         # -----------------------------------------------------------------
         params = self.calculate_parameters(species, sex, group, time)
 
+        _mortality = self.D.get_mortality(species, time, sex, group)
         # Collect mortality instances
-        mort_types = [mort_type[0] for mort_type in self.D.get_mortality(species, time, sex, group)]
+        mort_types = [mort_type[0] for mort_type in _mortality if mort_type[0].recipient_species is None]
+        # Collect conversion instances
+        conversion_types = [mort_type[0] for mort_type in _mortality if mort_type[0].recipient_species is not None]
 
         # All outputs are written at once, so create a dict to do so (pre-populated with mortality types as zeros)
         # output, _delayed, counter_update, delayed_counter_update = NanDict(), NanDict(), NanDict(), NanDict()
         output, _delayed, counter_update, delayed_counter_update = {}, {}, {}, {}
-        for mort_type in mort_types:
+        for mort_type in mort_types + conversion_types:
             mort_name = mort_type.name
             output['{}/mortality/{}'.format(flux_prefix, mort_name)] = da_zeros(self.D.shape, self.D.chunks)
             # Write the output mortality parameters
@@ -895,82 +898,19 @@ class discrete_explicit(object):
 
             # Aggregate mortality and collect time-based mortality if necessary
             mortality_data = []
-            for mort_type in mort_types:
-                if isinstance(params[mort_type.name], dict):
-                    # This is time-based mortality
-                    time_based_rate = params[mort_type.name]['time_based_rates']
-                    time_based_index = self.get_counter(species, group, sex, age, time - 1)
-                    if time_based_index is None:
-                        # There has never been a population of this nature
-                        continue
-                    try:
-                        time_based_mortality = time_based_rate[time_based_index]
-                    except IndexError:
-                        # The timer has surpassed the range of rates
-                        continue
-                    if params[mort_type.name]['time_based_std'] is not None:
-                        time_based_mortality = np.random.normal(time_based_mortality,
-                                                                params[mort_type.name]['time_based_std'])
-                    time_based_mortality = da.broadcast_to(min(1, max(0, time_based_mortality)),
-                                                           self.D.shape, self.D.chunks)
-                    mortality_data.append(time_based_mortality)
-                    output['{}/mortality/{}'.format(param_prefix, mort_type.name)] = time_based_mortality
-                else:
-                    mortality_data.append(params[mort_type.name])
+            conversion_data = []
+            conv_coeff = self._prepare_mortality(species, group, sex, age, time, param_prefix,
+                                                 conversion_types, conversion_data, params, output)
+            # Conversion is applied first, so mortality scaling must include conversion calculations
+            mort_coeff = self._prepare_mortality(species, group, sex, age, time, param_prefix,
+                                                 mort_types, mortality_data, params, output, conversion_data)
 
-            # Mortality must be scaled to not exceed 1
-            if len(mortality_data) > 0:
-                agg_mort = dsum(mortality_data)
-                mort_coeff = da_where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
-
+            # Apply conversion
+            population = self._apply_mortality(conversion_types, conv_coeff, conversion_data, population, flux_prefix,
+                                               time, age, output, _delayed, delayed_counter_update)
             # All mortality types are applied to each age to record sub-populations for each group
-            mort_fluxes = []
-            for mort_type, mort_data in zip(mort_types, mortality_data):
-                mort_fluxes.append(mort_data * mort_coeff * population)
-                output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
-
-                # Apply mortality to any recipients (a conversion that serves to simulate disease)
-                if mort_type.recipient_species is not None:
-                    # The population is added to the model domain for the same age,
-                    # and is added to any existing population
-                    other_species = mort_type.recipient_species
-                    existing_pop = self.D.get_population(
-                        other_species.name_key, time, other_species.sex, other_species.group_key, age
-                    )
-
-                    if age not in other_species.age_range:
-                        raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
-                                          'does not exist for the group {}'.format(
-                            other_species.name, age, other_species.group_name)
-                        )
-
-                    try:
-                        output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] += mort_fluxes[-1]
-                    except KeyError:
-                        output['{}/mortality/Converted to {}'.format(
-                            flux_prefix, other_species.name)] = mort_fluxes[-1]
-
-                    other_species_key = '{}/{}/{}/{}/{}'.format(
-                        other_species.name_key, other_species.sex, other_species.group_key, time, age
-                    )
-
-                    if existing_pop is not None:
-                        other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
-                    else:
-                        other_species_data = mort_fluxes[-1]
-
-                    # If multiple species are contributing to the recipient, they must be added in a delayed fashion
-                    try:
-                        _delayed[other_species_key] += other_species_data
-                    except KeyError:
-                        _delayed[other_species_key] = other_species_data
-                    delayed_counter_update[other_species_key] = da.any(_delayed[other_species_key] > 0)
-
-            # Reduce the population by the mortality
-            for mort_flux in mort_fluxes:
-                population -= mort_flux
-            population = da.maximum(0, population)
+            population = self._apply_mortality(mort_types, mort_coeff, mortality_data, population, flux_prefix,
+                                               time, age, output, _delayed, delayed_counter_update)
 
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
             if not species_instance.live_past_max and max_age is not None and age == max_age:
@@ -1202,6 +1142,128 @@ class discrete_explicit(object):
             parameters['Density-Based Fecundity Reduction Rate'] = avg_mod / len(fec_arrays)
 
         return parameters
+
+    def _prepare_mortality(self, species, group, sex, age, time, param_prefix,
+                           mort_types, mortality_data, params, output, pre_existing_rate=None):
+        """
+        Accumulate an iterable of mortality
+
+        :param str species:
+        :param str group:
+        :param str sex:
+        :param int age:
+        :param int time:
+        :param str param_prefix:
+        :param list mort_types:
+        :param list mortality_data:
+        :param dict params:
+        :param dict output:
+        :param list pre_existing_rate:
+        """
+        for mort_type in mort_types:
+            if isinstance(params[mort_type.name], dict):
+                # This is time-based mortality
+                time_based_rate = params[mort_type.name]['time_based_rates']
+                time_based_index = self.get_counter(species, group, sex, age, time - 1)
+                if time_based_index is None:
+                    # There has never been a population of this nature
+                    continue
+                try:
+                    time_based_mortality = time_based_rate[time_based_index]
+                except IndexError:
+                    # The timer has surpassed the range of rates
+                    continue
+                if params[mort_type.name]['time_based_std'] is not None:
+                    time_based_mortality = np.random.normal(time_based_mortality,
+                                                            params[mort_type.name]['time_based_std'])
+                time_based_mortality = da.broadcast_to(min(1, max(0, time_based_mortality)),
+                                                       self.D.shape, self.D.chunks)
+                mortality_data.append(time_based_mortality)
+                output['{}/mortality/{}'.format(param_prefix, mort_type.name)] = time_based_mortality
+            else:
+                mortality_data.append(params[mort_type.name])
+
+        # Mortality must be scaled to not exceed 1
+        if len(mortality_data) > 0:
+            if pre_existing_rate is not None and len(pre_existing_rate) > 0:
+                # The mortality coefficient must account for conversion since it is applied first
+                pre_agg_mort = dsum(pre_existing_rate)
+                agg_mort = dsum(mortality_data)
+                max_mort = da_where((pre_agg_mort + agg_mort) > 1.,
+                                      da.minimum(agg_mort, da.maximum(0., 1. - pre_agg_mort)), 1.)
+                mort_coeff = da_where(agg_mort > max_mort, 1. - ((agg_mort - max_mort) / agg_mort), 1.)
+            else:
+                agg_mort = dsum(mortality_data)
+                mort_coeff = da_where(agg_mort > 1., 1. - ((agg_mort - 1.) / agg_mort), 1.)
+        else:
+            mort_coeff = 1
+
+        return mort_coeff
+
+    def _apply_mortality(self, mort_types, mort_coeff, mortality_data, population, flux_prefix, time, age,
+                         output, _delayed, delayed_counter_update):
+        """
+
+
+        :param mort_types:
+        :param mort_coeff:
+        :param mortality_data:
+        :param population:
+        :param flux_prefix:
+        :param time:
+        :param age:
+        :param output:
+        :param _delayed:
+        :param delayed_counter_update:
+        :return:
+        """
+        mort_fluxes = []
+        for mort_type, mort_data in zip(mort_types, mortality_data):
+            mort_fluxes.append(mort_data * mort_coeff * population)
+            output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
+
+            # Apply mortality to any recipients (a conversion that serves to simulate disease)
+            if mort_type.recipient_species is not None:
+                # The population is added to the model domain for the same age,
+                # and is added to any existing population
+                other_species = mort_type.recipient_species
+                existing_pop = self.D.get_population(
+                    other_species.name_key, time, other_species.sex, other_species.group_key, age
+                )
+
+                if age not in other_species.age_range:
+                    raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
+                                      'does not exist for the group {}'.format(
+                        other_species.name, age, other_species.group_name)
+                    )
+
+                try:
+                    output['{}/mortality/Converted to {}'.format(
+                        flux_prefix, other_species.name)] += mort_fluxes[-1]
+                except KeyError:
+                    output['{}/mortality/Converted to {}'.format(
+                        flux_prefix, other_species.name)] = mort_fluxes[-1]
+
+                other_species_key = '{}/{}/{}/{}/{}'.format(
+                    other_species.name_key, other_species.sex, other_species.group_key, time, age
+                )
+
+                if existing_pop is not None:
+                    other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
+                else:
+                    other_species_data = mort_fluxes[-1]
+
+                # If multiple species are contributing to the recipient, they must be added in a delayed fashion
+                try:
+                    _delayed[other_species_key] += other_species_data
+                except KeyError:
+                    _delayed[other_species_key] = other_species_data
+                delayed_counter_update[other_species_key] = da.any(_delayed[other_species_key] > 0)
+
+        # Reduce the population by the mortality
+        for mort_flux in mort_fluxes:
+            population -= mort_flux
+        return da.maximum(0, population)
 
 
 class Counter(object):
