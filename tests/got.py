@@ -589,13 +589,49 @@ def rate_based_mortality():
             )
 
 
+def conversion_and_transmission():
+    # Pasted from recipient species
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        recipient = pd.Species('recipient')
+
+        test_mortality = pd.Mortality('test recipient')
+        test_mortality.add_recipient_species(recipient)
+
+        starks.add_disease('direct_transmission.csv', **{
+            'direct_transmission': True,
+            'environmental_transmission': True,
+            'E_data': {
+                1: np.array([[0.1]]),
+                2: np.array([[0.1]])
+            }
+        })
+
+        domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
+        domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
+        domain.add_mortality(starks, test_mortality, 0, 0.1)
+        domain.add_population(recipient, 0, 10)
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        Pi = 10 / 10000
+        FOI = 0.1 * Pi
+        env = 0.1 * 0.1
+        conv = 10000 * (FOI + env)
+        tot_pop = summary.total_population(domain, 'recipient', 1).sum()
+        if not np.isclose(tot_pop, conv):
+            raise Exception('Recipient population should be {}, got {} at time 1'.format(
+                conv, tot_pop)
+            )
+
+
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
-             single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies]
+    # tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
+    #          single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
+    #          single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+    #          species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies]
+
+    tests = [conversion_and_transmission]
 
     error_check = 0
     now = time.time()

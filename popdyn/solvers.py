@@ -899,18 +899,23 @@ class discrete_explicit(object):
             # Aggregate mortality and collect time-based mortality if necessary
             mortality_data = []
             conversion_data = []
-            conv_coeff = self._prepare_mortality(species, group, sex, age, time, param_prefix,
-                                                 conversion_types, conversion_data, params, output)
+            conv_coeff = self._prepare_conversion(species, group, sex, age, time, param_prefix,
+                                                  conversion_types, conversion_data, params, output)
             # Conversion is applied first, so mortality scaling must include conversion calculations
             mort_coeff = self._prepare_mortality(species, group, sex, age, time, param_prefix,
                                                  mort_types, mortality_data, params, output, conversion_data)
 
             # Apply conversion
-            population = self._apply_mortality(conversion_types, conv_coeff, conversion_data, population, flux_prefix,
-                                               time, age, output, _delayed, delayed_counter_update)
+            et = dt = False
+            if hasattr(species_instance, 'direct_transmission'):
+                dt = True
+            if hasattr(species_instance, 'environmental_transmission'):
+                et = True
+            population = self._apply_conversion(conversion_types, conv_coeff, conversion_data, population, flux_prefix,
+                                               time, age, output, _delayed, delayed_counter_update, dt, et)
             # All mortality types are applied to each age to record sub-populations for each group
             population = self._apply_mortality(mort_types, mort_coeff, mortality_data, population, flux_prefix,
-                                               time, age, output, _delayed, delayed_counter_update)
+                                               output, _delayed)
 
             # Apply old age mortality if necessary to avoid unnecessary dispersal calculations
             if not species_instance.live_past_max and max_age is not None and age == max_age:
@@ -1143,6 +1148,92 @@ class discrete_explicit(object):
 
         return parameters
 
+    def _prepare_conversion(self, species, group, sex, age, time, param_prefix,
+                            mort_types, mortality_data, params, output):
+        """
+        Prepare a coefficient that dictates conversion from one species to another as a result of mortality.
+        This functionality was originally developed to approach Chronic Wasting Disease simulations, although may
+        be applicable in other situations.
+
+        :param species:
+        :param group:
+        :param sex:
+        :param age:
+        :param time:
+        :param param_prefix:
+        :param mort_types:
+        :param mortality_data:
+        :param params:
+        :param output:
+        :param pre_existing_rate:
+        :return:
+        """
+        for mort_type in mort_types:
+            species_instance = self.D.species[species][sex][group]
+            # Calculate Direct Transmission if it is provided
+            if hasattr(species_instance, 'direct_transmission') or hasattr(species_instance, 'environmental_transmission'):
+                transmission = da_zeros(self.D.shape, self.D.chunks)
+                if hasattr(species_instance, 'direct_transmission'):
+                    # Total population
+                    dsets = self.D.all_population(species, time - 1)
+                    if not hasattr(self, 'direct_transmission_total'):
+                        self.direct_transmission_total = {time - 1: self.population_total(dsets)}
+                    else:
+                        try:
+                            self.direct_transmission_total[time - 1] = self.population_total(dsets)
+                        except KeyError:
+                            self.direct_transmission_total = {time - 1: self.population_total(dsets)}
+
+                    # Calculate the proportion of infected species (Pi)
+                    dsets = self.D.all_population(mort_type.recipient_species, time - 1, sex, group)
+                    Pi = self.population_total(dsets) / self.direct_transmission_total[time - 1]
+
+                    # Accumulate FOI using the direct transmission relationships
+                    FOI = da_zeros(self.D.shape, self.D.chunks)
+                    for from_gp in species_instance.direct_transmission.keys():
+                        for from_sex in species_instance.direct_transmission[from_gp].keys():
+                            FOI += species_instance.direct_transmission[from_gp][from_sex][str(group).lower()][
+                                       str(sex).lower()] * Pi
+
+                    transmission += FOI
+
+                if hasattr(species_instance, 'environmental_transmission'):
+                    transmission += (species_instance.environmental_transmission['C'][str(group).lower()][str(sex).lower()]
+                                     * species_instance.environmental_transmission['E'][time])
+
+                mortality_data.append(transmission)
+
+            else:
+                if isinstance(params[mort_type.name], dict):
+                    # This is time-based mortality
+                    time_based_rate = params[mort_type.name]['time_based_rates']
+                    time_based_index = self.get_counter(species, group, sex, age, time - 1)
+                    if time_based_index is None:
+                        # There has never been a population of this nature
+                        continue
+                    try:
+                        time_based_mortality = time_based_rate[time_based_index]
+                    except IndexError:
+                        # The timer has surpassed the range of rates
+                        continue
+                    if params[mort_type.name]['time_based_std'] is not None:
+                        time_based_mortality = np.random.normal(time_based_mortality,
+                                                                params[mort_type.name]['time_based_std'])
+                    time_based_mortality = da.broadcast_to(min(1, max(0, time_based_mortality)),
+                                                           self.D.shape, self.D.chunks)
+                    mortality_data.append(time_based_mortality)
+                    output['{}/mortality/{}'.format(param_prefix, mort_type.name)] = time_based_mortality
+                else:
+                    mortality_data.append(params[mort_type.name])
+
+        # These may exceed 1 in order to parameterize the B matrix
+        if len(mortality_data) > 0:
+            mort_coeff = dsum(mortality_data)
+        else:
+            mort_coeff = 0
+
+        return mort_coeff
+
     def _prepare_mortality(self, species, group, sex, age, time, param_prefix,
                            mort_types, mortality_data, params, output, pre_existing_rate=None):
         """
@@ -1200,11 +1291,75 @@ class discrete_explicit(object):
 
         return mort_coeff
 
-    def _apply_mortality(self, mort_types, mort_coeff, mortality_data, population, flux_prefix, time, age,
-                         output, _delayed, delayed_counter_update):
+    def _apply_conversion(self, mort_types, mort_coeff, mortality_data, population, flux_prefix, time, age,
+                         output, _delayed, delayed_counter_update, dt, et):
         """
 
+        :param mort_types:
+        :param mort_coeff:
+        :param mortality_data:
+        :param population:
+        :param flux_prefix:
+        :param time:
+        :param age:
+        :param output:
+        :param _delayed:
+        :param delayed_counter_update:
+        :return:
+        """
+        mort_fluxes = []
+        for mort_type, mort_data in zip(mort_types, mortality_data):
+            if dt or et:
+                # The coefficient is the mortality rate as a result of direct/environmental transmission calculations
+                mort_fluxes.append(mort_coeff * population)
+            else:
+                mort_fluxes.append(mort_data * mort_coeff * population)
+            output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
 
+            # Apply mortality to any recipients (a conversion that serves to simulate disease)
+            # The population is added to the model domain for the same age,
+            # and is added to any existing population
+            other_species = mort_type.recipient_species
+            existing_pop = self.D.get_population(
+                other_species.name_key, time, other_species.sex, other_species.group_key, age
+            )
+
+            if age not in other_species.age_range:
+                raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
+                                  'does not exist for the group {}'.format(
+                    other_species.name, age, other_species.group_name)
+                )
+
+            try:
+                output['{}/mortality/Converted to {}'.format(
+                    flux_prefix, other_species.name)] += mort_fluxes[-1]
+            except KeyError:
+                output['{}/mortality/Converted to {}'.format(
+                    flux_prefix, other_species.name)] = mort_fluxes[-1]
+
+            other_species_key = '{}/{}/{}/{}/{}'.format(
+                other_species.name_key, other_species.sex, other_species.group_key, time, age
+            )
+
+            if existing_pop is not None:
+                other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
+            else:
+                other_species_data = mort_fluxes[-1]
+
+            # If multiple species are contributing to the recipient, they must be added in a delayed fashion
+            try:
+                _delayed[other_species_key] += other_species_data
+            except KeyError:
+                _delayed[other_species_key] = other_species_data
+            delayed_counter_update[other_species_key] = da.any(_delayed[other_species_key] > 0)
+
+        # Reduce the population by the mortality
+        for mort_flux in mort_fluxes:
+            population -= mort_flux
+        return da.maximum(0, population)
+
+    def _apply_mortality(self, mort_types, mort_coeff, mortality_data, population, flux_prefix, output, _delayed):
+        """
         :param mort_types:
         :param mort_coeff:
         :param mortality_data:
@@ -1221,44 +1376,6 @@ class discrete_explicit(object):
         for mort_type, mort_data in zip(mort_types, mortality_data):
             mort_fluxes.append(mort_data * mort_coeff * population)
             output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
-
-            # Apply mortality to any recipients (a conversion that serves to simulate disease)
-            if mort_type.recipient_species is not None:
-                # The population is added to the model domain for the same age,
-                # and is added to any existing population
-                other_species = mort_type.recipient_species
-                existing_pop = self.D.get_population(
-                    other_species.name_key, time, other_species.sex, other_species.group_key, age
-                )
-
-                if age not in other_species.age_range:
-                    raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
-                                      'does not exist for the group {}'.format(
-                        other_species.name, age, other_species.group_name)
-                    )
-
-                try:
-                    output['{}/mortality/Converted to {}'.format(
-                        flux_prefix, other_species.name)] += mort_fluxes[-1]
-                except KeyError:
-                    output['{}/mortality/Converted to {}'.format(
-                        flux_prefix, other_species.name)] = mort_fluxes[-1]
-
-                other_species_key = '{}/{}/{}/{}/{}'.format(
-                    other_species.name_key, other_species.sex, other_species.group_key, time, age
-                )
-
-                if existing_pop is not None:
-                    other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
-                else:
-                    other_species_data = mort_fluxes[-1]
-
-                # If multiple species are contributing to the recipient, they must be added in a delayed fashion
-                try:
-                    _delayed[other_species_key] += other_species_data
-                except KeyError:
-                    _delayed[other_species_key] = other_species_data
-                delayed_counter_update[other_species_key] = da.any(_delayed[other_species_key] > 0)
 
         # Reduce the population by the mortality
         for mort_flux in mort_fluxes:

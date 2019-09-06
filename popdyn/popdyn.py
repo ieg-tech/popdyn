@@ -1403,6 +1403,14 @@ class Species(object):
 
         self.dispersal.append((dispersal_type, args))
 
+    def add_disease(self, input_file, **kwargs):
+        direct, env = read_cwd_input(input_file)
+        if kwargs.get('direct_transmission'):
+            self.direct_transmission = direct
+        if kwargs.get('environmental_transmission'):
+            self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
+
+
     @property
     def age_range(self):
         try:
