@@ -1193,7 +1193,7 @@ class discrete_explicit(object):
                         0
                     )
 
-                    test = self.population_total(dsets).compute()
+                    test = self.direct_transmission_total[time - 1].compute()
                     print 'min: {}'.format(test.min())
                     print 'max: {}'.format(test.max())
                     print 'mean: {}'.format(test.mean())
