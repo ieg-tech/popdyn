@@ -7,7 +7,6 @@ Devin Cairns, 2018
 from __future__ import print_function
 import os
 import pickle
-from string import punctuation
 import numpy as np
 from osgeo import gdal, osr
 from logger import Timer
@@ -1308,19 +1307,6 @@ class Domain(object):
 #         AgeGroup: Species with a sex and a range of ages. Inherits all carrying capacity, mortality,
 #                   and fecundity from the same species/sex when added to the domain.
 # ========================================================================================================
-
-def name_key(name):
-    """Map a given name to a stripped alphanumeric hash"""
-    # Remove white space and make lower-case
-    name = name.strip().replace(' ', '').lower()
-
-    try:
-        # String
-        return name.translate(None, punctuation)
-    except:
-        # Unicode
-        return name.translate(dict.fromkeys(punctuation))
-
 
 class Species(object):
     """Top-level species customization"""

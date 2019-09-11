@@ -1,5 +1,6 @@
 import csv
 from collections import defaultdict
+from string import punctuation
 import numpy as np
 import dask.array as da
 # import dafake as da
@@ -12,6 +13,19 @@ import dask.array as da
 def rec_dd():
     """Recursively update defaultdicts to avoid key errors"""
     return defaultdict(rec_dd)
+
+
+def name_key(name):
+    """Map a given name to a stripped alphanumeric hash"""
+    # Remove white space and make lower-case
+    name = name.strip().replace(' ', '').lower()
+
+    try:
+        # String
+        return name.translate(None, punctuation)
+    except:
+        # Unicode
+        return name.translate(dict.fromkeys(punctuation))
 
 
 def dstack(dsts):
@@ -165,15 +179,15 @@ def read_cwd_input(f):
     # Parse direct transmission data
     direct_transmission = rec_dd()
     for j in range(cols, len(data[group_row])):
-        from_gp = data[group_row][j].lower()
+        from_gp = name_key(data[group_row][j])
         if len(from_gp) == 0:
             break
-        from_sex = data[sex_row][j].lower()
+        from_sex = name_key(data[sex_row][j])
         for i in range(rows, len(data)):
-            to_gp = data[i][group_col].lower()
+            to_gp = name_key(data[i][group_col])
             if len(to_gp) == 0:
                 break
-            to_sex = data[i][sex_col].lower()
+            to_sex = name_key(data[i][sex_col])
             try:
                 value = float(data[i][j])
             except ValueError:
@@ -199,10 +213,10 @@ def read_cwd_input(f):
     # Parse environmental transmission data
     C = defaultdict(dict)
     for j in range(cols, len(data[group_row])):
-        gp = data[group_row][j].lower()
+        gp = name_key(data[group_row][j])
         if len(gp) == 0:
             break
-        sex = data[sex_row][j].lower()
+        sex = name_key(data[sex_row][j])
         try:
             value = float(data[rows][j])
         except ValueError:
