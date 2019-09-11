@@ -1193,11 +1193,6 @@ class discrete_explicit(object):
                         0
                     )
 
-                    test = self.direct_transmission_total[time - 1].compute()
-                    print 'min: {}'.format(test.min())
-                    print 'max: {}'.format(test.max())
-                    print 'mean: {}'.format(test.mean())
-
                     # Accumulate FOI using the direct transmission relationships
                     FOI = da_zeros(self.D.shape, self.D.chunks)
                     for from_gp in species_instance.direct_transmission.keys():
