@@ -94,8 +94,8 @@ def read_input(f):
     # Change into a regular dictionary
     def update(key, val, d):
         if isinstance(val, defaultdict):
+            d[key] = {}
             for _key, _val in val.items():
-                d[key] = {}
                 update(_key, _val, d[key])
         else:
             d[key] = val
