@@ -1186,19 +1186,23 @@ class discrete_explicit(object):
 
                     # Calculate the proportion of infected species (Pi)
                     dsets = self.D.all_population(mort_type.recipient_species, time - 1, sex, group)
-                    Pi = self.population_total(dsets) / self.direct_transmission_total[time - 1]
+                    # Where there is no population the rate is 0
+                    Pi = da.where(
+                        self.direct_transmission_total[time - 1] > 0,
+                        self.population_total(dsets) / self.direct_transmission_total[time - 1],
+                        0
+                    )
 
                     # Accumulate FOI using the direct transmission relationships
                     FOI = da_zeros(self.D.shape, self.D.chunks)
                     for from_gp in species_instance.direct_transmission.keys():
                         for from_sex in species_instance.direct_transmission[from_gp].keys():
-                            FOI += species_instance.direct_transmission[from_gp][from_sex][str(group).lower()][
-                                       str(sex).lower()] * Pi
+                            FOI += species_instance.direct_transmission[from_gp][from_sex][str(group)][str(sex)] * Pi
 
                     transmission += FOI
 
                 if hasattr(species_instance, 'environmental_transmission'):
-                    transmission += (species_instance.environmental_transmission['C'][str(group).lower()][str(sex).lower()]
+                    transmission += (species_instance.environmental_transmission['C'][str(group)][str(sex)]
                                      * species_instance.environmental_transmission['E'][time])
 
                 mortality_data.append(transmission)
