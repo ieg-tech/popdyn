@@ -1192,6 +1192,10 @@ class discrete_explicit(object):
                         self.population_total(dsets) / self.direct_transmission_total[time - 1],
                         0
                     )
+                    test = Pi.compute()
+                    print 'min Pi: {}'.format(test.min())
+                    print 'max Pi: {}'.format(test.max())
+                    print 'mean Pi: {}'.format(test.mean())
 
                     # Accumulate FOI using the direct transmission relationships
                     FOI = da_zeros(self.D.shape, self.D.chunks)
@@ -1206,7 +1210,9 @@ class discrete_explicit(object):
                     env_rate = (species_instance.environmental_transmission['C'][str(group)][str(sex)]
                                      * species_instance.environmental_transmission['E'][time])
                     transmission += env_rate
-                    output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = da.from_array(env_rate, self.D.chunks)
+                    output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = da.from_array(
+                        env_rate, self.D.chunks
+                    )
 
                 mortality_data.append(transmission)
 
