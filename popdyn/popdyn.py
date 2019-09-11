@@ -1394,6 +1394,7 @@ class Species(object):
         if kwargs.get('direct_transmission'):
             self.direct_transmission = direct
         if kwargs.get('environmental_transmission'):
+            # TODO: E data should be added in the domain, as it has a specific discretization
             self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
 
 

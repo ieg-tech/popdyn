@@ -1206,7 +1206,7 @@ class discrete_explicit(object):
                     env_rate = (species_instance.environmental_transmission['C'][str(group)][str(sex)]
                                      * species_instance.environmental_transmission['E'][time])
                     transmission += env_rate
-                    output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = env_rate
+                    output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = da.from_array(env_rate, self.D.chunks)
 
                 mortality_data.append(transmission)
 
