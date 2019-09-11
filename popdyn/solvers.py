@@ -1185,17 +1185,13 @@ class discrete_explicit(object):
                             self.direct_transmission_total = {time - 1: self.population_total(dsets)}
 
                     # Calculate the proportion of infected species (Pi)
-                    dsets = self.D.all_population(mort_type.recipient_species, time - 1, sex, group)
+                    dsets = self.D.all_population(mort_type.recipient_species.name_key, time - 1, sex, group)
                     # Where there is no population the rate is 0
                     Pi = da.where(
                         self.direct_transmission_total[time - 1] > 0,
                         self.population_total(dsets) / self.direct_transmission_total[time - 1],
                         0
                     )
-                    test = Pi.compute()
-                    print 'min Pi: {}'.format(test.min())
-                    print 'max Pi: {}'.format(test.max())
-                    print 'mean Pi: {}'.format(test.mean())
 
                     # Accumulate FOI using the direct transmission relationships
                     FOI = da_zeros(self.D.shape, self.D.chunks)
