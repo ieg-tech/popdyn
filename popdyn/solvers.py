@@ -1200,10 +1200,13 @@ class discrete_explicit(object):
                             FOI += species_instance.direct_transmission[from_gp][from_sex][str(group)][str(sex)] * Pi
 
                     transmission += FOI
+                    output['{}/mortality/Direct Transmission effective rate'.format(param_prefix)] = transmission
 
                 if hasattr(species_instance, 'environmental_transmission'):
-                    transmission += (species_instance.environmental_transmission['C'][str(group)][str(sex)]
+                    env_rate = (species_instance.environmental_transmission['C'][str(group)][str(sex)]
                                      * species_instance.environmental_transmission['E'][time])
+                    transmission += env_rate
+                    output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = env_rate
 
                 mortality_data.append(transmission)
 
