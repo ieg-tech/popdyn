@@ -626,12 +626,11 @@ def conversion_and_transmission():
 if __name__ == '__main__':
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    # tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
-    #          single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-    #          single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-    #          species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies]
-
-    tests = [conversion_and_transmission]
+    tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
+             single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
+             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies,
+             conversion_and_transmission]
 
     error_check = 0
     now = time.time()

@@ -1,0 +1,18 @@
+Notes,,,
+The group names must match those input in the model exactly,,,
+"The position of the words FROM, TO, and C dictate the location of the data. Ensure they do not deviate from their position relative to the data below.",,,
+,,,
+Direct Transmission,,,
+Enter one or more Age Groups and sexes in the format below,,,
+,,,
+,,,FROM
+,,,None
+,,,None
+TO,None,None,0.1
+,,,
+Environmental Transmission,,,
+"Enter the ""C"" value for one or more stages and each sex using the format below",,,
+,,,
+,None,,
+,None,,
+C,0.1,,

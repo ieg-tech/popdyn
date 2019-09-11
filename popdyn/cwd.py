@@ -91,4 +91,21 @@ def read_input(f):
             raise CWDError('Unable to read the env. transmission value for {}-{}'.format(gp, sex))
         C[gp][sex] = value
 
-    return direct_transmission, C
+    # Change into a regular dictionary
+    def update(key, val, d):
+        if isinstance(val, defaultdict):
+            for _key, _val in val.items():
+                d[key] = {}
+                update(_key, _val, d[key])
+        else:
+            d[key] = val
+
+    out_direct_transmission = {}
+    for key, val in direct_transmission.items():
+        update(key, val, out_direct_transmission)
+
+    out_C = {}
+    for key, val in C.items():
+        update(key, val, out_C)
+
+    return out_direct_transmission, out_C
