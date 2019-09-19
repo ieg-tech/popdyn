@@ -450,6 +450,30 @@ def single_species_recipient():
             )
 
 
+def reverse_conversion_at_birth():
+    with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
+        recipient_males = pd.Sex('recipient', 'male')
+        recipient_females = pd.Sex('recipient', 'female')
+        test_mortality = pd.Mortality('test recipient')
+        test_mortality.add_recipient_species(recipient_females)
+
+        domain.add_population(recipient_males, 10, 0)
+        domain.add_population(recipient_females, 10, 0)
+        domain.add_fecundity(recipient_males, pd.Fecundity('test'), 0, .05)
+        domain.add_fecundity(recipient_females, pd.Fecundity('test'), 0, .05)
+
+        domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
+        domain.add_population(pd.Sex('Stark', 'male'), 0.5, 0, distribute_by_habitat=True)
+        domain.add_population(pd.Sex('Stark', 'female'), 0.5, 0, distribute_by_habitat=True)
+        domain.add_mortality(starks, test_mortality, 0, 0.1)
+        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+
+        # There should be 2 starks at time 1
+        tot_pop = summary.total_population(domain, 'stark', 1).sum()
+        if tot_pop != 2:
+            raise Exception('No offspring from recipient species in Starks at time 1')
+
+
 def species_as_mortality():
     # White Walker mortality lookup: [(0, 0), (0.1, 0.1), (0.5, 0.8), (1, 0.9)]
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=shape[0], left=0) as domain:
@@ -630,7 +654,7 @@ if __name__ == '__main__':
              single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
              single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
              species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies,
-             conversion_and_transmission]
+             conversion_and_transmission, reverse_conversion_at_birth]
 
     error_check = 0
     now = time.time()

@@ -862,6 +862,26 @@ class Domain(object):
 
         return values
 
+    def all_species_with_mortality(self, mortality):
+        """
+        Collect all of the species tied to a specific mortality instance
+        :param Mortality mortality:
+        :return: List of species name keys
+        """
+        species = []
+
+        def next_key(d, sp):
+            if isinstance(d, dict):
+                for key, val in d.items():
+                    next_key(val, sp)
+            elif isinstance(d[0], Mortality) and mortality.name_key == d[0].name_key:
+                species.append(sp)
+
+        for current_species in self.mortality.keys():
+            next_key(self.mortality[current_species], current_species)
+
+        return species
+
     def youngest_group(self, species, sex):
         """
         Collect the group with the youngest age in the domain

@@ -355,8 +355,13 @@ class discrete_explicit(object):
             self.dsts = {}
             self.population_arrays = {sp: {} for sp in all_species}
             self.carrying_capacity_arrays = {sp: {} for sp in all_species}
-            self.age_zero_population = {}
             output, _delayed, counter_update, delayed_counter_update = {}, {}, {}, {}
+
+            # All births are recorded from each sex and are added to the age 0 slot
+            # Age zero populations are updated with offspring calculated in self.propagate()
+            self.age_zero_population = {species: {
+                key: da_zeros(self.D.shape, self.D.chunks) for key in self.D.species[species].keys()
+            } for species in all_species}
 
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
@@ -392,11 +397,6 @@ class discrete_explicit(object):
                 # do not propagate Nonetypes
                 if any([fm in sex_keys for fm in ['male', 'female']]):
                     sex_keys = [key for key in sex_keys if key is not None]
-
-                # All births are recorded from each sex and are added to the age 0 slot
-                # Age zero populations are updated with offspring calculated in self.propagate()
-                self.age_zero_population[species] = {key: da_zeros(self.D.shape, self.D.chunks)
-                                                     for key in sex_keys}
 
                 # Iterate sexes and groups and calculate each individually
                 for sex in sex_keys:
@@ -854,15 +854,27 @@ class discrete_explicit(object):
             male_births = births * params.get('Birth Ratio', 0.5)
             female_births = births - male_births
 
+            # Check if this is a recipient species, as offspring will need to be added to the contributing species
+            cont_species = self._contributing_species(species)
+
             # Add new offspring to males or females
             for _sex in self.age_zero_population[species].keys():
                 if _sex == 'female':
                     # Add female portion of births
-                    self.age_zero_population[species][_sex] += female_births
+                    if len(cont_species) == 0:
+                        self.age_zero_population[species][_sex] += female_births
+                    else:
+                        for cont_sp in cont_species:
+                            self.age_zero_population[cont_sp][_sex] += (female_births / len(cont_species))
                     output['{}/offspring/{}'.format(flux_prefix, 'Female Offspring')] = female_births
                 else:
-                    self.age_zero_population[species][_sex] += male_births
+                    if len(cont_species) == 0:
+                        self.age_zero_population[species][_sex] += male_births
+                    else:
+                        for cont_sp in cont_species:
+                            self.age_zero_population[cont_sp][_sex] += (male_births / len(cont_species))
                     output['{}/offspring/{}'.format(flux_prefix, 'Male Offspring')] = male_births
+
 
         # Density-dependent mortality
         # ---------------------------
@@ -1000,7 +1012,7 @@ class discrete_explicit(object):
             population *= self.mvp_coeff
 
             if existing_age is not None:
-                # This population exists, and served to implement immigration/emigration
+                # This population exists, and serves to implement immigration/emigration
                 try:
                     ds = self.dsts[existing_age]
                 except KeyError:
@@ -1148,6 +1160,22 @@ class discrete_explicit(object):
 
         return parameters
 
+    def _contributing_species(self, species_name):
+        """
+        Determine if the species is the recipient of another, and report the contributing species
+        :param str species_name:
+        :return: List of contributing species
+        """
+        cont_species = []
+        for mort in self.D.mortality_instances:
+            if mort.recipient_species is not None and mort.recipient_species.name_key == species_name:
+                sps = self.D.all_species_with_mortality(mort)
+                for sp in sps:
+                    if sp != species_name:
+                        cont_species.append(sp)
+
+        return np.unique(cont_species)
+
     def _prepare_conversion(self, species, group, sex, age, time, param_prefix,
                             mort_types, mortality_data, params, output):
         """
@@ -1197,13 +1225,13 @@ class discrete_explicit(object):
                     FOI = da_zeros(self.D.shape, self.D.chunks)
                     for from_gp in species_instance.direct_transmission.keys():
                         for from_sex in species_instance.direct_transmission[from_gp].keys():
-                            FOI += species_instance.direct_transmission[from_gp][from_sex][str(group)][str(sex)] * Pi
+                            FOI += species_instance.direct_transmission[from_gp][from_sex][str(group).lower()][str(sex).lower()] * Pi
 
                     transmission += FOI
                     output['{}/mortality/Direct Transmission effective rate'.format(param_prefix)] = transmission
 
                 if hasattr(species_instance, 'environmental_transmission'):
-                    env_rate = (species_instance.environmental_transmission['C'][str(group)][str(sex)]
+                    env_rate = (species_instance.environmental_transmission['C'][str(group).lower()][str(sex).lower()]
                                      * species_instance.environmental_transmission['E'][time])
                     transmission += env_rate
                     output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = da.from_array(
