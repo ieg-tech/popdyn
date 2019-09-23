@@ -359,9 +359,14 @@ class discrete_explicit(object):
 
             # All births are recorded from each sex and are added to the age 0 slot
             # Age zero populations are updated with offspring calculated in self.propagate()
-            self.age_zero_population = {species: {
-                key: da_zeros(self.D.shape, self.D.chunks) for key in self.D.species[species].keys()
-            } for species in all_species}
+            self.age_zero_population = {}
+            for species in all_species:
+                self.age_zero_population[species] = {}
+                sex_keys = self.D.species[species].keys()
+                if any([fm in sex_keys for fm in ['male', 'female']]):
+                    sex_keys = [key for key in sex_keys if key is not None]
+                for _sex in sex_keys:
+                    self.age_zero_population[species][_sex] = da_zeros(self.D.shape, self.D.chunks)
 
             # Hierarchically traverse [species --> sex --> groups --> age] and solve children populations
             # Each are solved independently, deriving relationships from baseline data
