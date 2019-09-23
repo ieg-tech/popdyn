@@ -195,7 +195,9 @@ class ModelSummary(object):
             # Population-weighted mean
             pops = pd.dstack(ages.values())
             pops_sum = pops.sum(axis=-1, keepdims=True)
-            self.to_compute.append(da.where(pops_sum > 0, ages.keys() * (pops / pops_sum), np.inf).sum(axis=-1))
+            self.to_compute.append(
+                da.where(pops_sum > 0, np.int32(ages.keys()) * (pops / pops_sum), np.inf).sum(axis=-1)
+            )
 
     def total_carrying_capacity(self, species=None, time=None, sex=None, group=None):
         """
@@ -521,7 +523,7 @@ class ModelSummary(object):
 
                 # Calculate the F:M ratio if both sexes present
                 if ('Population/{}/NA/Total Males'.format(species_name) in lcl_cmp.keys() and
-                    'Population/{}/NA/Total Females'.format(species_name) in lcl_cmp.keys()):
+                        'Population/{}/NA/Total Females'.format(species_name) in lcl_cmp.keys()):
                     key = 'Natality/{}/NA/F:M Ratio'.format(species_name)
                     lcl_cmp[key] = da.where(
                         lcl_cmp['Population/{}/NA/Total Males'.format(species_name)] > 0,
@@ -626,7 +628,7 @@ class ModelSummary(object):
 
                     # Calculate the F:M ratio if both sexes present
                     if ('Population/{}/{}/Males'.format(species_name, group_name) in lcl_cmp.keys() and
-                        'Population/{}/{}/Females'.format(species_name, group_name) in lcl_cmp.keys()):
+                            'Population/{}/{}/Females'.format(species_name, group_name) in lcl_cmp.keys()):
                         key = 'Natality/{}/{}/F:M Ratio'.format(species_name, group_name)
                         lcl_cmp[key] = da.where(
                             lcl_cmp['Population/{}/{}/Males'.format(species_name, group_name)] > 0,
