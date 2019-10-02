@@ -929,7 +929,7 @@ class discrete_explicit(object):
             if hasattr(species_instance, 'environmental_transmission'):
                 et = True
             population = self._apply_conversion(conversion_types, conv_coeff, conversion_data, population, flux_prefix,
-                                               time, age, output, _delayed, delayed_counter_update, dt, et)
+                                                time, age, output, _delayed, delayed_counter_update, dt, et)
             # All mortality types are applied to each age to record sub-populations for each group
             population = self._apply_mortality(mort_types, mort_coeff, mortality_data, population, flux_prefix,
                                                output, _delayed)
@@ -1237,7 +1237,7 @@ class discrete_explicit(object):
 
                 if hasattr(species_instance, 'environmental_transmission'):
                     env_rate = (species_instance.environmental_transmission['C'][str(group).lower()][str(sex).lower()]
-                                     * species_instance.environmental_transmission['E'][time])
+                                * species_instance.environmental_transmission['E'][time])
                     transmission += env_rate
                     output['{}/mortality/Env. Transmission effective rate'.format(param_prefix)] = da.from_array(
                         env_rate, self.D.chunks
@@ -1323,7 +1323,7 @@ class discrete_explicit(object):
                 pre_agg_mort = dsum(pre_existing_rate)
                 agg_mort = dsum(mortality_data)
                 max_mort = da_where((pre_agg_mort + agg_mort) > 1.,
-                                      da.minimum(agg_mort, da.maximum(0., 1. - pre_agg_mort)), 1.)
+                                    da.minimum(agg_mort, da.maximum(0., 1. - pre_agg_mort)), 1.)
                 mort_coeff = da_where(agg_mort > max_mort, 1. - ((agg_mort - max_mort) / agg_mort), 1.)
             else:
                 agg_mort = dsum(mortality_data)
@@ -1334,7 +1334,7 @@ class discrete_explicit(object):
         return mort_coeff
 
     def _apply_conversion(self, mort_types, mort_coeff, mortality_data, population, flux_prefix, time, age,
-                         output, _delayed, delayed_counter_update, dt, et):
+                          output, _delayed, delayed_counter_update, dt, et):
         """
 
         :param mort_types:
@@ -1359,17 +1359,27 @@ class discrete_explicit(object):
             output['{}/mortality/{}'.format(flux_prefix, mort_type.name)] += mort_fluxes[-1]
 
             # Apply mortality to any recipients (a conversion that serves to simulate disease)
-            # The population is added to the model domain for the same age,
-            # and is added to any existing population
+            # The population is added to the model domain for the incremented age and group to
+            # use the correct output recipient population time slot
             other_species = mort_type.recipient_species
-            existing_pop = self.D.get_population(
-                other_species.name_key, time, other_species.sex, other_species.group_key, age
-            )
 
-            if age not in other_species.age_range:
-                raise PopdynError('Could not apply mortality to recipient species {} because the age {} '
-                                  'does not exist for the group {}'.format(
-                    other_species.name, age, other_species.group_name)
+            recipient_age = age + 1
+            recipient_group = self.D.group_from_age(other_species.name_key, other_species.sex, recipient_age)
+            if recipient_group is None:
+                max_age = self.D.discrete_ages(other_species.name_key, other_species.sex)[-1]
+                # No group past this point. If there is a legitimate age, this means that live_past_max is True
+                if max_age is not None and age == max_age:
+                    # Need to add an age sequentially to the current group
+                    self.D.species[other_species.name_key][other_species.sex][other_species.group_key].max_age += 1
+                    recipient_group = other_species.group_key
+                else:
+                    recipient_age = None
+
+            recipient_instance = self.D.species[other_species.name_key][other_species.sex][recipient_group].age_range
+            if recipient_age not in recipient_instance:
+                raise PopdynError('Could not apply conversion to recipient species {} because the age {} '
+                                  'does not exist for the group {} (with range {})'.format(
+                    other_species.name, recipient_age, recipient_group, other_species.age_range)
                 )
 
             try:
@@ -1380,13 +1390,13 @@ class discrete_explicit(object):
                     flux_prefix, other_species.name)] = mort_fluxes[-1]
 
             other_species_key = '{}/{}/{}/{}/{}'.format(
-                other_species.name_key, other_species.sex, other_species.group_key, time, age
+                other_species.name_key, other_species.sex, recipient_group, time, recipient_age
             )
 
-            if existing_pop is not None:
-                other_species_data = self.population_total([existing_pop], False) + mort_fluxes[-1]
-            else:
-                other_species_data = mort_fluxes[-1]
+            # This key may not exist yet
+            ds = self.D.file.require_dataset(other_species_key, shape=self.D.shape, dtype=np.float32,
+                                             chunks=self.D.chunks, compression='lzf')
+            other_species_data = da.from_array(ds, self.D.chunks) + mort_fluxes[-1]
 
             # If multiple species are contributing to the recipient, they must be added in a delayed fashion
             try:
