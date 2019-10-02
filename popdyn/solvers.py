@@ -1268,9 +1268,9 @@ class discrete_explicit(object):
                 else:
                     mortality_data.append(params[mort_type.name])
 
-        # These may exceed 1 in order to parameterize the B matrix
         if len(mortality_data) > 0:
             mort_coeff = dsum(mortality_data)
+            mort_coeff = da_where(mort_coeff > 1, 1, mort_coeff)
         else:
             mort_coeff = 0
 

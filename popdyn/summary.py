@@ -43,6 +43,8 @@ class ModelSummary(object):
 
     def __init__(self, domain):
         """
+        TODO: Include the habitat in the statistical aggregation of parameters
+
         :param domain: A Domain instance
         """
         # Create a log dictionary to populate with values
