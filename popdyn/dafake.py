@@ -1,3 +1,8 @@
+"""
+Used as a dask replacement for debugging purposes
+"""
+
+
 from numpy import *
 from numpy import where as npwhere
 from numpy import random as nprandom
