@@ -64,7 +64,7 @@ class Domain(object):
         # If the path exists, parameterize the model based on the previous run
         if os.path.isfile(popdyn_path) or os.path.isdir(popdyn_path):
             self.path = popdyn_path  # Files are accessed through the file attribute
-            self.file = h5py.File(self.path, libver='latest')
+            self.file = h5py.File(self.path, libver='latest', mode='r+')
             self._load()
         else:
 
@@ -74,6 +74,7 @@ class Domain(object):
             self.timer = Timer()
     # File management and builtins
     # ==================================================================================================
+
     @staticmethod
     def _create_file(path):
         """Create the domain HDF5 file.  The extension .popdyn is appended if it isn't already"""
@@ -163,13 +164,13 @@ class Domain(object):
         return 'Popdyn domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
 
     # Data parsing and checking methods
-    #==================================================================================================
+    # ==================================================================================================
     @_save
     def _build_new(self, popdyn_path, domain_raster, **kwargs):
         """Used in the constructor to build the domain using input arguments"""
         # Make sure the name suits the specifications
         self.path = self._create_file(popdyn_path)
-        self.file = h5py.File(self.path, libver='latest')
+        self.file = h5py.File(self.path, libver='latest', mode='w')
 
         if domain_raster is None:
             # Try and build the domain using keyword arguments
@@ -309,10 +310,10 @@ class Domain(object):
                   '    Cell Size (y):     {:.2f} --> {:.2f}\n'
                   '    Top:               {:.2f} --> {:.2f}\n'
                   '    Left:              {:.2f} --> {:.2f}'.format(
-                in_sr.GetAttrValue('datum').replace('_', ' '), in_sr.GetAttrValue('projcs').replace('_', ' '),
-                domain_sr.GetAttrValue('datum').replace('_', ' '), domain_sr.GetAttrValue('projcs').replace('_', ' '),
-                csx, self.csx, csy, self.csy, top, self.top, left, self.left
-            ))
+                      in_sr.GetAttrValue('datum').replace('_', ' '), in_sr.GetAttrValue('projcs').replace('_', ' '),
+                      domain_sr.GetAttrValue('datum').replace('_', ' '), domain_sr.GetAttrValue('projcs').replace('_', ' '),
+                      csx, self.csx, csy, self.csy, top, self.top, left, self.left
+                  ))
 
         return self._raster_as_array(file_source)
 
@@ -408,8 +409,8 @@ class Domain(object):
             if discrete_age not in ages:
                 raise PopdynError('The input discrete age {} does not exist for the'
                                   ' species {} {}s of (key) {}'.format(
-                    discrete_age, species.name, species.sex, species.group_key
-                ))
+                                      discrete_age, species.name, species.sex, species.group_key
+                                  ))
             ages = [discrete_age]
 
         distribute_by_habitat = kwargs.get('distribute_by_habitat', False)
@@ -469,8 +470,8 @@ class Domain(object):
             if not hasattr(carrying_capacity, 'species'):
                 raise PopdynError('Carrying capacity data must be provided with {}, '
                                   'as it is not attached to a species'.format(
-                    carrying_capacity.name
-                ))
+                                      carrying_capacity.name
+                                  ))
 
             # The species may not be itself (this would create an infinite loop)
             if carrying_capacity.species.name_key == species.name_key:
@@ -493,7 +494,6 @@ class Domain(object):
         self.carrying_capacity[species.name_key][species.sex][species.group_key][time][k_key] = (
             carrying_capacity, key
         )
-
 
     @_save
     def add_mortality(self, species, mortality, time, data=None, **kwargs):
@@ -845,6 +845,27 @@ class Domain(object):
         for age in ages:
             age_ret += age
         return np.sort(age_ret)
+
+    @property
+    def discrete_times(self):
+        """Collect all times with data in the Domain"""
+        attrs = ['population',
+                 'mortality',
+                 'fecundity',
+                 'masks',
+                 'carrying_capacity']
+        times = []
+        for attr in attrs:
+            species = getattr(self, attr).keys()
+            for sp in species:
+                sexes = getattr(self, attr)[sp].keys()
+                for sex in sexes:
+                    groups = getattr(self, attr)[sp][sex].keys()
+                    for gp in groups:
+                        times += getattr(self, attr)[sp][sex][gp].keys()
+
+        return np.unique(times)
+
 
     @staticmethod
     def _deconstruct_key(key):
@@ -1416,7 +1437,6 @@ class Species(object):
         if kwargs.get('environmental_transmission'):
             # TODO: E data should be added in the domain, as it has a specific discretization
             self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
-
 
     @property
     def age_range(self):
