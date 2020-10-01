@@ -192,7 +192,7 @@ class ModelSummary(object):
                                     ages[age] = ds
 
         if len(ages) == 0:
-            raise pd.PopdynError('No ages were found using the given query')
+            self.to_compute.append(pd.da_zeros(self.domain.shape, self.domain.chunks))
         else:
             # Population-weighted mean
             pops = pd.dstack(ages.values())
