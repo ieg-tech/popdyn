@@ -141,7 +141,10 @@ class Domain(object):
             pass
 
     def __getitem__(self, item):
-        return self.file[item]
+        try:
+            return self.file[item]
+        except KeyError:
+            raise KeyError('Item {} not found'.format(item))
 
     def __setitem__(self, key, data):
         try:
@@ -865,7 +868,6 @@ class Domain(object):
                         times += getattr(self, attr)[sp][sex][gp].keys()
 
         return np.unique(times)
-
 
     @staticmethod
     def _deconstruct_key(key):
