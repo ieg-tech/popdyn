@@ -240,10 +240,8 @@ class Domain(object):
         :param as_mask: return only a mask of where data values exist in the raster
         :return: numpy.ndarray
         """
-        # Open the file
-        file_source = gdal.Open(raster)
-        if file_source is None:
-            raise PopdynError('Unable to read the source raster {}'.format(raster))
+        # Expects a gdal raster object
+        file_source = raster
 
         # Collect the raster data
         band = file_source.GetRasterBand(1)
@@ -282,7 +280,7 @@ class Domain(object):
 
         if not hasattr(self, 'shape'):
             # This is the first call, during construction, only collect raster specifications and a mask
-            return csx, csy, shape, top, left, projection, self._raster_as_array(raster, True)
+            return csx, csy, shape, top, left, projection, self._raster_as_array(file_source, True)
 
         # Collecting data...see if a transform is required
         # Extent and position
