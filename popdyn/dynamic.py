@@ -49,7 +49,10 @@ def apply_random(a, method, **kwargs):
     :return: randomly generated values
     """
     # Array should implicitly come from dask
-    return getattr(np.random, method)(a, **kwargs).astype(np.float32)
+    if method == 'chisquare':
+        return np.array([np.random.chisquare(e, 1) for e in a.ravel()], 'float32').reshape(a.shape)
+    else:
+        return getattr(np.random, method)(a, **kwargs).astype(np.float32)
 
 
 def collect_lookup(input_table):
