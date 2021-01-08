@@ -216,6 +216,7 @@ class Domain(object):
         self.population = rec_dd()
         self.mortality = rec_dd()
         self.fecundity = rec_dd()
+        self.dispersal = rec_dd()
         self.masks = rec_dd()
         self.carrying_capacity = rec_dd()
         # Inheritance may be turned off completely
@@ -601,6 +602,34 @@ class Domain(object):
         self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
 
     @_save
+    def add_time_based_dispersal(self, species, dispersal_type, time, args=()):
+        """
+        Add a disperal method that is time variant to a specific species
+
+        .. attention:: Time-variant dispersal methods are applied prior to other dispersal methods during a time step
+
+        :param Species species: Species instance
+        :param time: The time slice to insert fecundity
+        :param str dispersal_type: One of the ``dispersal.METHODS`` keywords
+        :param tuple args: Arguments to accompany the dispersal method
+        """
+        if dispersal_type not in dispersal.METHODS.keys():
+            raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
+
+        self._introduce_species(species)  # Introduce the species
+        time = self._get_time_input(time)  # Gather time
+
+        self.dispersal[species.name_key][species.sex][species.group_key][time][dispersal_type] = args
+
+    def add_disease(self, input_file, **kwargs):
+        direct, env = read_cwd_input(input_file)
+        if kwargs.get('direct_transmission'):
+            self.direct_transmission = direct
+        if kwargs.get('environmental_transmission'):
+            # TODO: E data should be added in the domain, as it has a specific discretization
+            self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
+
+    @_save
     def add_mask(self, species, time, data=None, function='masked dispersal', **kwargs):
         """
         A mask is a general-use dataset associated with a species, and must be associated with a function
@@ -686,6 +715,7 @@ class Domain(object):
         del self.mortality[species.name_key]
         del self.population[species.name_key]
         del self.carrying_capacity[species.name_key]
+        del self.dispersal[species.name_key]
 
         print("Successfully removed {} from the domain".format(species.name))
 
@@ -1140,6 +1170,55 @@ class Domain(object):
 
         # If there are data in the domain, return the HDF5 dataset, else None
         return [ds for ds in datasets.values()]
+
+    def get_dispersal(self, species_key, time, sex, group_key, snap_to_time=True, inherit=True):
+        """
+        Collect the name and args associated with a time-variant dispersal
+
+        :param str species_key: Species.name_key
+        :param str sex: sex ('male', or 'female')
+        :param str group_key: AgeGroup.group_key
+        :param int time: Time slice
+        :param snap_to_time: If the data queried does not exist, it can be snapped backwards in time to the
+            nearest available data
+        :param inherit: Do not inherit a data from the sex or species
+        :return: tuple (dispersal method name, args)
+        """
+        time = self._get_time_input(time)
+
+        # Collect the dataset keys using inheritance
+        def collect(species_key, time, sex, group_key):
+            if snap_to_time:
+                times = self.dispersal[species_key][sex][group_key].keys()
+                times = [t for t in times if function in self.dispersal[species_key][sex][group_key][t].keys()]
+
+                times = np.unique(times)
+                delta = time - times
+                backwards = delta >= 0
+                # If no times are available, time is not updated
+                if backwards.sum() > 0:
+                    times = times[backwards]
+                    delta = delta[backwards]
+                    i = np.argmin(delta)
+                    time = times[i]
+            keys = [
+                (key, self.dispersal[species_key][sex][group_key][time][key])
+                for key in self.dispersal[species_key][sex][group_key][time].keys()
+            ]
+            if len(keys) > 0:
+                return keys
+            else:
+                return None
+
+        if inherit:
+            for _sex in [sex, None]:
+                for gp in [group_key, None]:
+                    keys = collect(species_key, time, _sex, gp)
+                    if keys is not None:
+                        return keys
+            return None
+        else:
+            return collect(species_key, time, sex, group_key)
 
     def get_mask(self, species_key, time, sex, group_key, function='masked dispersal', snap_to_time=True, inherit=True):
         """

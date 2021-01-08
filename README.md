@@ -125,7 +125,7 @@ For example, randomness may be applied to the above _k_ instance:
 
 ```python
 # Use a random number generator with a normal distribution and a standard deviation of 10
-moose_k.random('normal', args=(10,))
+moose_k.random('normal', scale=10)
 ```
 
 Available distributions for the random number generator can be obtained by checking the `dynamic.RANDOM_METHODS` 

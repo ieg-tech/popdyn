@@ -3,6 +3,7 @@ Population dynamics numerical solvers
 
 Devin Cairns, 2018
 """
+from numpy.lib.function_base import disp
 from popdyn import *
 import dask.array as da
 # import dafake as da
@@ -59,6 +60,7 @@ def error_check(domain):
 
     # Check that species with relationships are both included
     recipient_ranges = {}
+
     def get_species(d):
         for key, val in d.items():
             if isinstance(val, dict):
@@ -310,6 +312,7 @@ class discrete_explicit(object):
 
     To run the simulation, use .execute()
     """
+
     def __init__(self, domain, start_time, end_time, **kwargs):
         """
         :param Domain domain: Domain instance populated with at least one species
@@ -425,8 +428,8 @@ class discrete_explicit(object):
                             if time == self.simulation_range[0]:
                                 print('Warning: no group with age 0 exists for {} {}s.\n'
                                       'Offspring will be added to the group {}.'.format(
-                                    zero_group.name, _sex, zero_group.group_name
-                                ))
+                                          zero_group.name, _sex, zero_group.group_name
+                                      ))
 
                             age = zero_group.min_age
                             zero_group = zero_group.group_key
@@ -649,7 +652,6 @@ class discrete_explicit(object):
                                                      INF)
                 else:
                     raise PopdynError('Unknown population type argument "{}"'.format(param.population_type))
-
 
                 self.carrying_capacity_arrays[parent_species][param] = dynamic.collect(None, **kwargs)
 
@@ -880,7 +882,6 @@ class discrete_explicit(object):
                             self.age_zero_population[cont_sp][_sex] += (male_births / len(cont_species))
                     output['{}/offspring/{}'.format(flux_prefix, 'Male Offspring')] = male_births
 
-
         # Density-dependent mortality
         # ---------------------------
         # Constants that scale density-dependent mortality
@@ -945,7 +946,13 @@ class discrete_explicit(object):
 
             static_population = population.copy()
 
-            for dispersal_method, args in species_instance.dispersal:
+            # Collect species and time-based dispersal methods
+            dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group, age)
+            if dispersal_methods is None:
+                dispersal_methods = []
+            dispersal_methods += species_instance.dispersal
+
+            for dispersal_method, args in dispersal_methods:
                 args = args + (self.D.csx, self.D.csy)
                 # Gather a mask if it exists
                 mask_ds = self.D.get_mask(species, self.current_time, sex, group)
@@ -1379,8 +1386,8 @@ class discrete_explicit(object):
             if recipient_age not in recipient_instance:
                 raise PopdynError('Could not apply conversion to recipient species {} because the age {} '
                                   'does not exist for the group {} (with range {})'.format(
-                    other_species.name, recipient_age, recipient_group, other_species.age_range)
-                )
+                                      other_species.name, recipient_age, recipient_group, other_species.age_range)
+                                  )
 
             try:
                 output['{}/mortality/Converted to {}'.format(
@@ -1437,6 +1444,7 @@ class discrete_explicit(object):
 
 class Counter(object):
     """Used to update population counters with dask computes"""
+
     def __init__(self, solver, key):
         self.S = solver
         self.key = key
@@ -1452,6 +1460,7 @@ class NanDict(dict):
     """
     Debugging class to tease out nan's
     """
+
     def __init__(self):
         super(NanDict, self).__init__()
 

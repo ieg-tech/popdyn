@@ -9,6 +9,7 @@ import dask.array as da
 # import dafake as da
 from dask import delayed
 from numba import jit
+from numpy.lib.shape_base import kron
 from scipy import ndimage
 
 
@@ -59,6 +60,7 @@ Density flux, also known as inter-habitat dispersal. Calculates a mean density o
 reallocates populations within the neighbourhood in attempt to flatten the gradient.
 =======================================================================================================
 """
+
 
 def density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
     """
@@ -246,7 +248,7 @@ def density_flux_task(a, kernel, i_pad, j_pad):
             for k_i in range(k):
                 if a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2] != 0:
                     _mean += a[i + kernel[k_i, 0], j + kernel[k_i, 1], 1] / \
-                             a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2]
+                        a[i + kernel[k_i, 0], j + kernel[k_i, 1], 2]
                     modals += 1.
             _mean /= modals
 
@@ -297,6 +299,7 @@ Distance Propagation, also known as maximum distance dispersal. Searches locatio
 minimum density at a specified distance and moves populations in attempt to flatten the gradient.
 =======================================================================================================
 """
+
 
 def distance_propagation(population, total_population, carrying_capacity, distance, csx, csy, **kwargs):
     """
@@ -466,6 +469,82 @@ def distance_propagation_task(a, kernel, i_pad, j_pad):
     return out
 
 
+def migration(population, _, k, source_weight, target_weight, min_density=0):
+    """
+    'relocation of a portion of a population from one region to another (migration dispersal)'
+
+    :param da.Array population: population to redistribute
+    :param da.Array k: Carrying Capacity - target location weight and distribution
+    :param da.Array source_weight: Proportion of population to remove from an element. Bounded by `0` and `1`
+    :param da.Array target_weight: Multiplier for carrying capacity at destination
+    :param float min_density: Each element may have a minimum possible density when relocating population
+
+    :return: Redistributed population
+    """
+    # Remove using the source weight
+    source_weight = da.clip(source_weight, 0, 1)
+    removed = population * source_weight
+    population -= removed
+    removed = removed.sum()
+    k = k * da.clip(target_weight, 0, 1)
+
+    # Find target locations
+    chunks = population.chunks
+    return population.rechunk(population.shape).map_blocks(
+        _migration_task, k, removed, min_density
+    ).rechunk(chunks)
+
+
+def _migration_task(population, k, input_pop, min_density):
+    """
+    'helper for migration'
+    """
+    if input_pop == 0:
+        return population
+
+    def find_intersection(a, m):
+        intersection = np.cumsum(a) - m
+        if np.unique(intersection).size == 1:
+            loc = intersection.size
+        else:
+            loc = np.argmin(np.abs(intersection)) + 1
+        return loc
+
+    # Find the intersection between k and the min_density and input_pop
+    flat_k = k.ravel()
+    order = np.argsort(flat_k)[::-1]
+    loc = find_intersection(flat_k[order] * ((1 - min_density) / 2), input_pop)
+
+    # Ensure the input population is accounted for entirely
+    allocation = np.zeros(flat_k.shape)
+    allocation[:loc] = flat_k[order[:loc]] * np.linspace(1, min_density, loc)
+    diff = input_pop - np.sum(allocation)
+    
+    if diff > 0:
+        allocation[loc:] = flat_k[order[loc:]] * min_density
+        loc = find_intersection(allocation, input_pop)
+        allocation[loc:] = 0
+        diff = np.sum(allocation) - input_pop
+        allocation[loc - 1] -= max(0, diff)
+    
+    allocation *= input_pop / np.sum(allocation)
+
+    # Add the population
+    flat_pop = population.ravel()
+    flat_pop[order] += allocation
+    return flat_pop.reshape(population.shape)
+
+
+def test():
+    import numpy as np
+    import popdyn as pd
+    pop = np.zeros((100, 100))
+    k = np.random.random((100, 100)) * 2
+    min_density = 0.8
+    input_pop = 100
+    print np.sum(pd.dispersal._migration_task(pop, k, input_pop, min_density))
+
+
 def density_network(args):
     """
     'density network dispersal'
@@ -478,6 +557,7 @@ def density_network(args):
     :param args:
     """
     raise NotImplementedError('Not implemented yet')
+
 
 def fixed_network(args):
     """
@@ -642,4 +722,5 @@ METHODS = {'density-based dispersion': density_flux,
            'distance propagation': distance_propagation,
            'masked density-based dispersion': masked_density_flux,
            'density network dispersal': density_network,
-           'fixed network movement': fixed_network}
+           'fixed network movement': fixed_network,
+           'migration': migration}
