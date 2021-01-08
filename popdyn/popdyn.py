@@ -1189,10 +1189,8 @@ class Domain(object):
         # Collect the dataset keys using inheritance
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
-                times = self.dispersal[species_key][sex][group_key].keys()
-                times = [t for t in times if function in self.dispersal[species_key][sex][group_key][t].keys()]
+                times = np.unique(self.dispersal[species_key][sex][group_key].keys())
 
-                times = np.unique(times)
                 delta = time - times
                 backwards = delta >= 0
                 # If no times are available, time is not updated
