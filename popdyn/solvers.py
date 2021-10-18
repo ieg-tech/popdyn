@@ -948,22 +948,27 @@ class discrete_explicit(object):
 
             # Collect species and time-based dispersal methods
             dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group, age)
-            if dispersal_methods is None:
-                dispersal_methods = []
-            dispersal_methods += species_instance.dispersal
+
+            # Collect all mask keys so they can be queried for dispersal arguments
+            mask_keys = self.D.get_mask(species, self.current_time, sex, group)
 
             for dispersal_method, args in dispersal_methods:
                 args = args + (self.D.csx, self.D.csy)
-                # Gather a mask if it exists
-                mask_ds = self.D.get_mask(species, self.current_time, sex, group)
-                if mask_ds is not None:
-                    try:
-                        mask_ds = self.dsts[mask_ds]
-                    except KeyError:
-                        self.dsts[mask_ds] = da.from_array(self.D[mask_ds], self.D.chunks)
-                        mask_ds = self.dsts[mask_ds]
 
-                disp_kwargs = {'mask': mask_ds}
+                disp_kwargs = {}
+                kwarg_keys = [
+                    mask_key for mask_key in mask_keys if "dispersal__{}".format(dispersal_method) in mask_key
+                ]
+                for mask_key in kwarg_keys:
+                    mask_ds = self.D.get_mask(species, self.current_time, sex, group, mask_key)
+                    if mask_ds is not None:
+                        try:
+                            mask_ds = self.dsts[mask_ds]
+                        except KeyError:
+                            self.dsts[mask_ds] = da.from_array(self.D[mask_ds], self.D.chunks)
+                            mask_ds = self.dsts[mask_ds]
+                        disp_kwargs[mask_key.split('__')[-1]] = mask_ds
+
                 population = dispersal.apply(population,
                                              self.population_arrays[species]['total {}'.format(time)],
                                              self.carrying_capacity_arrays[species]['total'],

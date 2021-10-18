@@ -602,7 +602,7 @@ class Domain(object):
         self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
 
     @_save
-    def add_time_based_dispersal(self, species, dispersal_type, time, args=()):
+    def add_time_based_dispersal(self, species, dispersal_type, time, *args, **kwargs):
         """
         Add a disperal method that is time variant to a specific species
 
@@ -612,6 +612,7 @@ class Domain(object):
         :param time: The time slice to insert fecundity
         :param str dispersal_type: One of the ``dispersal.METHODS`` keywords
         :param tuple args: Arguments to accompany the dispersal method
+        :param dict kwargs: Datasets required as inputs
         """
         if dispersal_type not in dispersal.METHODS.keys():
             raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
@@ -620,6 +621,10 @@ class Domain(object):
         time = self._get_time_input(time)  # Gather time
 
         self.dispersal[species.name_key][species.sex][species.group_key][time][dispersal_type] = args
+
+        # kwargs must be datasets
+        for key, val in kwargs.items():
+            self.add_mask(species, time, 'dispersal__{}__{}'.format(dispersal_type, key), val)
 
     def add_disease(self, input_file, **kwargs):
         direct, env = read_cwd_input(input_file)
@@ -630,14 +635,14 @@ class Domain(object):
             self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
 
     @_save
-    def add_mask(self, species, time, data=None, function='masked dispersal', **kwargs):
+    def add_mask(self, species, time, mask_key, data=None, **kwargs):
         """
-        A mask is a general-use dataset associated with a species, and must be associated with a function
+        A mask is a general-use dataset associated with a species, and must be associated with a mask_key
 
         :param Species species: Species instance
         :param time: The time slice to insert fecundity
         :param data: Mask data. This may be a scalar, raster, or vector/matrix (broadcastable to the domain)
-        :param str function: The purpose of the mask (where it is used in solvers)
+        :param str mask_key: The purpose of the mask (where it is used in solvers)
 
         :Keyword Arguments:
             **distribute** (*bool*) --
@@ -649,7 +654,7 @@ class Domain(object):
         time = self._get_time_input(time)  # Gather time
         data = self._get_data_type(data)  # Parse input data
 
-        key = '{}/{}/{}/{}/masks/{}'.format(species.name_key, species.sex, species.group_key, time, function)
+        key = '{}/{}/{}/{}/masks/{}'.format(species.name_key, species.sex, species.group_key, time, mask_key)
 
         # Add the data to the file
         self._add_data(key, data,
@@ -658,7 +663,7 @@ class Domain(object):
                        distribute_by_co=kwargs.get('distribute_by_co', None)
                        )
 
-        self.masks[species.name_key][species.sex][species.group_key][time][function] = key
+        self.masks[species.name_key][species.sex][species.group_key][time][mask_key] = key
 
     @_save
     def remove_dataset(self, ds_type, species_key, sex, group, time, name):
@@ -1184,6 +1189,10 @@ class Domain(object):
         :param inherit: Do not inherit a data from the sex or species
         :return: tuple (dispersal method name, args)
         """
+        # Dispersal attached to a species
+        dispersal_methods = self.species[species_key][sex][group_key].dispersal
+
+        # Time-variant dispersal
         time = self._get_time_input(time)
 
         # Collect the dataset keys using inheritance
@@ -1213,12 +1222,13 @@ class Domain(object):
                 for gp in [group_key, None]:
                     keys = collect(species_key, time, _sex, gp)
                     if keys is not None:
-                        return keys
-            return None
+                        dispersal_methods += keys
         else:
-            return collect(species_key, time, sex, group_key)
+            dispersal_methods += collect(species_key, time, sex, group_key)
 
-    def get_mask(self, species_key, time, sex, group_key, function='masked dispersal', snap_to_time=True, inherit=True):
+        return dispersal_methods
+
+    def get_mask(self, species_key, time, sex, group_key, mask_key=None, snap_to_time=True, inherit=True):
         """
         Collect the key associated with the mask query
 
@@ -1226,7 +1236,7 @@ class Domain(object):
         :param str sex: sex ('male', or 'female')
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
-        :param str function: The purposed of the mask being retrieved
+        :param str mask_key: The key of the mask being retrieved. Defaults to None and all keys are returned
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the
             nearest available dataset
         :param inherit: Do not inherit a dataset from the sex or species
@@ -1238,7 +1248,9 @@ class Domain(object):
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
                 times = self.masks[species_key][sex][group_key].keys()
-                times = [t for t in times if function in self.masks[species_key][sex][group_key][t].keys()]
+
+                if mask_key is not None:
+                    times = [t for t in times if mask_key in self.masks[species_key][sex][group_key][t].keys()]
 
                 times = np.unique(times)
                 delta = time - times
@@ -1249,11 +1261,19 @@ class Domain(object):
                     delta = delta[backwards]
                     i = np.argmin(delta)
                     time = times[i]
-            key = self.masks[species_key][sex][group_key][time][function]
-            if len(key) > 0:
-                return key
+
+            if mask_key is not None:
+                key = self.masks[species_key][sex][group_key][time][mask_key]
+                if len(key) > 0:
+                    return key
+                else:
+                    return None
             else:
-                return None
+                keys = [key for key in self.masks[species_key][sex][group_key][time].keys() if len(key) > 0]
+                if len(keys) > 0:
+                    return keys
+                else:
+                    return None
 
         if inherit:
             for _sex in [sex, None]:
@@ -1493,11 +1513,14 @@ class Species(object):
         self.global_population = kwargs.get('global_population', True)
         self.use_global_density = kwargs.get('use_global_density', False)
 
-    def add_dispersal(self, dispersal_type, args=()):
+    def add_dispersal(self, dispersal_type, *args):
         """
         Sequentially add disperal methods to the species
 
         .. attention:: Current solvers apply dispersal in the order that they are applied through these calls
+
+        If full datasets are required arguments for dispersal methods, they must be 
+        added as a mask using the key ``'dispersal__{dispersal method name}__{argument key (kwarg)}``
 
         :param str dispersal_type: One of the ``dispersal.METHODS`` keywords
         :param tuple args: Arguments to accompany the dispersal method

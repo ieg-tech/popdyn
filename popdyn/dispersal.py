@@ -469,18 +469,23 @@ def distance_propagation_task(a, kernel, i_pad, j_pad):
     return out
 
 
-def migration(population, _, k, source_weight, target_weight, min_density=0):
+def migration(population, _, k, min_density=0, **kwargs):
     """
     'relocation of a portion of a population from one region to another (migration dispersal)'
 
     :param da.Array population: population to redistribute
     :param da.Array k: Carrying Capacity - target location weight and distribution
-    :param da.Array source_weight: Proportion of population to remove from an element. Bounded by `0` and `1`
-    :param da.Array target_weight: Multiplier for carrying capacity at destination
     :param float min_density: Each element may have a minimum possible density when relocating population
+
+    kwargs:
+        source_weight da.Array:  Proportion of population to remove from an element. Bounded by `0` and `1`
+        target_weight da.Array:  Multiplier for carrying capacity at destination    
 
     :return: Redistributed population
     """
+    source_weight = kwargs["source_weight"]
+    target_weight = kwargs["target_weight"]
+
     # Remove using the source weight
     source_weight = da.clip(source_weight, 0, 1)
     removed = population * source_weight
