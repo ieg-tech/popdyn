@@ -956,18 +956,19 @@ class discrete_explicit(object):
                 args = args + (self.D.csx, self.D.csy)
 
                 disp_kwargs = {}
-                kwarg_keys = [
-                    mask_key for mask_key in mask_keys if "dispersal__{}".format(dispersal_method) in mask_key
-                ]
-                for mask_key in kwarg_keys:
-                    mask_ds = self.D.get_mask(species, self.current_time, sex, group, mask_key)
-                    if mask_ds is not None:
-                        try:
-                            mask_ds = self.dsts[mask_ds]
-                        except KeyError:
-                            self.dsts[mask_ds] = da.from_array(self.D[mask_ds], self.D.chunks)
-                            mask_ds = self.dsts[mask_ds]
-                        disp_kwargs[mask_key.split('__')[-1]] = mask_ds
+                if mask_keys is not None:
+                    kwarg_keys = [
+                        mask_key for mask_key in mask_keys if "dispersal__{}".format(dispersal_method) in mask_key
+                    ]
+                    for mask_key in kwarg_keys:
+                        mask_ds = self.D.get_mask(species, self.current_time, sex, group, mask_key)
+                        if mask_ds is not None:
+                            try:
+                                mask_ds = self.dsts[mask_ds]
+                            except KeyError:
+                                self.dsts[mask_ds] = da.from_array(self.D[mask_ds], self.D.chunks)
+                                mask_ds = self.dsts[mask_ds]
+                            disp_kwargs[mask_key.split('__')[-1]] = mask_ds
 
                 population = dispersal.apply(population,
                                              self.population_arrays[species]['total {}'.format(time)],
