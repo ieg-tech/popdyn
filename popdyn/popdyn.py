@@ -1269,7 +1269,7 @@ class Domain(object):
                 else:
                     return None
             else:
-                keys = [key for key in self.masks[species_key][sex][group_key][time].keys() if len(key) > 0]
+                keys = [key for key in self.masks[species_key][sex][group_key][time].values() if len(key) > 0]
                 if len(keys) > 0:
                     return keys
                 else:

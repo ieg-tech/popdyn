@@ -1376,7 +1376,10 @@ class discrete_explicit(object):
             # use the correct output recipient population time slot
             other_species = mort_type.recipient_species
 
-            recipient_age = age + 1
+            if age is not None:
+                recipient_age = age + 1
+            else:
+                recipient_age = None
             recipient_group = self.D.group_from_age(other_species.name_key, other_species.sex, recipient_age)
             if recipient_group is None:
                 max_age = self.D.discrete_ages(other_species.name_key, other_species.sex)[-1]

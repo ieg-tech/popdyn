@@ -621,7 +621,9 @@ def conversion_and_transmission():
         test_mortality = pd.Mortality('test recipient')
         test_mortality.add_recipient_species(recipient)
 
-        starks.add_disease('direct_transmission.csv', **{
+        test_file = os.path.join(os.path.dirname(__file__), 'direct_transmission.csv')
+
+        starks.add_disease(test_file, **{
             'direct_transmission': True,
             'environmental_transmission': True,
             'E_data': {

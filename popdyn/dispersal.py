@@ -469,7 +469,7 @@ def distance_propagation_task(a, kernel, i_pad, j_pad):
     return out
 
 
-def migration(population, _, k, min_density=0, **kwargs):
+def migration(population, total, k, min_density, csx, csy, **kwargs):
     """
     'relocation of a portion of a population from one region to another (migration dispersal)'
 
@@ -483,6 +483,9 @@ def migration(population, _, k, min_density=0, **kwargs):
 
     :return: Redistributed population
     """
+    if min_density is None:
+        min_density = 0
+
     source_weight = kwargs["source_weight"]
     target_weight = kwargs["target_weight"]
 
