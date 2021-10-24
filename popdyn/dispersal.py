@@ -17,7 +17,7 @@ class DispersalError(Exception):
     pass
 
 
-def apply(a, total, capacity, method, *args, **kwargs):
+def apply(a, total, capacity, method, args, **kwargs):
     """Apply a dispersal method on the input dask array"""
     if not isinstance(a, da.Array):
         raise DispersalError('The input array must be a dask array')
@@ -486,6 +486,7 @@ def migration(population, total, k, min_density, csx, csy, **kwargs):
     if min_density is None:
         min_density = 0
 
+    # TODO: default to 1
     source_weight = kwargs["source_weight"]
     target_weight = kwargs["target_weight"]
 

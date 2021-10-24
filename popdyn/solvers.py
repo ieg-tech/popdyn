@@ -973,7 +973,7 @@ class discrete_explicit(object):
                 population = dispersal.apply(population,
                                              self.population_arrays[species]['total {}'.format(time)],
                                              self.carrying_capacity_arrays[species]['total'],
-                                             dispersal_method, *args, **disp_kwargs)
+                                             dispersal_method, args, **disp_kwargs)
 
             if species_instance.contributes_to_density:
                 # Avoid density-dependent mortality when dispersal has occurred
