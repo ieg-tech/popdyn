@@ -950,7 +950,7 @@ class discrete_explicit(object):
             dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group, age)
 
             # Collect all mask keys so they can be queried for dispersal arguments
-            mask_keys = self.D.get_mask(species, self.current_time, sex, group)
+            mask_keys = [mk.split("/")[-1] for mk in self.D.get_mask(species, self.current_time, sex, group)]
 
             for dispersal_method, args in dispersal_methods:
                 args = args + (self.D.csx, self.D.csy)
@@ -973,7 +973,7 @@ class discrete_explicit(object):
                 population = dispersal.apply(population,
                                              self.population_arrays[species]['total {}'.format(time)],
                                              self.carrying_capacity_arrays[species]['total'],
-                                             dispersal_method, args, **disp_kwargs)
+                                             dispersal_method, *args, **disp_kwargs)
 
             if species_instance.contributes_to_density:
                 # Avoid density-dependent mortality when dispersal has occurred

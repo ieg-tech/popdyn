@@ -1208,6 +1208,7 @@ class Domain(object):
                     delta = delta[backwards]
                     i = np.argmin(delta)
                     time = times[i]
+
             keys = [
                 (key, self.dispersal[species_key][sex][group_key][time][key])
                 for key in self.dispersal[species_key][sex][group_key][time].keys()

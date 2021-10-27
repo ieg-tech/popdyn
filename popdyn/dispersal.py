@@ -17,7 +17,7 @@ class DispersalError(Exception):
     pass
 
 
-def apply(a, total, capacity, method, args, **kwargs):
+def apply(a, total, capacity, method, *args, **kwargs):
     """Apply a dispersal method on the input dask array"""
     if not isinstance(a, da.Array):
         raise DispersalError('The input array must be a dask array')
