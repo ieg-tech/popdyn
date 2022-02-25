@@ -232,13 +232,12 @@ class Dataset(object):
             self.sr = ds.GetProjectionRef()
             self.gt = ds.GetGeoTransform()
             self.nd = []
-            for i in range(1, ds.RasterCount):
-                band = ds.GetRasterBand(i)
-                nd = band.GetNoDataValue()
-                if nd is None:
-                    self.nd.append(np.nan)
-                else:
-                    self.nd.append(nd)
+            band = ds.GetRasterBand(1)
+            nd = band.GetNoDataValue()
+            if nd is None:
+                self.nd.append(np.nan)
+            else:
+                self.nd.append(nd)
             ds = None
 
         else:
@@ -257,27 +256,25 @@ class Dataset(object):
             raise H5FError('One of either data or shape must be specified when creating a new dataset')
 
         if data is not None:
-            data = np.atleast_3d(data)
+            data = np.atleast_2d(data)
             dtype = dtype if dtype is not None else data.dtype.name
             data = data.astype(dtype)
             shape = data.shape
         else:
-            if not hasattr(shape, '__iter__'):
-                shape = (shape,)
-            else:
-                shape = tuple(shape)
-            shape = shape + (1,) * max(0, (3 - len(shape)))
+            shape = tuple(shape)
+
+            if len(shape) != 2:
+                raise ValueError("Only two-dimensional datasets supported")
+
             dtype = dtype if dtype is not None else 'float64'
-            data = np.empty(shape=shape, dtype=dtype)
+            data = np.full(shape, self.nd[0], dtype)
 
         self.dtype = dtype
 
         if chunks is None:
-            chunks = (256,) * (len(shape) - 1) + (int(shape[2]),)
+            chunks = (256, 256)
         self.chunks = chunks
 
-        if len(shape) > 3:
-            raise H5FError('A maximum of 3 dimensions are supported')
         self.shape = shape
 
         driver = gdal.GetDriverByName('GTiff')
@@ -289,7 +286,7 @@ class Dataset(object):
             self.raster_path,
             int(shape[1]),
             int(shape[0]),
-            int(shape[2]),
+            1,
             gdal.GetDataTypeByName(dtype_to_gdal(dtype)),
             options
         )
@@ -299,12 +296,11 @@ class Dataset(object):
         ds.SetGeoTransform(self.gt)
         ds.SetProjection(self.sr)
 
-        for i in range(1, shape[2] + 1):
-            band = ds.GetRasterBand(i)
-            band.WriteArray(data[:, :, i - 1])
-            band.SetNoDataValue(self.nd[i - 1])
-            band.FlushCache()
-            band = None
+        band = ds.GetRasterBand(1)
+        band.WriteArray(data)
+        band.SetNoDataValue(self.nd[0])
+        band.FlushCache()
+        band = None
         ds = None
 
     def flush(self):
@@ -321,7 +317,7 @@ class Dataset(object):
 
     def __setitem__(self, s, a):
         xoff, yoff, xsize, ysize = gdal_args_from_slice(s, self.shape)
-        a = np.atleast_3d(np.broadcast_to(a, shape=(ysize, xsize)))
+        a = np.atleast_2d(np.broadcast_to(a, shape=(ysize, xsize)))
 
         if a.shape[0] != ysize:
             raise IndexError('Array dimension 0 of size {} not equal to slice ({})'.format(a.shape[0], ysize))
@@ -331,11 +327,10 @@ class Dataset(object):
         ds = gdal.Open(self.raster_path, gdalconst.GA_Update)
         if ds is None:
             raise H5FError('Unable to open the raster file {}'.format(self.raster_path))
-        for i in range(1, a.shape[2] + 1):
-            band = ds.GetRasterBand(i)
-            band.WriteArray(a[:, :, i - 1], xoff, yoff)
-            band.FlushCache()
-            band = None
+        band = ds.GetRasterBand(1)
+        band.WriteArray(a, xoff, yoff)
+        band.FlushCache()
+        band = None
         ds = None
 
     @property

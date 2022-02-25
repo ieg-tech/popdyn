@@ -211,7 +211,7 @@ def masked_density_flux(population, total_population, carrying_capacity, distanc
     :return: Redistributed population
     """
     # Check that there is a mask
-    if kwargs.get('mask', None) is None:
+    if kwargs.get('masked density-based dispersion', None) is None:
         raise DispersalError('Masked Density Flux requires a mask, which is not available')
     return density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs)
 

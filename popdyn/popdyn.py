@@ -14,8 +14,8 @@ import dispersal
 import dynamic
 from util import *
 
-# import h5fake as h5py
-import h5py
+import h5fake as h5py
+# import h5py
 
 
 class PopdynError(Exception):

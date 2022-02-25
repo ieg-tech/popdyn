@@ -4,6 +4,7 @@ Population dynamics module tests
 
 
 import os
+import sys
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
@@ -299,7 +300,7 @@ def single_species_dispersion():
         with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
             starks = pd.Species('Stark')
 
-            starks.add_dispersal(method, (10,))
+            starks.add_dispersal(method, 10)
 
             # Avoid density-dependent mortality
             domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data + 1000., distribute=False)
@@ -379,12 +380,12 @@ def single_species_mask():
         starks = pd.Species('Stark')
         stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12)
         stark_male_adult = pd.AgeGroup('Stark', 'Adult', 'male', 13, 50)
-        stark_male_adolescent.add_dispersal('masked density-based dispersion', (10,))
+        stark_male_adolescent.add_dispersal('masked density-based dispersion', 10)
 
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_population(stark_male_adolescent, np.random.random(shape), 0, distribute=False)
         domain.add_population(stark_male_adult, np.random.random(shape), 0, distribute=False)
-        domain.add_mask(starks, 0, np.random.random(shape), distribute=False)  # Should be inherited
+        domain.add_mask(starks, 0, "dispersal__masked density-based dispersion", np.random.random(shape), distribute=False)  # Should be inherited
 
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
@@ -432,21 +433,24 @@ def single_species_recipient():
         test_mortality = pd.Mortality('test recipient')
         test_mortality.add_recipient_species(recipient)
 
+        mortality_rate = 0.1
+
         domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
-        domain.add_mortality(starks, test_mortality, 0, 0.1)
+        domain.add_mortality(starks, test_mortality, 0, mortality_rate)
         domain.add_population(recipient, 0, 10)
         pd.solvers.discrete_explicit(domain, 0, 2).execute()
 
         tot_pop = summary.total_population(domain, 'recipient', 1).sum()
-        if tot_pop != 10000 * .1:
+        if tot_pop != 10000 * mortality_rate:
             raise Exception('Recipient population should be {}, got {} at time 1'.format(
-                10000 * .1, tot_pop)
+                10000 * mortality_rate, tot_pop)
             )
         tot_pop = summary.total_population(domain, 'recipient', 2).sum()
-        if tot_pop != (10000 - (10000 * .1)) * .1:
+        check_pop = 10000 * mortality_rate + (10000 - (10000 * mortality_rate)) * mortality_rate
+        if tot_pop != check_pop:
             raise Exception('Recipient population should be {}, got {} at time 2'.format(
-                (10000 - (10000 * .1)) * .1, tot_pop)
+                check_pop, tot_pop)
             )
 
 
@@ -649,7 +653,7 @@ def conversion_and_transmission():
             )
 
 
-if __name__ == '__main__':
+def main():
     antitests = [no_species, incorrect_ages, incorrect_species]
 
     tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
@@ -711,3 +715,8 @@ if __name__ == '__main__':
     print("          {} of {} exception checks passed".format(error_check, len(antitests)))
     print("          {} of {} solver checks passed\n\n\n"
           "___wv_____wwWww____vW___|____wWv___|_|____w____wwvWWv".format(function_check, len(tests)))
+
+
+if __name__ == '__main__':
+    if sys.argv.pop() != "--skip-all":
+        main()

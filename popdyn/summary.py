@@ -5,8 +5,8 @@ Devin Cairns 2018
 """
 
 import popdyn as pd
-# import h5fake as h5py
-import h5py
+import h5fake as h5py
+# import h5py
 import dask.array as da
 # import dafake as da
 import numpy as np
