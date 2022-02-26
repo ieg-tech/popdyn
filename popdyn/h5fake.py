@@ -55,6 +55,23 @@ class Group(object):
         else:
             raise KeyError('Unable to find object {}'.format(s))
 
+    def __setitem__(self, s, a):
+        try:
+            s = str(s)
+        except:
+            raise H5FError('Only string setters are supported')
+
+        f = os.path.join(self.path, self.clean_key(s))
+        if os.path.isfile(f + '.tif'):
+            ds = Dataset(f)
+            if ds.shape != a.shape:
+                raise IndexError("Input data must match shape of dataset")
+            ds[:] = a
+        elif os.path.isdir(f):
+            raise ValueError('Unable to set data at the group level')
+        else:
+            raise KeyError('Unable to find object {}'.format(s))
+
     def keys(self):
         return [f.replace('.tif', '') if f[-4:] == '.tif' else f
                 for f in os.listdir(self.path)
