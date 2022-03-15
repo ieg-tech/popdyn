@@ -19,9 +19,10 @@ class Group(object):
     """
     Manage a directory - key structure
     """
+
     def __init__(self, path, **kwargs):
         if not os.path.isdir(path):
-            raise KeyError('Unable to open object (component not found)')
+            raise KeyError("Unable to open object (component not found)")
         self.name = path
         self.path = path
         self.attrs = Attrs(path)
@@ -29,41 +30,64 @@ class Group(object):
 
     @staticmethod
     def decompose_key(key):
-        if key[0] == '/':
+        if key[0] == "/":
             key = key[1:]
-        return key.split('/')
+        return key.split("/")
 
     @staticmethod
     def clean_key(key):
-        return key[1:] if key[0] == '/' else key
+        return key[1:] if key[0] == "/" else key
 
     @staticmethod
     def dir_members(d):
-        return {os.path.join(d, f) for f in os.listdir(d) if os.path.isdir(f) or f.split('.')[-1] == 'tif'}
+        return {
+            os.path.join(d, f)
+            for f in os.listdir(d)
+            if os.path.isdir(f) or f.split(".")[-1] == "tif"
+        }
 
     def __getitem__(self, s):
         try:
             s = str(s)
         except:
-            raise H5FError('Only string getters are supported')
+            raise H5FError("Only string getters are supported")
 
         f = os.path.join(self.path, self.clean_key(s))
-        if os.path.isfile(f + '.tif'):
+        if os.path.isfile(f + ".tif"):
             return Dataset(f)
         elif os.path.isdir(f):
             return Group(f)
         else:
-            raise KeyError('Unable to find object {}'.format(s))
+            raise KeyError("Unable to find object {}".format(s))
+
+    def __setitem__(self, s, a):
+        try:
+            s = str(s)
+        except:
+            raise H5FError("Only string setters are supported")
+
+        f = os.path.join(self.path, self.clean_key(s))
+
+        ds = Dataset(f)
+        if ds.shape != a.shape:
+            raise IndexError("Input data must match shape of dataset")
+        ds[:] = a
 
     def keys(self):
-        return [f.replace('.tif', '') if f[-4:] == '.tif' else f
-                for f in os.listdir(self.path)
-                if os.path.isdir(os.path.join(self.path, f)) or f[-4:] == '.tif']
+        return [
+            f.replace(".tif", "") if f[-4:] == ".tif" else f
+            for f in os.listdir(self.path)
+            if os.path.isdir(os.path.join(self.path, f)) or f[-4:] == ".tif"
+        ]
 
     def values(self):
-        values = [os.path.join(self.path, f) for f in os.listdir(self.path) if f != 'attrs.dmp']
+        values = [
+            os.path.join(self.path, f)
+            for f in os.listdir(self.path)
+            if f != "attrs.dmp"
+        ]
         for val in values:
-            if val.split('.')[-1] == 'tif':
+            if val.split(".")[-1] == "tif":
                 return Dataset(val)
             else:
                 return Group(val)
@@ -83,45 +107,57 @@ class Group(object):
     def create_group(self, key, **kwargs):
         key = self.clean_key(key)
         if os.path.isdir(os.path.join(self.path, key)):
-            raise ValueError('Unable to create group (name already exists)')
+            raise ValueError("Unable to create group (name already exists)")
 
         self.build_tree(key)
 
         return Group(os.path.join(self.path, key), **kwargs)
 
-    def create_dataset(self, key, data=None, shape=None, chunks=None, dtype=None, **kwargs):
+    def create_dataset(
+        self, key, data=None, shape=None, chunks=None, dtype=None, **kwargs
+    ):
         key = self.clean_key(key)
-        if os.path.isfile(os.path.join(self.path, key + '.tif')):
-            raise RuntimeError('Dataset already exists')
+        if os.path.isfile(os.path.join(self.path, key + ".tif")):
+            raise RuntimeError("Dataset already exists")
 
         tree = self.decompose_key(key)
         if len(tree) > 1:
-            self.build_tree('/'.join(tree[:-1]))
+            self.build_tree("/".join(tree[:-1]))
 
         # Create the dataset
-        return Dataset(os.path.join(self.path, key), data=data, shape=shape, chunks=chunks, dtype=dtype, **kwargs)
+        return Dataset(
+            os.path.join(self.path, key),
+            data=data,
+            shape=shape,
+            chunks=chunks,
+            dtype=dtype,
+            **kwargs
+        )
 
     def require_dataset(self, key, shape, dtype, chunks, **kwargs):
-        if os.path.isfile(os.path.join(self.path, key) + '.tif'):
+        if os.path.isfile(os.path.join(self.path, key) + ".tif"):
             return Dataset(os.path.join(self.path, self.clean_key(key)))
         else:
-            return self.create_dataset(self.clean_key(key), shape=shape, dtype=dtype, chunks=chunks, **kwargs)
+            return self.create_dataset(
+                self.clean_key(key), shape=shape, dtype=dtype, chunks=chunks, **kwargs
+            )
 
     def __delitem__(self, key):
         if len(key) > 0:
             path = os.path.join(self.path, self.clean_key(key))
             if os.path.isdir(path):
                 shutil.rmtree(path)
-            elif os.path.isfile(path + '.tif'):
-                os.remove(path + '.tif')
+            elif os.path.isfile(path + ".tif"):
+                os.remove(path + ".tif")
             else:
-                raise KeyError('{}'.format(key))
+                raise KeyError("{}".format(key))
 
 
 class File(Group):
     """
     The file instance is actually an os directory structure
     """
+
     def __init__(self, path, **kwargs):
         """
         :param path: directory with raster files
@@ -150,16 +186,19 @@ class File(Group):
 
 
 class Attrs(object):
-    def __init__(self, path, type='gp'):
-        self.path = os.path.join(path, '{}attrs.dmp'.format(type))
+    def __init__(self, path, type="gp"):
+        self.path = os.path.join(path, "{}attrs.dmp".format(type))
+
+        if not os.path.isdir(path):
+            os.makedirs(path)
 
         if not os.path.isfile(self.path):
-            with open(self.path, 'wb') as f:
+            with open(self.path, "wb") as f:
                 pickle.dump({}, f)
 
     @property
     def d(self):
-        with open(self.path, 'rb') as f:
+        with open(self.path, "rb") as f:
             return pickle.load(f)
 
     def __getitem__(self, key):
@@ -168,7 +207,7 @@ class Attrs(object):
     def __setitem__(self, key, val):
         d = self.d
         d[key] = val
-        with open(self.path, 'wb') as f:
+        with open(self.path, "wb") as f:
             pickle.dump(d, f)
 
     def keys(self):
@@ -180,7 +219,7 @@ class Attrs(object):
     def update(self, other_dict):
         d = self.d
         d.update(other_dict)
-        with open(self.path, 'wb') as f:
+        with open(self.path, "wb") as f:
             pickle.dump(d, f)
 
     def get(self, key, default=None):
@@ -201,6 +240,7 @@ class Dataset(object):
     """
     Shadow of the h5py Dataset class
     """
+
     def __init__(self, path, data=None, shape=None, chunks=None, dtype=None, **kwargs):
         self.path = path
         self.attrs = Attrs(self.gp_path, os.path.basename(path))
@@ -232,80 +272,96 @@ class Dataset(object):
             self.sr = ds.GetProjectionRef()
             self.gt = ds.GetGeoTransform()
             self.nd = []
-            for i in range(1, ds.RasterCount):
-                band = ds.GetRasterBand(i)
-                nd = band.GetNoDataValue()
-                if nd is None:
-                    self.nd.append(np.nan)
-                else:
-                    self.nd.append(nd)
+            band = ds.GetRasterBand(1)
+            nd = band.GetNoDataValue()
+            if nd is None:
+                self.nd.append(np.nan)
+            else:
+                self.nd.append(nd)
             ds = None
 
         else:
-            self.sr = kwargs.get('sr', Group(self.gp_path).attrs.get('sr'))
+            self.sr = kwargs.get("sr", Group(self.gp_path).attrs.get("sr"))
             if self.sr is None:
-                raise H5FError('A spatial reference is required for a dataset')
-            self.gt = kwargs.get('gt', Group(self.gp_path).attrs.get('gt'))
+                raise H5FError("A spatial reference is required for a dataset")
+            self.gt = kwargs.get("gt", Group(self.gp_path).attrs.get("gt"))
             if self.gt is None:
-                raise H5FError('A geotransform is required for a dataset')
-            self.nd = kwargs.get('nd', Group(self.gp_path).attrs.get('nd'))
+                raise H5FError("A geotransform is required for a dataset")
+            self.nd = kwargs.get("nd", Group(self.gp_path).attrs.get("nd"))
             if self.nd is None:
-                raise H5FError('A no data list is required for a dataset')
+                raise H5FError("A no data list is required for a dataset")
+
+    @staticmethod
+    def write_geotiff(raster_path, data, dtype, shape, nodata, gt, sr, chunks):
+        """Create a raster dataset"""
+        driver = gdal.GetDriverByName("GTiff")
+        options = [
+            "TILED=YES",
+            "COPY_SRC_OVERVIEWS=YES",
+            "COMPRESS=LZW",
+            "BLOCKXSIZE={}".format(chunks[1]),
+            "BLOCKYSIZE={}".format(chunks[0]),
+        ]
+
+        ds = driver.Create(
+            raster_path,
+            int(shape[1]),
+            int(shape[0]),
+            1,
+            gdal.GetDataTypeByName(dtype_to_gdal(dtype)),
+            options,
+        )
+        if ds is None:
+            raise TypeError("GDAL error while creating new raster")
+
+        ds.SetGeoTransform(gt)
+        ds.SetProjection(sr)
+
+        band = ds.GetRasterBand(1)
+        band.WriteArray(data)
+        band.SetNoDataValue(nodata)
+        band.FlushCache()
+        band = None
+        ds = None
 
     def write_data(self, chunks=None, shape=None, data=None, dtype=None):
         if data is None and shape is None:
-            raise H5FError('One of either data or shape must be specified when creating a new dataset')
+            raise H5FError(
+                "One of either data or shape must be specified when creating a new dataset"
+            )
 
         if data is not None:
-            data = np.atleast_3d(data)
+            data = np.atleast_2d(data)
             dtype = dtype if dtype is not None else data.dtype.name
             data = data.astype(dtype)
             shape = data.shape
         else:
-            if not hasattr(shape, '__iter__'):
-                shape = (shape,)
-            else:
-                shape = tuple(shape)
-            shape = shape + (1,) * max(0, (3 - len(shape)))
-            dtype = dtype if dtype is not None else 'float64'
-            data = np.empty(shape=shape, dtype=dtype)
+            shape = tuple(shape)
+
+            if len(shape) != 2:
+                raise ValueError("Only two-dimensional datasets supported")
+
+            dtype = dtype if dtype is not None else "float64"
+            data = np.full(shape, self.nd[0], dtype)
 
         self.dtype = dtype
 
         if chunks is None:
-            chunks = (256,) * (len(shape) - 1) + (int(shape[2]),)
+            chunks = (256, 256)
         self.chunks = chunks
 
-        if len(shape) > 3:
-            raise H5FError('A maximum of 3 dimensions are supported')
         self.shape = shape
 
-        driver = gdal.GetDriverByName('GTiff')
-        options = ['TILED=YES', 'COPY_SRC_OVERVIEWS=YES', 'COMPRESS=LZW',
-                   'BLOCKXSIZE={}'.format(self.chunks[1]),
-                   'BLOCKYSIZE={}'.format(self.chunks[0])]
-
-        ds = driver.Create(
+        self.write_geotiff(
             self.raster_path,
-            int(shape[1]),
-            int(shape[0]),
-            int(shape[2]),
-            gdal.GetDataTypeByName(dtype_to_gdal(dtype)),
-            options
+            data,
+            self.dtype,
+            self.shape,
+            self.nd[0],
+            self.gt,
+            self.sr,
+            self.chunks,
         )
-        if ds is None:
-            raise TypeError('GDAL error while creating new raster')
-
-        ds.SetGeoTransform(self.gt)
-        ds.SetProjection(self.sr)
-
-        for i in range(1, shape[2] + 1):
-            band = ds.GetRasterBand(i)
-            band.WriteArray(data[:, :, i - 1])
-            band.SetNoDataValue(self.nd[i - 1])
-            band.FlushCache()
-            band = None
-        ds = None
 
     def flush(self):
         """
@@ -321,40 +377,47 @@ class Dataset(object):
 
     def __setitem__(self, s, a):
         xoff, yoff, xsize, ysize = gdal_args_from_slice(s, self.shape)
-        a = np.atleast_3d(np.broadcast_to(a, shape=(ysize, xsize)))
+        a = np.atleast_2d(np.broadcast_to(a, shape=(ysize, xsize)))
 
         if a.shape[0] != ysize:
-            raise IndexError('Array dimension 0 of size {} not equal to slice ({})'.format(a.shape[0], ysize))
+            raise IndexError(
+                "Array dimension 0 of size {} not equal to slice ({})".format(
+                    a.shape[0], ysize
+                )
+            )
         if a.shape[1] != xsize:
-            raise IndexError('Array dimension 1 of size {} not equal to slice ({})'.format(a.shape[1], xsize))
+            raise IndexError(
+                "Array dimension 1 of size {} not equal to slice ({})".format(
+                    a.shape[1], xsize
+                )
+            )
 
         ds = gdal.Open(self.raster_path, gdalconst.GA_Update)
         if ds is None:
-            raise H5FError('Unable to open the raster file {}'.format(self.raster_path))
-        for i in range(1, a.shape[2] + 1):
-            band = ds.GetRasterBand(i)
-            band.WriteArray(a[:, :, i - 1], xoff, yoff)
-            band.FlushCache()
-            band = None
+            raise H5FError("Unable to open the raster file {}".format(self.raster_path))
+        band = ds.GetRasterBand(1)
+        band.WriteArray(a, xoff, yoff)
+        band.FlushCache()
+        band = None
         ds = None
 
     @property
     def raster_path(self):
-        return self.path + '.tif'
+        return self.path + ".tif"
 
 
 def dtype_to_gdal(dtype):
     dtypecorr = {
-        'uint8': 'Byte',
-        'int8': 'Int16',
-        'uint16': 'UInt16',
-        'int16': 'Int16',
-        'uint32': 'UInt32',
-        'int32': 'Int32',
-        'uint64': 'Float64',
-        'int64': 'Float64',
-        'float32': 'Float32',
-        'float64': 'Float64'
+        "uint8": "Byte",
+        "int8": "Int16",
+        "uint16": "UInt16",
+        "int16": "Int16",
+        "uint32": "UInt32",
+        "int32": "Int32",
+        "uint64": "Float64",
+        "int64": "Float64",
+        "float32": "Float32",
+        "float64": "Float64",
     }
     try:
         return dtypecorr[dtype]
@@ -364,13 +427,13 @@ def dtype_to_gdal(dtype):
 
 def dtype_to_np(dtype):
     dtypecorr = {
-        'Byte': 'uint8',
-        'UInt16': 'uint16',
-        'Int16': 'int16',
-        'UInt32': 'uint32',
-        'Int32': 'int32',
-        'Float32': 'float32',
-        'Float64': 'float64'
+        "Byte": "uint8",
+        "UInt16": "uint16",
+        "Int16": "int16",
+        "UInt32": "uint32",
+        "Int32": "int32",
+        "Float32": "float32",
+        "Float64": "float64",
     }
     return dtypecorr[dtype]
 
@@ -384,7 +447,7 @@ def gdal_args_from_slice(s, shape):
         win_ysize = 1
     elif type(s) == tuple:
         # Convert numpy objects to integers
-        s = [int(o) if 'numpy' in str(type(o)) else o for o in s]
+        s = [int(o) if "numpy" in str(type(o)) else o for o in s]
         if type(s[0]) == int:
             yoff = s[0]
             win_ysize = 1
