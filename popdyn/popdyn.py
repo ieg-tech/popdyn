@@ -225,7 +225,7 @@ class Domain(object):
         # Chunk size is specified for data storage and dask scheduling
         if not hasattr(self, 'chunks'):
             if h5py.__name__ == 'h5py':
-                chunks = [5000, 5000]
+                chunks = [1024, 1024]
                 if chunks[0] > self.shape[0]:
                     chunks[0] = self.shape[0]
                 if chunks[1] > self.shape[1]:

@@ -635,6 +635,7 @@ class ModelSummary(object):
                     for time in model_times:
                         self.total_population(species, time, sex, gp)
                         gp_sex_pop.append(self.to_compute[-1].sum())
+                    print("Adding {}".format(key))
                     key = 'Population/{}/{}/{}s'.format(species_name, group_name, sex_str[0].upper() + sex_str[1:])
                     add_reduction(lcl_cmp, key, gp_sex_pop)
 
