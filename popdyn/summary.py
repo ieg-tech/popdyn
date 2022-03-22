@@ -635,7 +635,6 @@ class ModelSummary(object):
                     for time in model_times:
                         self.total_population(species, time, sex, gp)
                         gp_sex_pop.append(self.to_compute[-1].sum())
-                    print("Adding {}".format(key))
                     key = 'Population/{}/{}/{}s'.format(species_name, group_name, sex_str[0].upper() + sex_str[1:])
                     add_reduction(lcl_cmp, key, gp_sex_pop)
 
@@ -763,7 +762,7 @@ class ModelSummary(object):
             # Compute and populate the species log
             keys = lcl_cmp.keys()
             values = lcl_cmp.values()
-            values = da.compute(values)
+            values = da.compute(values)[0]
             lcl_cmp = {key: val for key, val in zip(keys, values)}
 
             for key, val in post_cmp.items():

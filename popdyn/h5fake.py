@@ -299,8 +299,8 @@ class Dataset(object):
             "TILED=YES",
             "COPY_SRC_OVERVIEWS=YES",
             "COMPRESS=LZW",
-            "BLOCKXSIZE={}".format(chunks[1]),
-            "BLOCKYSIZE={}".format(chunks[0]),
+            "BLOCKXSIZE=256",
+            "BLOCKYSIZE=256",
         ]
 
         ds = driver.Create(
