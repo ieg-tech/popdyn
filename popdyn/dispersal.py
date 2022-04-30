@@ -486,72 +486,60 @@ def migration(population, total, k, min_density, csx, csy, **kwargs):
     if min_density is None:
         min_density = 0
 
-    # TODO: default to 1
-    source_weight = kwargs["source_weight"]
-    target_weight = kwargs["target_weight"]
+    source_weight = da.clip(kwargs.get("source_weight", da.ones_like(population)), 0, 1)
+    target_weight = da.clip(kwargs.get("target_weight", da.ones_like(population)), 0, 1)
 
     # Remove using the source weight
-    source_weight = da.clip(source_weight, 0, 1)
     removed = population * source_weight
-    population -= removed
+    new_population = population - removed
     removed = removed.sum()
-    k = k * da.clip(target_weight, 0, 1)
 
-    # Find target locations
-    chunks = population.chunks
-    return population.rechunk(population.shape).map_blocks(
-        _migration_task, k, removed, min_density
-    ).rechunk(chunks)
+    # Weighting is a combination of k and the target weights
+    target_locations = k * target_weight
 
+    # Redistribute population proportionally at the target locations
+    new_population += removed * target_locations / target_locations.sum()
 
-def _migration_task(population, k, input_pop, min_density):
-    """
-    'helper for migration'
-    """
-    if input_pop == 0:
-        return population
+    # Move population that does not satisfy min_density
+    below_min = (target_locations > 0) & (new_population / target_locations < min_density)
 
-    def find_intersection(a, m):
-        intersection = np.cumsum(a) - m
-        if np.unique(intersection).size == 1:
-            loc = intersection.size
-        else:
-            loc = np.argmin(np.abs(intersection)) + 1
-        return loc
+    removed = da.where(below_min, new_population, 0)
+    new_population -= removed
+    removed = removed.sum()
 
-    # Find the intersection between k and the min_density and input_pop
-    flat_k = k.ravel()
-    order = np.argsort(flat_k)[::-1]
-    loc = find_intersection(flat_k[order] * ((1 - min_density) / 2), input_pop)
+    target_sum = da.where(below_min, 0, target_locations).sum()
+    added = da.where(below_min, 0, target_locations / target_sum * removed)
 
-    # Ensure the input population is accounted for entirely
-    allocation = np.zeros(flat_k.shape)
-    allocation[:loc] = flat_k[order[:loc]] * np.linspace(1, min_density, loc)
-    diff = input_pop - np.sum(allocation)
-    
-    if diff > 0:
-        allocation[loc:] = flat_k[order[loc:]] * min_density
-        loc = find_intersection(allocation, input_pop)
-        allocation[loc:] = 0
-        diff = np.sum(allocation) - input_pop
-        allocation[loc - 1] -= max(0, diff)
-    
-    allocation *= input_pop / np.sum(allocation)
-
-    # Add the population
-    flat_pop = population.ravel()
-    flat_pop[order] += allocation
-    return flat_pop.reshape(population.shape)
+    return da.where(
+        da.isinf(new_population) | da.isnan(new_population),
+        population,
+        new_population + added
+    )
 
 
 def test():
     import numpy as np
     import popdyn as pd
-    pop = np.zeros((100, 100))
+
+    pop = np.random.random((100, 100))
+    print("Initial population {}".format(pop.sum()))
     k = np.random.random((100, 100)) * 2
-    min_density = 0.8
-    input_pop = 100
-    print np.sum(pd.dispersal._migration_task(pop, k, input_pop, min_density))
+
+    min_density = 0.1
+
+    source_weight = np.ones((100, 100))
+
+    target_weight = np.zeros((100, 100))
+    target_weight[10:20, 10:20] = np.random.random((10, 10))
+
+    output = migration(da.from_array(pop), None, da.from_array(k), min_density, None, None,
+        source_weight=da.from_array(source_weight),
+        target_weight=da.from_array(target_weight)
+    ).compute()
+
+    print("Output population {}".format(output.sum()))
+
+    return pop, output
 
 
 def density_network(args):
