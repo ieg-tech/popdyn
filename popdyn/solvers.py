@@ -3,6 +3,10 @@ Population dynamics numerical solvers
 
 Devin Cairns, 2018
 """
+import os
+from datetime import datetime
+from dateutil.tz import tzlocal
+
 from numpy.lib.function_base import disp
 from popdyn import *
 import dask.array as da
@@ -16,6 +20,28 @@ class SolverError(Exception):
 
 # Carrying Capacity is 0
 INF = 0
+
+
+class Debugger(object):
+    """Used to create a file for custom debugger logging"""
+    def __init__(self, logger_dir):
+
+        if not os.path.isdir(os.path.dirname(logger_dir)):
+            raise IOError("No such directory {}".format(os.path.dirname(logger_dir)))
+
+        
+        strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
+        self.logger_path = os.path.join(logger_dir, "popdyn_{}.log".format(strftime))
+
+        with open(self.logger_path, "w") as f:
+            f.write("time,message\n")
+
+    def write_message(self, message):
+        strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
+
+        with open(self.logger_path, "a+") as f:
+            f.write("{},{}\n".format(strftime, message))
+
 
 
 def error_check(domain):
@@ -430,6 +456,10 @@ class discrete_explicit(object):
         # Extra toggles
         # -------------
         self.total_density = kwargs.get("total_density", True)
+
+        log = kwargs.get("log")
+        if log is not None:
+            self.logger = Debugger(log)
 
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
@@ -1234,7 +1264,7 @@ class discrete_explicit(object):
             static_population = population.copy()
 
             # Collect species and time-based dispersal methods
-            dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group, age)
+            dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group)
 
             # Collect all mask keys so they can be queried for dispersal arguments
             mask_keys = [
@@ -1244,6 +1274,13 @@ class discrete_explicit(object):
 
             for dispersal_method, args in dispersal_methods:
                 args = args + (self.D.csx, self.D.csy)
+
+                if self.logger is not None:
+                    self.logger.write_message(
+                        "Applying dispersal method {} at time {} for species {} sex {} group {} with args {}".format(
+                            dispersal_method, self.current_time, species, sex, group, args
+                        )
+                    )
 
                 disp_kwargs = {}
                 if mask_keys is not None:
