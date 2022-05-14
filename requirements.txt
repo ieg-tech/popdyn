@@ -1,5 +1,5 @@
 cython
-h5py
+zarr
 numpy==1.15
 dask==1.2.2
 numba

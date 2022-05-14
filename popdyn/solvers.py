@@ -7,11 +7,8 @@ import os
 from datetime import datetime
 from dateutil.tz import tzlocal
 
-from numpy.lib.function_base import disp
 from popdyn import *
 import dask.array as da
-
-# import dafake as da
 
 
 class SolverError(Exception):
@@ -24,14 +21,16 @@ INF = 0
 
 class Debugger(object):
     """Used to create a file for custom debugger logging"""
+
     def __init__(self, logger_dir):
 
         if not os.path.isdir(os.path.dirname(logger_dir)):
-            raise IOError("No such directory {}".format(os.path.dirname(logger_dir)))
+            raise IOError("No such directory {}".format(
+                os.path.dirname(logger_dir)))
 
-        
         strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
-        self.logger_path = os.path.join(logger_dir, "popdyn_{}.log".format(strftime))
+        self.logger_path = os.path.join(
+            logger_dir, "popdyn_{}.log".format(strftime))
 
         with open(self.logger_path, "w") as f:
             f.write("time,message\n")
@@ -41,7 +40,6 @@ class Debugger(object):
 
         with open(self.logger_path, "a+") as f:
             f.write("{},{}\n".format(strftime, message))
-
 
 
 def error_check(domain):
@@ -76,7 +74,8 @@ def error_check(domain):
     # Make sure at least one species exists in the domain
     species_keys = domain.species.keys()
     if len(species_keys) == 0:
-        raise SolverError("At least one species must be placed into the domain")
+        raise SolverError(
+            "At least one species must be placed into the domain")
 
     # Iterate species and ensure there are no overlapping age groups
     for species_key in species_keys:
@@ -149,7 +148,8 @@ def inherit(domain, start_time, end_time):
     for species in domain.species.keys():
         # Check on the age truncation
         live_past_max = False
-        sex_keys = [key for key in domain.species[species].keys() if key is not None]
+        sex_keys = [key for key in domain.species[species].keys()
+                    if key is not None]
         for time in range(start_time, end_time + 1):
             # Collect the toplevel species datasets if they exist, and distribute them among the sexes
             population_ds = cc_ds = None
@@ -162,7 +162,8 @@ def inherit(domain, start_time, end_time):
             # Population
             if species_population_key is not None and len(sex_keys) > 0:
                 # Read the species-level population data and remove from the domain
-                population_ds = domain[species_population_key][:] / len(sex_keys)
+                population_ds = domain[species_population_key][:] / \
+                    len(sex_keys)
                 domain.remove_dataset(
                     "population", species, None, None, time, None
                 )  # Group, sex and age are None
@@ -245,7 +246,8 @@ def inherit(domain, start_time, end_time):
                 else:
                     # Combine the species-level and sex-level datasets for population
                     # ---------------------------------------------------------------
-                    sex_population_key = domain.get_population(species, time, sex)
+                    sex_population_key = domain.get_population(
+                        species, time, sex)
                     pop_to_groups = True
                     if sex_population_key is None:
                         if population_ds is None:
@@ -253,7 +255,8 @@ def inherit(domain, start_time, end_time):
                             pop_to_groups = False
                         else:
                             # Use only the species-level key divided among groups
-                            sp_sex_prefix = "{} --> [{}] --> ".format(species, sex)
+                            sp_sex_prefix = "{} --> [{}] --> ".format(
+                                species, sex)
                             next_ds = population_ds / len(group_keys)
                     else:
                         # Collect the sex-level data and remove them from the Domain
@@ -264,10 +267,12 @@ def inherit(domain, start_time, end_time):
 
                         # Add the species-level data if necessary and divide among groups
                         if population_ds is not None:
-                            sp_sex_prefix = "{} --> {} --> ".format(species, sex)
+                            sp_sex_prefix = "{} --> {} --> ".format(
+                                species, sex)
                             next_ds += population_ds
                         else:
-                            sp_sex_prefix = "[{}] --> {} --> ".format(species, sex)
+                            sp_sex_prefix = "[{}] --> {} --> ".format(
+                                species, sex)
                         next_ds /= len(group_keys)
 
                     # Combine the species-level and sex-level datasets for carrying capacity
@@ -280,7 +285,8 @@ def inherit(domain, start_time, end_time):
                             if cc[1] is None:
                                 next_cc_ds.append(cc)
                             else:
-                                next_cc_ds.append((cc[0], cc[1] / len(group_keys)))
+                                next_cc_ds.append(
+                                    (cc[0], cc[1] / len(group_keys)))
 
                     sex_carrying_capacity = domain.get_carrying_capacity(
                         species, time, sex, snap_to_time=False
@@ -317,7 +323,8 @@ def inherit(domain, start_time, end_time):
 
                         if pop_to_groups:
                             print(
-                                "Cascading population {}{}".format(sp_sex_prefix, group)
+                                "Cascading population {}{}".format(
+                                    sp_sex_prefix, group)
                             )
                             domain.add_population(
                                 instance,
@@ -381,20 +388,9 @@ def compute_domain(
 
         domain.timer.start("create target datasets")
         # Create all necessary datasets in the file, including counter objects
-        if h5py.__name__ == "h5py":
-            kwargs = {"compression": "lzf"}
-        else:
-            # h5fake
-            kwargs = {
-                "compression": "lzf",
-                "sr": domain.projection,
-                "gt": (domain.left, domain.csx, 0, domain.top, 0, domain.csy * -1),
-                "nd": [0],
-            }
-
         targets = [
             domain.file.require_dataset(
-                dp, shape=domain.shape, dtype=np.float32, chunks=domain.chunks, **kwargs
+                dp, shape=domain.shape, dtype="float32", chunks=domain.chunks
             )
             for dp in datasets.keys()
         ] + [Counter(solver, aux_key) for aux_key in aux.keys()]
@@ -412,10 +408,6 @@ def compute_domain(
                 "flux",
             ]:  # Avoid offspring, carrying capacity, and mortality
                 domain.population[species][sex][group][time][age] = key
-
-        # Flush buffers to the disk
-        if hasattr(domain.file, "flush"):
-            domain.file.flush()
 
 
 class discrete_explicit(object):
@@ -520,13 +512,15 @@ class discrete_explicit(object):
                                     mvp = species_instance.minimum_viable_population
                 if mvp > 0:
                     study_area = (
-                        da.sum(self.carrying_capacity_arrays[species]["total"] > 0)
+                        da.sum(
+                            self.carrying_capacity_arrays[species]["total"] > 0)
                         * self.D.csx
                         * self.D.csy
                     )
 
                     self.mvp_coeff = dispersal.minimum_viable_population(
-                        self.population_arrays[species]["total {}".format(time)],
+                        self.population_arrays[species]["total {}".format(
+                            time)],
                         species_instance.minimum_viable_population,
                         species_instance.minimum_viable_area,
                         self.D.csx,
@@ -582,7 +576,8 @@ class discrete_explicit(object):
                             age = None
                     else:
                         age = 0
-                    key = "{}/{}/{}/{}/{}".format(species, _sex, zero_group, time, age)
+                    key = "{}/{}/{}/{}/{}".format(species,
+                                                  _sex, zero_group, time, age)
                     existing_age = self.D.get_population(
                         species, self.current_time, _sex, zero_group, age
                     )
@@ -680,9 +675,11 @@ class discrete_explicit(object):
             self.population_arrays[species][
                 "Female to Male Ratio {}".format(time)
             ] = da_where(
-                self.population_arrays[species]["Reproducing Males {}".format(time)]
+                self.population_arrays[species]["Reproducing Males {}".format(
+                    time)]
                 > 0,
-                self.population_arrays[species]["Reproducing Females {}".format(time)]
+                self.population_arrays[species]["Reproducing Females {}".format(
+                    time)]
                 / self.population_arrays[species]["Reproducing Males {}".format(time)],
                 INF,
             )
@@ -706,7 +703,7 @@ class discrete_explicit(object):
         data will be None and density of the linked species will be calculated.
 
         :param param: CarryingCapacity, Fecundity, or Mortality instance
-        :param data: :class:`h5py.Dataset` key
+        :param data: :class:`zarr.core.Array` key
 
         :return: A dask array with the collected data
         """
@@ -747,8 +744,11 @@ class discrete_explicit(object):
 
             elif param.population_type == "global ratio":
                 population_data = da_where(
-                    self.population_arrays["global {}".format(self.current_time)] > 0,
-                    p / self.population_arrays["global {}".format(self.current_time)],
+                    self.population_arrays["global {}".format(
+                        self.current_time)] > 0,
+                    p /
+                    self.population_arrays["global {}".format(
+                        self.current_time)],
                     INF,
                 )
             else:
@@ -862,7 +862,8 @@ class discrete_explicit(object):
 
                 elif param.population_type == "global ratio":
                     kwargs["lookup_data"] = da_where(
-                        self.population_arrays["global {}".format(self.current_time)]
+                        self.population_arrays["global {}".format(
+                            self.current_time)]
                         > 0,
                         p
                         / self.population_arrays["global {}".format(self.current_time)],
@@ -918,7 +919,8 @@ class discrete_explicit(object):
 
             if honor_reproduction:
                 # Collect fecundity to see if it is present
-                species_key, sex, group_key, time = self.D._deconstruct_key(key)[:4]
+                species_key, sex, group_key, time = self.D._deconstruct_key(key)[
+                    :4]
 
                 if len(self.D.get_fecundity(species_key, time, sex, group_key)) == 0:
                     continue
@@ -942,7 +944,7 @@ class discrete_explicit(object):
         :func:`Domain.get_carrying_capacity` call. This updates ``self.carrying_capacity_arrays`` to avoid excessive or
         infinite recursion depth when collecting carrying capacity that may be circular.
 
-        :param datasets: list of tuples with instance - :class:`h5py.Dataset` pairs
+        :param datasets: list of tuples with instance - :class:`zarr.core.Array` pairs
         :param list dependent: Tracks the species used in species-dependent carrying capacity calculations
         :return: dask array of total carrying capacity
         """
@@ -953,15 +955,18 @@ class discrete_explicit(object):
             #  all be computed at the first occurrence and added to the arrays.
             try:
                 if cc[1] is None:
-                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]])
+                    cc_coeff.append(
+                        self.carrying_capacity_arrays[species][cc[0]])
                 else:
-                    cc_arrays.append(self.carrying_capacity_arrays[species][cc[0]])
+                    cc_arrays.append(
+                        self.carrying_capacity_arrays[species][cc[0]])
             except KeyError:
                 # The dataset must be calculated or added to the arrays dict
                 if cc[1] is None:
                     # Circular relationships are solved here
                     self.interspecies_carrying_capacity(species, cc[0])
-                    cc_coeff.append(self.carrying_capacity_arrays[species][cc[0]])
+                    cc_coeff.append(
+                        self.carrying_capacity_arrays[species][cc[0]])
                 else:
                     ds = self.collect_parameter(cc[0], cc[1])
                     self.carrying_capacity_arrays[species][cc[0]] = ds
@@ -1045,7 +1050,8 @@ class discrete_explicit(object):
         # -----------------------------------------------------------------
         if all(
             [
-                self.D.get_population(species, time - 1, sex, group, age) is None
+                self.D.get_population(
+                    species, time - 1, sex, group, age) is None
                 for age in ages
             ]
         ):
@@ -1091,14 +1097,17 @@ class discrete_explicit(object):
         # Add carrying capacity to the output datasets
         if self.carrying_capacity_total:
             # For the total species population only
-            total_prefix = "{}/{}/{}/{}/params".format(species, None, None, time)
+            total_prefix = "{}/{}/{}/{}/params".format(
+                species, None, None, time)
             output[
-                "{}/carrying capacity/{}".format(total_prefix, "Carrying Capacity")
+                "{}/carrying capacity/{}".format(total_prefix,
+                                                 "Carrying Capacity")
             ] = params["Carrying Capacity"]
         else:
             # Specific to the species
             output[
-                "{}/carrying capacity/{}".format(param_prefix, "Carrying Capacity")
+                "{}/carrying capacity/{}".format(param_prefix,
+                                                 "Carrying Capacity")
             ] = params["Carrying Capacity"]
 
         if sex is not None:
@@ -1133,7 +1142,8 @@ class discrete_explicit(object):
                                 _sex
                             ] += female_births / len(cont_species)
                     output[
-                        "{}/offspring/{}".format(flux_prefix, "Female Offspring")
+                        "{}/offspring/{}".format(flux_prefix,
+                                                 "Female Offspring")
                     ] = female_births
                 else:
                     if len(cont_species) == 0:
@@ -1167,7 +1177,8 @@ class discrete_explicit(object):
                 linear_proportion = da.minimum(1.0, dd_range / linear_range)
             ddm_rate = da_where(
                 (params["Density"] > 0) & ~da.isinf(params["Density"]),
-                (dd_range * (density_scale * linear_proportion)) / params["Density"],
+                (dd_range * (density_scale * linear_proportion)) /
+                params["Density"],
                 0,
             )
             # Make the rate 1 where there is an infinite density
@@ -1175,7 +1186,8 @@ class discrete_explicit(object):
 
         for age in ages:
             # Collect the population of the age from the previous time step
-            population = self.D.get_population(species, time - 1, sex, group, age)
+            population = self.D.get_population(
+                species, time - 1, sex, group, age)
 
             if population is None:
                 raise ValueError(
@@ -1254,7 +1266,8 @@ class discrete_explicit(object):
                 and max_age is not None
                 and age == max_age
             ):
-                output["{}/mortality/{}".format(flux_prefix, "Old Age")] += population
+                output["{}/mortality/{}".format(flux_prefix,
+                                                "Old Age")] += population
                 # All done with this population
                 continue
 
@@ -1264,13 +1277,13 @@ class discrete_explicit(object):
             static_population = population.copy()
 
             # Collect species and time-based dispersal methods
-            dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group)
+            dispersal_methods = self.D.get_dispersal(
+                species, time - 1, sex, group)
 
             # Collect all mask keys so they can be queried for dispersal arguments
-            mask_keys = [
-                mk.split("/")[-1]
-                for mk in self.D.get_mask(species, self.current_time, sex, group)
-            ]
+            masks = self.D.get_mask(species, self.current_time, sex, group)
+            mask_keys = [mk.split("/")[-1]
+                         for mk in masks] if masks is not None else []
 
             for dispersal_method, args in dispersal_methods:
                 args = args + (self.D.csx, self.D.csy)
@@ -1324,10 +1337,12 @@ class discrete_explicit(object):
                 no = ddm_rate
                 new_ddm_rate = da_where(mask, yes, no)
 
-                ddm = da_where(new_ddm_rate > 0.0, population * new_ddm_rate, 0)
+                ddm = da_where(new_ddm_rate > 0.0,
+                               population * new_ddm_rate, 0)
 
                 output[
-                    "{}/mortality/{}".format(param_prefix, "Density Dependent Rate")
+                    "{}/mortality/{}".format(param_prefix,
+                                             "Density Dependent Rate")
                 ] = new_ddm_rate
                 output[
                     "{}/mortality/{}".format(flux_prefix, "Density Dependent")
@@ -1354,7 +1369,8 @@ class discrete_explicit(object):
             # Lastly, apply minimum viable population calculations if necessary
             if species_instance.minimum_viable_population > 0:
                 study_area = (
-                    da.sum(params["Carrying Capacity"] > 0) * self.D.csx * self.D.csy
+                    da.sum(params["Carrying Capacity"] > 0) *
+                    self.D.csx * self.D.csy
                 )
 
                 mvp_coeff = dispersal.minimum_viable_population(
@@ -1367,7 +1383,8 @@ class discrete_explicit(object):
                 )
                 population *= mvp_coeff
 
-            key = "{}/{}/{}/{}/{}".format(species, sex, new_group, time, new_age)
+            key = "{}/{}/{}/{}/{}".format(species,
+                                          sex, new_group, time, new_age)
             existing_age = self.D.get_population(
                 species, self.current_time, sex, new_group, new_age
             )
@@ -1415,7 +1432,8 @@ class discrete_explicit(object):
                 }
             else:
                 # Collect non-zero mortality datasets
-                parameters[instance.name] = self.collect_parameter(instance, key)
+                parameters[instance.name] = self.collect_parameter(
+                    instance, key)
 
                 # Ensure no negatives
                 parameters[instance.name] = da_where(
@@ -1424,7 +1442,8 @@ class discrete_explicit(object):
 
                 # Check if a multiplicative modifier mask exists (used to explicitly spatially
                 #   constrain inter-species mortality)
-                mort_mask = self.D.get_mask(species, time, sex, group, instance.name)
+                mort_mask = self.D.get_mask(
+                    species, time, sex, group, instance.name)
                 if mort_mask is not None:
                     # Enforce a maximum of 1
                     parameters[instance.name] *= da_where(
@@ -1435,17 +1454,21 @@ class discrete_explicit(object):
         # ----------------------------------------
         # Total Population from previous time step (all population, without regard to contribution filtering)
         population_dsts = self.D.all_population(species, time - 1, sex, group)
-        parameters["Population"] = self.population_total(population_dsts, False)
+        parameters["Population"] = self.population_total(
+            population_dsts, False)
 
         # Collect CarryingCapacity instances and/or data from the domain at the current time step and
         # the total population used for density
         if self.total_density:
             global_cc = self.carrying_capacity_arrays[species]["total"]
             parameters["Carrying Capacity"] = global_cc
-            population = self.population_arrays[species]["total {}".format(time)]
+            population = self.population_arrays[species]["total {}".format(
+                time)]
         else:
-            carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
-            global_cc = self.carrying_capacity_total(species, carrying_capacity)
+            carrying_capacity = self.D.get_carrying_capacity(
+                species, time, sex, group)
+            global_cc = self.carrying_capacity_total(
+                species, carrying_capacity)
             parameters["Carrying Capacity"] = global_cc
             population = self.population_total(population_dsts)
 
@@ -1455,7 +1478,8 @@ class discrete_explicit(object):
             global_cc = self.carrying_capacity_arrays["global {}".format(time)]
             population = self.population_arrays["global {}".format(time)]
 
-        parameters["Density"] = da_where(global_cc > 0, population / global_cc, INF)
+        parameters["Density"] = da_where(
+            global_cc > 0, population / global_cc, INF)
 
         # Collect fecundity parameters
         # These may be collected for any species, whether it be male or female. If fecundity exists for
@@ -1498,7 +1522,8 @@ class discrete_explicit(object):
                 density_fecundity_threshold = getattr(
                     instance, "density_fecundity_threshold"
                 )
-                density_fecundity_max = getattr(instance, "density_fecundity_max")
+                density_fecundity_max = getattr(
+                    instance, "density_fecundity_max")
                 fecundity_reduction_rate = min(
                     1.0, getattr(instance, "fecundity_reduction_rate")
                 )
@@ -1506,10 +1531,12 @@ class discrete_explicit(object):
                 input_range = max(
                     0.0, density_fecundity_max - density_fecundity_threshold
                 )
-                density_range = parameters["Density"] - density_fecundity_threshold
+                density_range = parameters["Density"] - \
+                    density_fecundity_threshold
 
                 if input_range == 0:
-                    fec_mod = da_where(density_range > 0, fecundity_reduction_rate, 0.0)
+                    fec_mod = da_where(density_range > 0,
+                                       fecundity_reduction_rate, 0.0)
                 else:
                     fec_mod = da_where(
                         density_range > 0,
@@ -1745,7 +1772,8 @@ class discrete_explicit(object):
             if isinstance(params[mort_type.name], dict):
                 # This is time-based mortality
                 time_based_rate = params[mort_type.name]["time_based_rates"]
-                time_based_index = self.get_counter(species, group, sex, age, time - 1)
+                time_based_index = self.get_counter(
+                    species, group, sex, age, time - 1)
                 if time_based_index is None:
                     # There has never been a population of this nature
                     continue
@@ -1759,7 +1787,8 @@ class discrete_explicit(object):
                         time_based_mortality, params[mort_type.name]["time_based_std"]
                     )
                 time_based_mortality = da.broadcast_to(
-                    min(1, max(0, time_based_mortality)), self.D.shape, self.D.chunks
+                    min(1, max(0, time_based_mortality)
+                        ), self.D.shape, self.D.chunks
                 )
                 mortality_data.append(time_based_mortality)
                 output[
@@ -1780,7 +1809,8 @@ class discrete_explicit(object):
                     1.0,
                 )
                 mort_coeff = da_where(
-                    agg_mort > max_mort, 1.0 - ((agg_mort - max_mort) / agg_mort), 1.0
+                    agg_mort > max_mort, 1.0 -
+                    ((agg_mort - max_mort) / agg_mort), 1.0
                 )
             else:
                 agg_mort = dsum(mortality_data)
@@ -1897,11 +1927,11 @@ class discrete_explicit(object):
             ds = self.D.file.require_dataset(
                 other_species_key,
                 shape=self.D.shape,
-                dtype=np.float32,
-                chunks=self.D.chunks,
-                compression="lzf",
+                dtype="float32",
+                chunks=self.D.chunks
             )
-            other_species_data = da.from_array(ds, self.D.chunks) + mort_fluxes[-1]
+            other_species_data = da.from_array(
+                ds, self.D.chunks) + mort_fluxes[-1]
 
             # If multiple species are contributing to the recipient, they must be added in a delayed fashion
             try:

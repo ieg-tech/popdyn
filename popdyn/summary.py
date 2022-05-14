@@ -6,8 +6,7 @@ Devin Cairns 2018
 
 import popdyn as pd
 
-# import h5fake as h5py
-import h5py
+import zarr
 import dask.array as da
 
 # import dafake as da
@@ -108,7 +107,7 @@ class ModelSummary(object):
         # Load all datasets in the domain into dask arrays so they may be uniquely tokenized
         def load_ds(key):
             ds = domain.file[key]
-            if isinstance(ds, h5py.Dataset):
+            if isinstance(ds, zarr.core.Array):
                 self.arrays[key] = da.from_array(domain[key], domain.chunks)
             else:
                 for _key in domain.file[key].keys():

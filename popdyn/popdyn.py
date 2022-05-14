@@ -7,15 +7,15 @@ Devin Cairns, 2018
 from __future__ import print_function
 import os
 import pickle
+
 import numpy as np
 from osgeo import gdal, osr
+
 from logger import Timer
 import dispersal
 import dynamic
 from util import *
-
-# import h5fake as h5py
-import h5py
+import zarr
 
 
 class PopdynError(Exception):
@@ -64,7 +64,7 @@ class Domain(object):
         # If the path exists, parameterize the model based on the previous run
         if os.path.isfile(popdyn_path) or os.path.isdir(popdyn_path):
             self.path = popdyn_path  # Files are accessed through the file attribute
-            self.file = h5py.File(self.path, libver='latest', mode='r+')
+            self.file = zarr.open(self.path, mode='r+')
             self._load()
         else:
 
@@ -81,49 +81,33 @@ class Domain(object):
         if path.split('.')[-1] != 'popdyn':
             path = path + '.popdyn'
         try:
-            with h5py.File(path, mode='w', libver='latest') as f:
-                assert f  # Make sure all is well
-                print("Popdyn domain %s created" % path)
+            _ = zarr.open(path, mode='w')
+            print("Popdyn domain %s created" % path)
         except Exception as e:
-            raise PopdynError('Unable to create the file {} because:\n{}'.format(path, e))
+            raise PopdynError(
+                'Unable to create the file {} because:\n{}'.format(path, e))
         return path
 
     def _add_directory(self, key):
         """
-        Internal method to manage addition of HDF5 groups in the .popdyn file
-        Groups are added recursively to create the entire directory tree
+        Add a group to the file
+
         :param str key: key for group
         :return: None
         """
-
-        def add_group(k, f):
-            try:
-                f[k]
-            except KeyError:
-                sk = '/'.join(k.split('/')[:-1])
-                fk = k.split('/')[-1]
-                add_group('/'.join(k.split('/')[:-1]), f)
-                f[sk].create_group(fk)
-
-        add_group(key, self.file)
+        self.file.create_group(key)
 
     def _dump(self):
         """Dump all of the domain instance to the file"""
-        if h5py.__name__ == 'h5py':
-            self.file.attrs.update(
-                {key: np.void(pickle.dumps(val)) for key, val in self.__dict__.items() if key not in ['file', 'path']}
-            )
-        else:
-            self.file.attrs.update(
-                {key: val for key, val in self.__dict__.items() if key not in ['file', 'path']}
-            )
+        self.file.attrs.update(
+            {key: pickle.dumps(val) for key, val in self.__dict__.items(
+            ) if key not in ['file', 'path']}
+        )
 
     def _load(self):
         """Get the model parameters from an existing popdyn file"""
-        if h5py.__name__ == 'h5py':
-            self.__dict__.update({key: pickle.loads(val.tostring()) for key, val in self.file.attrs.items()})
-        else:
-            self.__dict__.update({key: val for key, val in self.file.attrs.items()})
+        self.__dict__.update({key: pickle.loads(val.tostring())
+                             for key, val in self.file.attrs.items()})
 
         print("Domain successfully populated from the file {}".format(self.path))
 
@@ -131,14 +115,8 @@ class Domain(object):
         return self
 
     def __exit__(self, *_):
-        self.file.close()
-
-    def __del__(self):
-        # As a precaution
-        try:
-            self.file.close()
-        except:
-            pass
+        """Legacy"""
+        pass
 
     def __getitem__(self, item):
         try:
@@ -151,17 +129,9 @@ class Domain(object):
             del self.file[key]
         except KeyError:
             pass
-        if h5py.__name__ == 'h5py':
-            kwargs = {}
-        else:
-            # h5fake
-            kwargs = {
-                'sr': self.projection,
-                'gt': (self.left, self.csx, 0, self.top, 0, self.csy * -1),
-                'nd': [0]
-            }
-        _ = self.file.create_dataset(key, data=np.broadcast_to(data, self.shape),
-                                     compression='lzf', chunks=self.chunks, **kwargs)
+
+        _ = self.file.create_dataset(key, data=np.broadcast_to(
+            data, self.shape), chunks=self.chunks)
 
     def __repr__(self):
         return 'Popdyn domain of shape {} with\n{}'.format(self.shape, '\n'.join(self.species_names))
@@ -173,7 +143,7 @@ class Domain(object):
         """Used in the constructor to build the domain using input arguments"""
         # Make sure the name suits the specifications
         self.path = self._create_file(popdyn_path)
-        self.file = h5py.File(self.path, libver='latest', mode='w')
+        self.file = zarr.open(self.path, mode='w')
 
         if domain_raster is None:
             # Try and build the domain using keyword arguments
@@ -194,7 +164,8 @@ class Domain(object):
                             # Assume EPSG
                             sr.ImportFromEPSG(self.projection)
                     except TypeError:
-                        raise PopdynError('Only a SRID or WKT are accepted input projection arguments')
+                        raise PopdynError(
+                            'Only a SRID or WKT are accepted input projection arguments')
                     self.projection = sr.ExportToWkt()
             except AttributeError:
                 raise PopdynError('If an input popdyn file and domain raster are not specified, '
@@ -208,7 +179,8 @@ class Domain(object):
 
             # Domain cannot be empty
             if self.mask.sum() == 0:
-                raise PopdynError('The domain cannot be empty. Check the input raster "{}"'.format(domain_raster))
+                raise PopdynError(
+                    'The domain cannot be empty. Check the input raster "{}"'.format(domain_raster))
 
         # Create some other attributes
         self.timer = Timer()  # Used for profiling function times
@@ -224,15 +196,7 @@ class Domain(object):
             self.avoid_inheritance = False
         # Chunk size is specified for data storage and dask scheduling
         if not hasattr(self, 'chunks'):
-            if h5py.__name__ == 'h5py':
-                chunks = [1024, 1024]
-                if chunks[0] > self.shape[0]:
-                    chunks[0] = self.shape[0]
-                if chunks[1] > self.shape[1]:
-                    chunks[1] = self.shape[1]
-            else:
-                chunks = [256, 256]
-            self.chunks = tuple(chunks)
+            self.chunks = (512, 512)
 
     def _raster_as_array(self, raster, as_mask=False):
         """
@@ -271,7 +235,8 @@ class Domain(object):
         """
         file_source = gdal.Open(raster)
         if file_source is None:
-            raise PopdynError('Unable to read the source raster {}'.format(raster))
+            raise PopdynError(
+                'Unable to read the source raster {}'.format(raster))
 
         # Collect the spatial info
         gt = file_source.GetGeoTransform()
@@ -312,8 +277,10 @@ class Domain(object):
                   '    Cell Size (y):     {:.2f} --> {:.2f}\n'
                   '    Top:               {:.2f} --> {:.2f}\n'
                   '    Left:              {:.2f} --> {:.2f}'.format(
-                      in_sr.GetAttrValue('datum').replace('_', ' '), in_sr.GetAttrValue('projcs').replace('_', ' '),
-                      domain_sr.GetAttrValue('datum').replace('_', ' '), domain_sr.GetAttrValue('projcs').replace('_', ' '),
+                      in_sr.GetAttrValue('datum').replace(
+                          '_', ' '), in_sr.GetAttrValue('projcs').replace('_', ' '),
+                      domain_sr.GetAttrValue('datum').replace(
+                          '_', ' '), domain_sr.GetAttrValue('projcs').replace('_', ' '),
                       csx, self.csx, csy, self.csy, top, self.top, left, self.left
                   ))
 
@@ -327,8 +294,10 @@ class Domain(object):
         """
         # Create an in-memory raster using the specs of the domain
         driver = gdal.GetDriverByName('MEM')
-        outds = driver.Create('None', self.shape[1], self.shape[0], 1, gdal.GetDataTypeByName('Float32'))
-        outds.SetGeoTransform((self.left, self.csx, 0, self.top, 0, self.csy * -1))
+        outds = driver.Create(
+            'None', self.shape[1], self.shape[0], 1, gdal.GetDataTypeByName('Float32'))
+        outds.SetGeoTransform(
+            (self.left, self.csx, 0, self.top, 0, self.csy * -1))
         outds.SetProjection(self.projection)
 
         # Load spatial references
@@ -354,10 +323,12 @@ class Domain(object):
         try:
             _time = int(time)
         except:
-            raise PopdynError("Unable to parse the input time of type {}".format(type(time).__name__))
+            raise PopdynError(
+                "Unable to parse the input time of type {}".format(type(time).__name__))
 
         if not np.isclose(_time, float(time)):
-            raise PopdynError('Input time may only be an integer (whole number)')
+            raise PopdynError(
+                'Input time may only be an integer (whole number)')
 
         return _time
 
@@ -372,7 +343,8 @@ class Domain(object):
             try:
                 return np.asarray(data).astype('float32')
             except:
-                raise PopdynError('Unable to parse the input data {} into the domain'.format(data))
+                raise PopdynError(
+                    'Unable to parse the input data {} into the domain'.format(data))
 
     # Domain-species interaction methods
     # ==================================================================================================
@@ -425,7 +397,8 @@ class Domain(object):
         data /= len(ages)
 
         for age in ages:
-            key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, age)
+            key = '{}/{}/{}/{}/{}'.format(species.name_key,
+                                          species.sex, species.group_key, time, age)
             self.population[species.name_key][species.sex][species.group_key][time][age] = key
 
             self._add_data(key, data,
@@ -477,14 +450,16 @@ class Domain(object):
 
             # The species may not be itself (this would create an infinite loop)
             if carrying_capacity.species.name_key == species.name_key:
-                raise PopdynError('A species may not dynamically change carrying capacity for itself.')
+                raise PopdynError(
+                    'A species may not dynamically change carrying capacity for itself.')
 
         k_key = carrying_capacity.name_key
 
         if data is None:
             key = None
         else:
-            key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, k_key)
+            key = '{}/{}/{}/{}/{}'.format(species.name_key,
+                                          species.sex, species.group_key, time, k_key)
 
             # Add the data to the file
             self._add_data(key, data,
@@ -518,7 +493,8 @@ class Domain(object):
                 Overwrite method for replacing existing data. Use one of ``['replace', 'add']`` (Default 'replace')
         """
         if not isinstance(mortality, Mortality):
-            raise PopdynError('Expected a mortality instance, not "{}"'.format(type(mortality).__name__))
+            raise PopdynError('Expected a mortality instance, not "{}"'.format(
+                type(mortality).__name__))
 
         self._introduce_species(species)  # Introduce the species
         time = self._get_time_input(time)  # Gather time
@@ -538,16 +514,19 @@ class Domain(object):
         if data is None:
             key = None
         else:
-            key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, m_key)
+            key = '{}/{}/{}/{}/{}'.format(species.name_key,
+                                          species.sex, species.group_key, time, m_key)
 
             # Add the data to the file
             self._add_data(key, data,
                            distribute=kwargs.get('distribute', True),
                            overwrite=kwargs.get('overwrite', 'replace'),
-                           distribute_by_co=kwargs.get('distribute_by_co', None)
+                           distribute_by_co=kwargs.get(
+                               'distribute_by_co', None)
                            )
 
-        self.mortality[species.name_key][species.sex][species.group_key][time][m_key] = (mortality, key)
+        self.mortality[species.name_key][species.sex][species.group_key][time][m_key] = (
+            mortality, key)
 
     @_save
     def add_fecundity(self, species, fecundity, time, data=None, **kwargs):
@@ -573,7 +552,8 @@ class Domain(object):
             raise PopdynError('Species with fecundity must have a sex')
 
         if not isinstance(fecundity, Fecundity):
-            raise PopdynError('Expected a Fecundity instance, not "{}"'.format(type(fecundity).__name__))
+            raise PopdynError('Expected a Fecundity instance, not "{}"'.format(
+                type(fecundity).__name__))
 
         self._introduce_species(species)  # Introduce the species
         time = self._get_time_input(time)  # Gather time
@@ -582,7 +562,8 @@ class Domain(object):
         else:
             # Fecundity must be tied to a species if there are no input data
             if not hasattr(fecundity, 'species'):
-                raise PopdynError('Fecundity data must be provided if there are no attached species')
+                raise PopdynError(
+                    'Fecundity data must be provided if there are no attached species')
 
         f_key = fecundity.name_key
 
@@ -590,16 +571,19 @@ class Domain(object):
         if data is None:
             key = None
         else:
-            key = '{}/{}/{}/{}/{}'.format(species.name_key, species.sex, species.group_key, time, f_key)
+            key = '{}/{}/{}/{}/{}'.format(species.name_key,
+                                          species.sex, species.group_key, time, f_key)
 
             # Add the data to the file
             self._add_data(key, data,
                            distribute=kwargs.get('distribute', True),
                            overwrite=kwargs.get('overwrite', 'replace'),
-                           distribute_by_co=kwargs.get('distribute_by_co', None)
+                           distribute_by_co=kwargs.get(
+                               'distribute_by_co', None)
                            )
 
-        self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (fecundity, key)
+        self.fecundity[species.name_key][species.sex][species.group_key][time][f_key] = (
+            fecundity, key)
 
     @_save
     def add_time_based_dispersal(self, species, dispersal_type, time, *args, **kwargs):
@@ -615,7 +599,8 @@ class Domain(object):
         :param dict kwargs: Datasets required as inputs
         """
         if dispersal_type not in dispersal.METHODS.keys():
-            raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
+            raise PopdynError(
+                'The dispersal method {} has not been implemented'.format(dispersal_type))
 
         self._introduce_species(species)  # Introduce the species
         time = self._get_time_input(time)  # Gather time
@@ -624,7 +609,8 @@ class Domain(object):
 
         # kwargs must be datasets
         for key, val in kwargs.items():
-            self.add_mask(species, time, 'dispersal__{}__{}'.format(dispersal_type, key), val)
+            self.add_mask(species, time, 'dispersal__{}__{}'.format(
+                dispersal_type, key), val)
 
     def add_disease(self, input_file, **kwargs):
         direct, env = read_cwd_input(input_file)
@@ -632,7 +618,8 @@ class Domain(object):
             self.direct_transmission = direct
         if kwargs.get('environmental_transmission'):
             # TODO: E data should be added in the domain, as it has a specific discretization
-            self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
+            self.environmental_transmission = {
+                'C': env, 'E': kwargs.get('E_data')}
 
     @_save
     def add_mask(self, species, time, mask_key, data=None, **kwargs):
@@ -654,7 +641,8 @@ class Domain(object):
         time = self._get_time_input(time)  # Gather time
         data = self._get_data_type(data)  # Parse input data
 
-        key = '{}/{}/{}/{}/masks/{}'.format(species.name_key, species.sex, species.group_key, time, mask_key)
+        key = '{}/{}/{}/{}/masks/{}'.format(species.name_key,
+                                            species.sex, species.group_key, time, mask_key)
 
         # Add the data to the file
         self._add_data(key, data,
@@ -971,7 +959,8 @@ class Domain(object):
         """
         groups = self.species[species][sex].keys()
         for group in groups:
-            val = self.species[species][sex][group]  # Could be a dict or an instance
+            # Could be a dict or an instance
+            val = self.species[species][sex][group]
             if isinstance(val, Species):
                 if any([age == val for val in val.age_range]):
                     return group
@@ -1046,20 +1035,24 @@ class Domain(object):
         # Check if an input covariate name is valid
         distribute_by_co = kwargs.get('distribute_by_co', None)
         if distribute_by_co not in ['population', 'mortality', 'carrying_capacity', None]:
-            raise PopdynError('Unsupported covariate "{}"'.format(distribute_by_co))
+            raise PopdynError(
+                'Unsupported covariate "{}"'.format(distribute_by_co))
 
         # Distribute if necessary- evenly or using a covariate
         if distribute_by_co is not None:
             # Change the key into arguments that may be used to collect the covariate
-            species_key, sex, group, time, ds_type = self._deconstruct_key(key)[:5]
+            species_key, sex, group, time, ds_type = self._deconstruct_key(key)[
+                :5]
             # The covariate is collected using a function call that is constructed using the data type name
-            co = getattr(self, 'get_{}'.format(distribute_by_co))(species_key, time, sex, group, inherit=True)
+            co = getattr(self, 'get_{}'.format(distribute_by_co))(
+                species_key, time, sex, group, inherit=True)
             # Only collect HDF5 data
             co = [self[_co[1]] for _co in co if _co[1] is not None]
 
             # Use dask to aggregate data because this could be memory-heavy
             if len(co) > 0:
-                co = dsum([da.from_array(ds, ds.chunks) for ds in co]).compute()
+                co = dsum([da.from_array(ds, ds.chunks)
+                          for ds in co]).compute()
 
             # Compute the sum. If no data are available or the dataset is empty, the sum will be 0
             co_sum = np.sum(co)
@@ -1071,7 +1064,8 @@ class Domain(object):
 
         elif kwargs.get('distribute', True):
             # Split all data evenly among active cells
-            data = (np.sum(data) / np.sum(self.mask)) * self.mask.astype('float32')  # The mask is used to broadcast
+            data = (np.sum(data) / np.sum(self.mask)) * \
+                self.mask.astype('float32')  # The mask is used to broadcast
 
         # Try to collect the dataset directly
         try:
@@ -1098,13 +1092,14 @@ class Domain(object):
         :param int time: Time slice
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
-        :return: list of instance - :class:`h5py.dataset` key pairs
+        :return: list of instance - :class:`zarr.core.Array` key pairs
         """
         time = self._get_time_input(time)
 
         if snap_to_time:
             times = self.mortality[species_key][sex][group_key].keys()
-            times = [t for t in times if len(self.mortality[species_key][sex][group_key][t]) > 0]
+            times = [t for t in times if len(
+                self.mortality[species_key][sex][group_key][t]) > 0]
 
             times = np.unique(times)
             delta = time - times
@@ -1142,13 +1137,14 @@ class Domain(object):
         :param int time: Time slice
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param avoid_inheritance: Do not inherit a dataset from the sex or species
-        :return: list of instance - :class:`h5py.dataset` key pairs
+        :return: list of instance - :class:`zarr.core.Array` key pairs
         """
         time = self._get_time_input(time)
 
         if snap_to_time:
             times = self.fecundity[species_key][sex][group_key].keys()
-            times = [t for t in times if len(self.fecundity[species_key][sex][group_key][t]) > 0]
+            times = [t for t in times if len(
+                self.fecundity[species_key][sex][group_key][t]) > 0]
 
             times = np.unique(times)
             delta = time - times
@@ -1190,7 +1186,7 @@ class Domain(object):
         :return: tuple (dispersal method name, args)
         """
         # Dispersal attached to a species
-        dispersal_methods = self.species[species_key][sex][group_key].dispersal
+        dispersal_methods = self.species[species_key][sex][group_key].dispersal[:]
 
         # Time-variant dispersal
         time = self._get_time_input(time)
@@ -1198,7 +1194,8 @@ class Domain(object):
         # Collect the dataset keys using inheritance
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
-                times = np.unique(self.dispersal[species_key][sex][group_key].keys())
+                times = np.unique(
+                    self.dispersal[species_key][sex][group_key].keys())
 
                 delta = time - times
                 backwards = delta >= 0
@@ -1251,7 +1248,8 @@ class Domain(object):
                 times = self.masks[species_key][sex][group_key].keys()
 
                 if mask_key is not None:
-                    times = [t for t in times if mask_key in self.masks[species_key][sex][group_key][t].keys()]
+                    times = [
+                        t for t in times if mask_key in self.masks[species_key][sex][group_key][t].keys()]
 
                 times = np.unique(times)
                 delta = time - times
@@ -1270,7 +1268,8 @@ class Domain(object):
                 else:
                     return None
             else:
-                keys = [key for key in self.masks[species_key][sex][group_key][time].values() if len(key) > 0]
+                keys = [key for key in self.masks[species_key][sex]
+                        [group_key][time].values() if len(key) > 0]
                 if len(keys) > 0:
                     return keys
                 else:
@@ -1297,7 +1296,7 @@ class Domain(object):
         :param snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
         :param bool inherit: Collect data from parent species if they do not exist for the input. Used primarily for distributing by a covariate,
             and should not be used during simulations (the values may change during pre-solving inheritance)
-        :return: list of instance - :class:`h5py.Dataset` keys
+        :return: list of instance - :class:`zarr.core.Array` keys
         """
         time = self._get_time_input(time)
 
@@ -1305,8 +1304,10 @@ class Domain(object):
             """Factory so looping can occur if inherit is True"""
             if snap_to_time:
                 # Modify time to the location closest backwards in time with data
-                times = self.carrying_capacity[species_key][sex][group_key].keys()
-                times = [t for t in times if len(self.carrying_capacity[species_key][sex][group_key][t]) > 0]
+                times = self.carrying_capacity[species_key][sex][group_key].keys(
+                )
+                times = [t for t in times if len(
+                    self.carrying_capacity[species_key][sex][group_key][t]) > 0]
 
                 times = np.unique(times)
                 delta = time - times
@@ -1319,7 +1320,8 @@ class Domain(object):
                     time = times[i]
 
             # Collect the instance - key pairs
-            datasets = self.carrying_capacity[species_key][sex][group_key][time].keys()
+            datasets = self.carrying_capacity[species_key][sex][group_key][time].keys(
+            )
             name_dict = self.carrying_capacity[species_key][sex][group_key][time]
 
             # If there are data in the domain, return the HDF5 dataset key, else None
@@ -1344,7 +1346,7 @@ class Domain(object):
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
         :param bool snap_to_time: If the dataset queried does not exist, it can be snapped backwards in time to the nearest available dataset
-        :return list: All Carrying Capacity instances - :class:`h5py.Dataset` key pairs
+        :return list: All Carrying Capacity instances - :class:`zarr.core.Array` key pairs
         """
         time = self._get_time_input(time)
 
@@ -1355,7 +1357,8 @@ class Domain(object):
         groups = [group_key]
         if group_key is None:
             for _sex in sexes:
-                groups += [key for key in self.carrying_capacity[species_key][_sex].keys() if key is not None]
+                groups += [key for key in self.carrying_capacity[species_key]
+                           [_sex].keys() if key is not None]
 
         # Duplicate group names may exist for males and females
         groups = np.unique(groups)
@@ -1363,7 +1366,8 @@ class Domain(object):
         cc = []
         for _sex in sexes:
             for group in groups:
-                cc += self.get_carrying_capacity(species_key, time, _sex, group, snap_to_time)
+                cc += self.get_carrying_capacity(species_key,
+                                                 time, _sex, group, snap_to_time)
 
         return cc
 
@@ -1409,7 +1413,7 @@ class Domain(object):
         :param str group_key: AgeGroup.group_key
         :param int time: Time slice
         :param int age: Absolute age
-        :return: list of :class:'h5py.Dataset` keys
+        :return: list of :class:'zarr.core.Array` keys
         """
         time = self._get_time_input(time)
 
@@ -1420,7 +1424,8 @@ class Domain(object):
         groups = [group_key]
         if group_key is None:
             for _sex in sexes:
-                groups += [key for key in self.population[species_key][_sex].keys() if key is not None]
+                groups += [key for key in self.population[species_key]
+                           [_sex].keys() if key is not None]
 
         # Duplicate group names may exist for males and females
         groups = np.unique(groups)
@@ -1428,7 +1433,8 @@ class Domain(object):
         keys = []
         for _sex in sexes:
             for group in groups:
-                age_keys = self.population[species_key][_sex][group][time].keys()
+                age_keys = self.population[species_key][_sex][group][time].keys(
+                )
                 for age in age_keys:
                     val = self.population[species_key][_sex][group][time][age]
                     if len(val) > 0:  # Could be a defaultdict, or string
@@ -1486,19 +1492,23 @@ class Species(object):
                               'Use something simple, like "Moose".')
 
         if name.lower() in self.restricted_names:
-            raise PopdynError('Species names may not be any of {}'.format(self.restricted_names))
+            raise PopdynError(
+                'Species names may not be any of {}'.format(self.restricted_names))
 
         self.name = name
         self.name_key = name_key(name)
 
         # Does this species get included in species-wide density calculations?
-        self.contributes_to_density = kwargs.get('contributes_to_density', True)
+        self.contributes_to_density = kwargs.get(
+            'contributes_to_density', True)
         # Point at which density-dependent mortality is effective
-        self.density_threshold = np.float32(kwargs.get('density_threshold', 1.))
+        self.density_threshold = np.float32(
+            kwargs.get('density_threshold', 1.))
         # Rate of density-dependent mortality
         self.density_scale = np.float32(kwargs.get('density_scale', 1.))
         # Minimum viable population - a minimum population that may be allowed within a given area
-        self.minimum_viable_population = kwargs.get('minimum_viable_population', 0.)
+        self.minimum_viable_population = kwargs.get(
+            'minimum_viable_population', 0.)
         # Minimum viable population area
         self.minimum_viable_area = kwargs.get('minimum_viable_area', 0.)
 
@@ -1527,7 +1537,8 @@ class Species(object):
         :param tuple args: Arguments to accompany the dispersal method
         """
         if dispersal_type not in dispersal.METHODS.keys():
-            raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
+            raise PopdynError(
+                'The dispersal method {} has not been implemented'.format(dispersal_type))
 
         self.dispersal.append((dispersal_type, args))
 
@@ -1537,7 +1548,8 @@ class Species(object):
             self.direct_transmission = direct
         if kwargs.get('environmental_transmission'):
             # TODO: E data should be added in the domain, as it has a specific discretization
-            self.environmental_transmission = {'C': env, 'E': kwargs.get('E_data')}
+            self.environmental_transmission = {
+                'C': env, 'E': kwargs.get('E_data')}
 
     @property
     def age_range(self):
@@ -1679,9 +1691,11 @@ class Parameter(object):
         self.species = species
         self.species_table = dynamic.collect_lookup(lookup_table)
 
-        population_types = ['total population', 'density', 'global population', 'global ratio']
+        population_types = ['total population', 'density',
+                            'global population', 'global ratio']
         if population_type.lower() not in population_types:
-            raise PopdynError('Input population type "{}" not supported'.format(population_type))
+            raise PopdynError(
+                'Input population type "{}" not supported'.format(population_type))
 
         self.population_type = population_type.lower()
 
@@ -1697,7 +1711,8 @@ class Parameter(object):
             Keyword arguments should match all required arguments to the selected ``numpy.random`` method
         """
         if type not in dir(np.random):
-            raise PopdynError('Unsupported random distribution generator "{}"'.format(type))
+            raise PopdynError(
+                'Unsupported random distribution generator "{}"'.format(type))
 
         # *
         # Note, the presence of random inputs is queried through a `hasattr` call
@@ -1749,10 +1764,14 @@ class Fecundity(Parameter):
 
         super(Fecundity, self).__init__(name, **kwargs)
 
-        self.birth_ratio = kwargs.get('birth_ratio', 0.5)  # May be 'random' to use a random uniform query
-        self.density_fecundity_threshold = np.float32(kwargs.get('density_fecundity_threshold', 1.))
-        self.fecundity_reduction_rate = np.float32(kwargs.get('fecundity_reduction_rate', 1.))
-        self.density_fecundity_max = np.float32(kwargs.get('density_fecundity_max', 1.))
+        # May be 'random' to use a random uniform query
+        self.birth_ratio = kwargs.get('birth_ratio', 0.5)
+        self.density_fecundity_threshold = np.float32(
+            kwargs.get('density_fecundity_threshold', 1.))
+        self.fecundity_reduction_rate = np.float32(
+            kwargs.get('fecundity_reduction_rate', 1.))
+        self.density_fecundity_max = np.float32(
+            kwargs.get('density_fecundity_max', 1.))
 
         # This dictates whether offspring spawn from species tied to this fecundity
         self.multiplies = kwargs.get('multiplies', True)
@@ -1783,7 +1802,8 @@ class Mortality(Parameter):
         super(Mortality, self).__init__(name, **kwargs)
 
         if name.strip().lower() in self.forbidden_names:
-            raise PopdynError('The mortality name may not be any of: {}'.format(', '.join(self.forbidden_names)))
+            raise PopdynError('The mortality name may not be any of: {}'.format(
+                ', '.join(self.forbidden_names)))
 
         self.recipient_species = None
 
