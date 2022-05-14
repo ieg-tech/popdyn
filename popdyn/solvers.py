@@ -452,6 +452,8 @@ class discrete_explicit(object):
         log = kwargs.get("log")
         if log is not None:
             self.logger = Debugger(log)
+        else:
+            self.logger = None
 
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
