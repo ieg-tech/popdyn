@@ -225,7 +225,7 @@ class Domain(object):
         # Chunk size is specified for data storage and dask scheduling
         if not hasattr(self, 'chunks'):
             if h5py.__name__ == 'h5py':
-                chunks = [1024, 1024]
+                chunks = [512, 512]
                 if chunks[0] > self.shape[0]:
                     chunks[0] = self.shape[0]
                 if chunks[1] > self.shape[1]:
@@ -1190,7 +1190,7 @@ class Domain(object):
         :return: tuple (dispersal method name, args)
         """
         # Dispersal attached to a species
-        dispersal_methods = self.species[species_key][sex][group_key].dispersal
+        dispersal_methods = self.species[species_key][sex][group_key].dispersal[:]
 
         # Time-variant dispersal
         time = self._get_time_input(time)

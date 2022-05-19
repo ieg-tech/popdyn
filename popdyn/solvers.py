@@ -600,6 +600,12 @@ class discrete_explicit(object):
                                 existing_age
                             ]
 
+                    # Apply the dispersal of the youngest age group so new births are not "left behind"
+                    self.age_zero_population[species][_sex] = self.apply_dispersal(
+                        species, time, _sex, zero_group,
+                        self.age_zero_population[species][_sex]
+                    )
+
                     try:
                         # Add them together if the key exists in the output
                         output[key] += self.age_zero_population[species][_sex]
@@ -1016,6 +1022,60 @@ class discrete_explicit(object):
             except KeyError:
                 return counter
 
+    def apply_dispersal(self, species, time, sex, group, population):
+        # TODO: Do children receive dispersal of any parent species classes?
+
+        # Collect species and time-based dispersal methods
+        dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group)
+
+        # Collect all mask keys so they can be queried for dispersal arguments
+        mask_keys = [
+            mk.split("/")[-1]
+            for mk in self.D.get_mask(species, self.current_time, sex, group)
+        ]
+
+        for dispersal_method, args in dispersal_methods:
+            args = args + (self.D.csx, self.D.csy)
+
+            if self.logger is not None:
+                self.logger.write_message(
+                    "Applying dispersal method {} at time {} for species {} sex {} group {} with args {}".format(
+                        dispersal_method, self.current_time, species, sex, group, args
+                    )
+                )
+
+            disp_kwargs = {}
+            if mask_keys is not None:
+                kwarg_keys = [
+                    mask_key
+                    for mask_key in mask_keys
+                    if "dispersal__{}".format(dispersal_method) in mask_key
+                ]
+                for mask_key in kwarg_keys:
+                    mask_ds = self.D.get_mask(
+                        species, self.current_time, sex, group, mask_key
+                    )
+                    if mask_ds is not None:
+                        try:
+                            mask_ds = self.dsts[mask_ds]
+                        except KeyError:
+                            self.dsts[mask_ds] = da.from_array(
+                                self.D[mask_ds], self.D.chunks
+                            )
+                            mask_ds = self.dsts[mask_ds]
+                        disp_kwargs[mask_key.split("__")[-1]] = mask_ds
+
+            population = dispersal.apply(
+                population,
+                self.population_arrays[species]["total {}".format(time)],
+                self.carrying_capacity_arrays[species]["total"],
+                dispersal_method,
+                *args,
+                **disp_kwargs
+            )
+
+        return population
+
     def propagate(self, species, sex, group, time):
         """
         Create a graph of calculations to propagate populations and record parameters.
@@ -1259,58 +1319,9 @@ class discrete_explicit(object):
                 continue
 
             # Apply dispersal
-            # TODO: Do children receive dispersal of any parent species classes?
+            population = self.apply_dispersal(species, time, sex, group, population)
 
             static_population = population.copy()
-
-            # Collect species and time-based dispersal methods
-            dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group)
-
-            # Collect all mask keys so they can be queried for dispersal arguments
-            mask_keys = [
-                mk.split("/")[-1]
-                for mk in self.D.get_mask(species, self.current_time, sex, group)
-            ]
-
-            for dispersal_method, args in dispersal_methods:
-                args = args + (self.D.csx, self.D.csy)
-
-                if self.logger is not None:
-                    self.logger.write_message(
-                        "Applying dispersal method {} at time {} for species {} sex {} group {} with args {}".format(
-                            dispersal_method, self.current_time, species, sex, group, args
-                        )
-                    )
-
-                disp_kwargs = {}
-                if mask_keys is not None:
-                    kwarg_keys = [
-                        mask_key
-                        for mask_key in mask_keys
-                        if "dispersal__{}".format(dispersal_method) in mask_key
-                    ]
-                    for mask_key in kwarg_keys:
-                        mask_ds = self.D.get_mask(
-                            species, self.current_time, sex, group, mask_key
-                        )
-                        if mask_ds is not None:
-                            try:
-                                mask_ds = self.dsts[mask_ds]
-                            except KeyError:
-                                self.dsts[mask_ds] = da.from_array(
-                                    self.D[mask_ds], self.D.chunks
-                                )
-                                mask_ds = self.dsts[mask_ds]
-                            disp_kwargs[mask_key.split("__")[-1]] = mask_ds
-
-                population = dispersal.apply(
-                    population,
-                    self.population_arrays[species]["total {}".format(time)],
-                    self.carrying_capacity_arrays[species]["total"],
-                    dispersal_method,
-                    *args,
-                    **disp_kwargs
-                )
 
             if species_instance.contributes_to_density:
                 # Avoid density-dependent mortality when dispersal has occurred

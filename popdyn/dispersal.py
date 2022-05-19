@@ -492,29 +492,39 @@ def migration(population, total, k, min_density, csx, csy, **kwargs):
     # Remove using the source weight
     removed = population * source_weight
     new_population = population - removed
-    removed = removed.sum()
 
     # Weighting is a combination of k and the target weights
     target_locations = k * target_weight
 
-    # Redistribute population proportionally at the target locations
-    new_population += removed * target_locations / target_locations.sum()
+    def redistribute(pop, target, default):
+        # Redistribute population proportionally at the target locations
+        redistribution = target / target.sum()
+        # If there are no target locations, all redistribution values will be inf.
+        # In this case, use the default
+        return da.where(
+            da.isinf(redistribution) | da.isnan(redistribution),
+            default,
+            pop * redistribution
+        )
 
-    # Move population that does not satisfy min_density
-    below_min = (target_locations > 0) & (new_population / target_locations < min_density)
+    new_population += redistribute(removed.sum(), target_locations, removed)
 
-    removed = da.where(below_min, new_population, 0)
-    new_population -= removed
-    removed = removed.sum()
+    # Remove locations where density is not met
+    density_not_met = (target_locations > 0) & (
+        new_population / target_locations < min_density)
 
-    target_sum = da.where(below_min, 0, target_locations).sum()
-    added = da.where(below_min, 0, target_locations / target_sum * removed)
-
-    return da.where(
-        da.isinf(new_population) | da.isnan(new_population),
-        population,
-        new_population + added
+    removed = da.where(
+        density_not_met,
+        new_population,
+        0
     )
+    new_population -= removed
+
+    new_population += redistribute(
+        removed.sum(), da.where(density_not_met, 0, target_locations), removed
+    )
+
+    return new_population
 
 
 def test():
