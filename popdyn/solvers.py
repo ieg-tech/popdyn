@@ -7,7 +7,6 @@ import os
 from datetime import datetime
 from dateutil.tz import tzlocal
 
-from numpy.lib.function_base import disp
 from popdyn import *
 import dask.array as da
 
@@ -24,24 +23,23 @@ INF = 0
 
 class Debugger(object):
     """Used to create a file for custom debugger logging"""
+
     def __init__(self, logger_dir):
 
         if not os.path.isdir(os.path.dirname(logger_dir)):
             raise IOError("No such directory {}".format(os.path.dirname(logger_dir)))
 
-        
-        strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
+        strftime = datetime.now(tzlocal()).strftime("%d%B%Y_%I%M%p")
         self.logger_path = os.path.join(logger_dir, "popdyn_{}.log".format(strftime))
 
         with open(self.logger_path, "w") as f:
             f.write("time,message\n")
 
     def write_message(self, message):
-        strftime = datetime.now(tzlocal()).strftime('%d%B%Y_%I%M%p')
+        strftime = datetime.now(tzlocal()).strftime("%d%B%Y_%I%M%p")
 
         with open(self.logger_path, "a+") as f:
             f.write("{},{}\n".format(strftime, message))
-
 
 
 def error_check(domain):
@@ -457,9 +455,7 @@ class discrete_explicit(object):
         # -------------
         self.total_density = kwargs.get("total_density", True)
 
-        log = kwargs.get("log")
-        if log is not None:
-            self.logger = Debugger(log)
+        self.logger = kwargs.get("log")
 
     def prepare_domain(self, start_time, end_time):
         """Error check and apply inheritance to domain"""
@@ -526,7 +522,7 @@ class discrete_explicit(object):
                     )
 
                     self.mvp_coeff = dispersal.minimum_viable_population(
-                        self.population_arrays[species]["total {}".format(time)],
+                        self.population_arrays[species]["total"],
                         species_instance.minimum_viable_population,
                         species_instance.minimum_viable_area,
                         self.D.csx,
@@ -600,12 +596,6 @@ class discrete_explicit(object):
                                 existing_age
                             ]
 
-                    # Apply the dispersal of the youngest age group so new births are not "left behind"
-                    self.age_zero_population[species][_sex] = self.apply_dispersal(
-                        species, time, _sex, zero_group,
-                        self.age_zero_population[species][_sex]
-                    )
-
                     try:
                         # Add them together if the key exists in the output
                         output[key] += self.age_zero_population[species][_sex]
@@ -626,6 +616,51 @@ class discrete_explicit(object):
             del self.population_arrays
 
         self.D.timer.stop("execute")
+
+    def get_population(self, species, sex, group, age, apply_dispersal=True):
+        """
+        Collect population arrays from the previous time step to be used in the current
+        time step. Dispersal is applied while collecting the population so it can be
+        redistributed within the habatit provided at the current time step.
+
+        :param str species: Species key
+        :param int time: Current time step
+        :param str sex: Sex key
+        :param str group: Group key
+        :param int age: Age
+        """
+
+        def raw_pop():
+            pop_key = self.D.get_population(
+                species, self.current_time - 1, sex, group, age
+            )
+
+            if pop_key is None:
+                raise ValueError(
+                    "No population for:\n    species: {}\n    time: {}\n    sex: {}\n    group: {}\n    age: {}".format(
+                        species, self.current_time - 1, sex, group, age
+                    )
+                )
+
+            return da.from_array(self.D[pop_key], self.D.chunks)
+
+        if apply_dispersal:
+            try:
+                population = self.population_arrays[species][
+                    "{}/{}/{}".format(sex, group, age)
+                ]
+            except KeyError:
+                population = raw_pop()
+
+                population = self.apply_dispersal(species, sex, group, population)
+
+                self.population_arrays[species][
+                    "{}/{}/{}".format(sex, group, age)
+                ] = population
+        else:
+            population = raw_pop()
+
+        return population
 
     def totals(self, all_species, time):
         """
@@ -654,16 +689,19 @@ class discrete_explicit(object):
             except KeyError:
                 global_carrying_capacity[species] = cc
 
-            if self.total_density:
-                # Total population of contributing groups
-                self.population_arrays[species][
-                    "total {}".format(time)
-                ] = self.population_total(population)
+            # Total Carrying capacity
+            self.carrying_capacity_arrays[species][
+                "total"
+            ] = self.carrying_capacity_total(species, cc)
 
-                # Carrying Capacity
-                self.carrying_capacity_arrays[species][
-                    "total"
-                ] = self.carrying_capacity_total(species, cc)
+            # Population totals before dispersal are required so dispersal can access
+            # the total population from the previous time step
+            self.population_arrays[species][
+                "pre-dispersal total"
+            ] = self.population_total(population, apply_dispersal=False)
+
+            # Total population of contributing groups post-dispersal
+            self.population_arrays[species]["total"] = self.population_total(population)
 
             # Calculate species-wide male and female populations that reproduce
             # Note: Species that do not contribute to density contribute to the reproduction totals
@@ -899,7 +937,12 @@ class discrete_explicit(object):
         next_species_edge(param, parent_species)
 
     def population_total(
-        self, datasets, honor_density=True, honor_reproduction=False, honor_global=False
+        self,
+        datasets,
+        honor_density=True,
+        honor_reproduction=False,
+        honor_global=False,
+        apply_dispersal=True,
     ):
         """
         Calculate the total population for a species with the provided datasets, usually a result of a
@@ -914,6 +957,8 @@ class discrete_explicit(object):
         pop_arrays = []
 
         for key in datasets:
+            species_key, sex, group_key, time, age = self.D._deconstruct_key(key)[:5]
+
             instance = self.D._instance_from_key(key)
 
             if honor_density and not instance.contributes_to_density:
@@ -924,16 +969,12 @@ class discrete_explicit(object):
 
             if honor_reproduction:
                 # Collect fecundity to see if it is present
-                species_key, sex, group_key, time = self.D._deconstruct_key(key)[:4]
-
                 if len(self.D.get_fecundity(species_key, time, sex, group_key)) == 0:
                     continue
 
-            try:
-                pop_arrays.append(self.dsts[key])
-            except KeyError:
-                self.dsts[key] = da.from_array(self.D[key], self.D.chunks)
-                pop_arrays.append(self.dsts[key])
+            pop_arrays.append(
+                self.get_population(species_key, sex, group_key, age, apply_dispersal)
+            )
 
         if len(pop_arrays) > 0:
             out = dsum(pop_arrays)
@@ -1022,17 +1063,14 @@ class discrete_explicit(object):
             except KeyError:
                 return counter
 
-    def apply_dispersal(self, species, time, sex, group, population):
+    def apply_dispersal(self, species, sex, group, population):
         # TODO: Do children receive dispersal of any parent species classes?
 
         # Collect species and time-based dispersal methods
-        dispersal_methods = self.D.get_dispersal(species, time - 1, sex, group)
+        dispersal_methods = self.D.get_dispersal(species, self.current_time, sex, group)
 
         # Collect all mask keys so they can be queried for dispersal arguments
-        mask_keys = [
-            mk.split("/")[-1]
-            for mk in self.D.get_mask(species, self.current_time, sex, group)
-        ]
+        masks = self.D.get_mask(species, self.current_time, sex, group)
 
         for dispersal_method, args in dispersal_methods:
             args = args + (self.D.csx, self.D.csy)
@@ -1045,10 +1083,10 @@ class discrete_explicit(object):
                 )
 
             disp_kwargs = {}
-            if mask_keys is not None:
+            if masks is not None:
                 kwarg_keys = [
-                    mask_key
-                    for mask_key in mask_keys
+                    mk.split("/")[-1]
+                    for mk in masks
                     if "dispersal__{}".format(dispersal_method) in mask_key
                 ]
                 for mask_key in kwarg_keys:
@@ -1067,7 +1105,7 @@ class discrete_explicit(object):
 
             population = dispersal.apply(
                 population,
-                self.population_arrays[species]["total {}".format(time)],
+                self.population_arrays[species]["pre-dispersal total"],
                 self.carrying_capacity_arrays[species]["total"],
                 dispersal_method,
                 *args,
@@ -1112,9 +1150,9 @@ class discrete_explicit(object):
             return {}, {}, {}, {}
 
         # Collect parameters from the current time step.
-        # All dynamic modifications are also applied in this step
+        # All dynamic modifications are also applied in this step, including dispersal
         # -----------------------------------------------------------------
-        params = self.calculate_parameters(species, sex, group, time)
+        params = self.calculate_parameters(species, sex, group, time, ages)
 
         _mortality = self.D.get_mortality(species, time, sex, group)
         # Collect mortality instances
@@ -1234,18 +1272,7 @@ class discrete_explicit(object):
             ddm_rate = da_where(da.isinf(params["Density"]), 1.0, ddm_rate)
 
         for age in ages:
-            # Collect the population of the age from the previous time step
-            population = self.D.get_population(species, time - 1, sex, group, age)
-
-            if population is None:
-                raise ValueError(
-                    "No population for:\n    species: {}\n    time: {}\n    sex: {}\n    group: {}\n    age: {}".format(
-                        species, time - 1, sex, group, age
-                    )
-                )
-
-            # Use population total to avoid re-read from disk
-            population = self.population_total([population], False)
+            population = params["Population - {}".format(age)]
 
             # Aggregate mortality and collect time-based mortality if necessary
             mortality_data = []
@@ -1317,9 +1344,6 @@ class discrete_explicit(object):
                 output["{}/mortality/{}".format(flux_prefix, "Old Age")] += population
                 # All done with this population
                 continue
-
-            # Apply dispersal
-            population = self.apply_dispersal(species, time, sex, group, population)
 
             static_population = population.copy()
 
@@ -1409,7 +1433,7 @@ class discrete_explicit(object):
         # Return output so that it may be included in the final compute call
         return output, _delayed, counter_update, delayed_counter_update
 
-    def calculate_parameters(self, species, sex, group, time):
+    def calculate_parameters(self, species, sex, group, time, ages):
         """Collect all required parameters at a time step"""
         parameters = {}
 
@@ -1442,18 +1466,26 @@ class discrete_explicit(object):
                         mort_mask > 1.0, 1.0, mort_mask
                     )
 
-        # Carrying Capacity, Population, & Density
-        # ----------------------------------------
-        # Total Population from previous time step (all population, without regard to contribution filtering)
-        population_dsts = self.D.all_population(species, time - 1, sex, group)
-        parameters["Population"] = self.population_total(population_dsts, False)
+        # Population (from previous time step, without regard to contribution filtering)
+        # Collect the population from each age, apply dispersal, and include as pointers
+        # This helps density values align with habitat at the current time step.
+        parameters["Population"] = da_zeros(self.D.shape, self.D.chunks)
 
+        for age in ages:
+            age_population = self.get_population(species, sex, group, age)
+
+            parameters["Population"] += age_population
+
+            parameters["Population - {}".format(age)] = age_population
+
+        # Carrying Capacity & Density
+        # ----------------------------------------
         # Collect CarryingCapacity instances and/or data from the domain at the current time step and
         # the total population used for density
         if self.total_density:
             global_cc = self.carrying_capacity_arrays[species]["total"]
             parameters["Carrying Capacity"] = global_cc
-            population = self.population_arrays[species]["total {}".format(time)]
+            population = self.population_arrays[species]["total"]
         else:
             carrying_capacity = self.D.get_carrying_capacity(species, time, sex, group)
             global_cc = self.carrying_capacity_total(species, carrying_capacity)
