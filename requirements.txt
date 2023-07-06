@@ -6,4 +6,4 @@ numba
 xlsxwriter==1.1.0
 python-dateutil==2.1
 toolz
-scipy==1.1.0
+scipy==1.10.0
