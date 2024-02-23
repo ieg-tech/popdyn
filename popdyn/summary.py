@@ -5,6 +5,7 @@ Devin Cairns 2018
 """
 
 import popdyn as pd
+from .util import unique_items
 
 # import h5fake as h5py
 import h5py
@@ -82,7 +83,7 @@ class ModelSummary(object):
             ],
         }
 
-        for spec in np.unique(domain.species_instances).tolist():
+        for spec in unique_items(domain.species_instances):
             for key, val in spec.__dict__.items():
                 log["Species"][
                     "{} {} {} {}".format(spec.name, spec.sex, spec.group_key, key)

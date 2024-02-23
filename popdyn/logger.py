@@ -9,7 +9,7 @@ import string
 import os
 import numpy as np
 import xlsxwriter
-import summary
+from .summary import ModelSummary
 from string import punctuation
 from datetime import datetime
 from dateutil.tz import tzlocal
@@ -132,7 +132,7 @@ def write_xlsx(domain, output_directory):
     os.mkdir(path)
 
     # Collect the summarize information from the domain
-    ms = summary.ModelSummary(domain)
+    ms = ModelSummary(domain)
     ms.model_summary()
     domain_dict = ms.summary
 

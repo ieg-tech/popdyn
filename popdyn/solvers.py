@@ -165,7 +165,7 @@ def inherit(domain, start_time, end_time):
                     "population", species, None, None, time, None
                 )  # Group, sex and age are None
             # Carrying capacity
-            if len(carrying_capacity) > 0 is not None and len(sex_keys) > 0:
+            if len(carrying_capacity) > 0 and len(sex_keys) > 0:
                 # Read the species-level carrying capacity data and remove from the domain
                 cc_ds = []
                 for cc in carrying_capacity:
@@ -1087,7 +1087,7 @@ class discrete_explicit(object):
                 kwarg_keys = [
                     mk.split("/")[-1]
                     for mk in masks
-                    if "dispersal__{}".format(dispersal_method) in mask_key
+                    if "dispersal__{}".format(dispersal_method) in mk
                 ]
                 for mask_key in kwarg_keys:
                     mask_ds = self.D.get_mask(

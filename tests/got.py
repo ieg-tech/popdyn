@@ -7,6 +7,7 @@ import os
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import popdyn as pd
+import popdyn.solvers
 from popdyn import summary
 import shutil
 import time
@@ -14,13 +15,13 @@ import time
 
 def some_random_k(shape, factor):
     k = np.zeros(shape=shape, dtype='float32')
-    np.random.seed(2);
+    np.random.seed(2)
     i = np.random.randint(0, shape[0], 5)
-    np.random.seed(2);
+    np.random.seed(2)
     j = np.random.randint(0, shape[1], 5)
     k[(i, j)] = 100000
     k = gaussian_filter(k, 10)
-    np.random.seed(0);
+    np.random.seed(0)
     k += np.random.normal(0, 1000, shape)
     k = gaussian_filter(k, 10) * factor
     k[k < 0] = 0
@@ -103,7 +104,7 @@ female_fecundity = pd.Fecundity('females')
 def no_species():
     """Should raise an exception in the solver error checker"""
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=(1, 1), top=1, left=0) as domain:
-        pd.solvers.discrete_explicit(domain, 0, 1).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 1).execute()
 
 
 def incorrect_ages():
@@ -114,7 +115,7 @@ def incorrect_ages():
         domain.add_population(stark_female_infant, 1, 0)
         domain.add_population(stark_female_adolescent, 1, 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 1).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 1).execute()
 
 
 def incorrect_species():
@@ -124,14 +125,14 @@ def incorrect_species():
         # Add white walker as a form of mortality, but purposefully do not add white walkers to the domain
         domain.add_mortality(stark_female_adolescent, white_walker_death, time=0)
 
-        pd.solvers.discrete_explicit(domain, 0, 1).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 1).execute()
 
 
 def single_species():
     with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # Population should remain consistent at 10,000 for time steps 1 and 2
         for i in range(1, 3):
@@ -148,7 +149,7 @@ def single_species_emigration():
         # Add population at time 1
         domain.add_population(starks, 10000., 1, distribute_by_habitat=True)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # Population should 20,000 at time step 1
         tot_pop = summary.total_population(domain, 'stark', 1).sum()
@@ -163,7 +164,7 @@ def single_species_mvp():
         domain.add_carrying_capacity(stark_with_mvp, stark_k, 0, shape[0] * shape[1] * 100.)
         domain.add_population(stark_with_mvp, 50., 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 10).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 10).execute()
 
         # Population should be reduced
         tp = []
@@ -180,7 +181,7 @@ def single_species_random_k():
         rand_k.random('normal', **{'scale': 10})
         domain.add_carrying_capacity(starks, rand_k, 0, rand_k_data, distribute=False)
         domain.add_population(starks, rand_k_data, 0, distribute=False)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # Population is at k, so any k above the previous year should result in:
         #   1. density dependent mortality
@@ -204,7 +205,7 @@ def single_species_sex():
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         domain.add_population(pd.Sex('Stark', 'male'), 5000., 0, distribute_by_habitat=True)
         domain.add_population(pd.Sex('Stark', 'female'), 5000., 0, distribute_by_habitat=True)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # Population should remain consistent at 10,000 for time steps 1 and 2
         for i in range(1, 3):
@@ -235,7 +236,7 @@ def single_species_fecundity():
         domain.add_population(females, 50, 0)
         domain.add_fecundity(males, male_fecundity, 0, 1.1)
         domain.add_fecundity(females, female_fecundity, 0, 1.1)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # A constant set of offspring should result
         prv_pop = 50.
@@ -280,7 +281,7 @@ def single_species_fecundity():
 
         domain.add_fecundity(stark_female, test_female_fecundity_2, 2, 1.1)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         male_pop = summary.total_offspring(domain, 'stark', 1, 'male').sum()
         if male_pop != 0:
@@ -299,7 +300,7 @@ def single_species_dispersion():
         with pd.Domain('seven_kingdoms.popdyn', csx=1., csy=1., shape=shape, top=shape[0], left=0) as domain:
             starks = pd.Species('Stark')
 
-            starks.add_dispersal(method, (10,))
+            starks.add_dispersal(method, 10)
 
             # Avoid density-dependent mortality
             domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data + 1000., distribute=False)
@@ -309,7 +310,7 @@ def single_species_dispersion():
             domain.add_population(starks, seed_population, 0, distribute=False)
 
             try:
-                pd.solvers.discrete_explicit(domain, 0, 2).execute()
+                popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
             except NotImplementedError:
                 domain.file.close()
                 if os.path.isfile('seven_kingdoms.popdyn'):
@@ -346,7 +347,7 @@ def single_species_agegroups():
         domain.add_population(stark_female_adolescent, 600., 0, distribute_by_habitat=True)
         domain.add_population(stark_male_adult, 3000., 0, distribute_by_habitat=True)
         domain.add_population(stark_female_adult, 3000., 0, distribute_by_habitat=True)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         for i in range(1, 3):
             _pop = summary.total_population(domain, 'stark', i).sum()
@@ -379,14 +380,14 @@ def single_species_mask():
         starks = pd.Species('Stark')
         stark_male_adolescent = pd.AgeGroup('Stark', 'Adolescent', 'male', 4, 12)
         stark_male_adult = pd.AgeGroup('Stark', 'Adult', 'male', 13, 50)
-        stark_male_adolescent.add_dispersal('masked density-based dispersion', (10,))
+        stark_male_adolescent.add_dispersal('masked density-based dispersion', 10)
 
         domain.add_carrying_capacity(starks, stark_k, 0, stark_k_data, distribute=False)
         domain.add_population(stark_male_adolescent, np.random.random(shape), 0, distribute=False)
         domain.add_population(stark_male_adult, np.random.random(shape), 0, distribute=False)
-        domain.add_mask(starks, 0, np.random.random(shape), distribute=False)  # Should be inherited
+        domain.add_mask(starks, 0, "dispersal__masked density-based dispersion", np.random.random(shape), distribute=False)  # Should be inherited
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         for i in range(1, 2):
             _pop = summary.total_population(domain, 'stark', i).sum() + summary.total_mortality(domain, 'stark', i).sum()
@@ -412,7 +413,7 @@ def single_species_mortality():
         domain.add_mortality(stark_female_adolescent, disease, 0, 0.2)
         domain.add_mortality(stark_female_adolescent, accident, 0, 0.1)
         domain.add_mortality(stark_male_adolescent, accident, 0, 0.1)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         for sex in ['male', 'female']:
             prv_pop = 10
@@ -436,15 +437,15 @@ def single_species_recipient():
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         domain.add_mortality(starks, test_mortality, 0, 0.1)
         domain.add_population(recipient, 0, 10)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         tot_pop = summary.total_population(domain, 'recipient', 1).sum()
-        if tot_pop != 10000 * .1:
+        if not np.isclose(tot_pop, 10000 * .1):
             raise Exception('Recipient population should be {}, got {} at time 1'.format(
                 10000 * .1, tot_pop)
             )
         tot_pop = summary.total_population(domain, 'recipient', 2).sum()
-        if tot_pop != (10000 - (10000 * .1)) * .1:
+        if not np.isclose(tot_pop, (10000 - (10000 * .1)) * .1):
             raise Exception('Recipient population should be {}, got {} at time 2'.format(
                 (10000 - (10000 * .1)) * .1, tot_pop)
             )
@@ -466,7 +467,7 @@ def reverse_conversion_at_birth():
         domain.add_population(pd.Sex('Stark', 'male'), 0.5, 0, distribute_by_habitat=True)
         domain.add_population(pd.Sex('Stark', 'female'), 0.5, 0, distribute_by_habitat=True)
         domain.add_mortality(starks, test_mortality, 0, 0.1)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         # There should be 2 starks at time 1
         tot_pop = summary.total_population(domain, 'stark', 1).sum()
@@ -488,7 +489,7 @@ def species_as_mortality():
         # 50% density, mortality should be 0.8
         domain.add_carrying_capacity(white_walker, white_walker_k, 2, 60)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         tot_pop = summary.total_population(domain, 'stark', 1).sum()
         if not np.isclose(tot_pop, 100 - (100 * 0.45)):
@@ -510,7 +511,7 @@ def species_as_carrying_capacity():
 
         domain.add_carrying_capacity(lannister, stark_as_k, 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         cc = summary.total_carrying_capacity(domain, 'lannister', 1).sum()
         if not np.isclose(cc, 120):
@@ -533,7 +534,7 @@ def circular_species():
         domain.add_carrying_capacity(lannister, stark_as_k, 0)
         domain.add_carrying_capacity(starks, lannister_as_k, 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         if not np.isclose(summary.total_carrying_capacity(domain, 'lannister', 1).sum(), 120):
             raise Exception('Lannister carrying capacity should be {}, but it is {}'.format(120, cc))
@@ -548,7 +549,7 @@ def max_age():
         domain.add_carrying_capacity(gp, stark_k, 0, 100)
         domain.add_population(gp, 20, 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 10).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 10).execute()
 
         # The age range of the group should have changed
         if domain.species['stark']['male']['infant'].max_age != 13:
@@ -571,7 +572,7 @@ def global_n_interspecies():
         domain.add_carrying_capacity(white_walker, white_walker_k, 0, 100)
         domain.add_population(white_walker, 50., 0)
 
-        pd.solvers.discrete_explicit(domain, 0, 2, global_density=True).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2, global_density=True).execute()
 
         tot_pop = summary.total_population(domain, 'stark', 1).sum()
         if not np.isclose(tot_pop, 90):
@@ -597,7 +598,7 @@ def rate_based_mortality():
         domain.add_carrying_capacity(starks, stark_k, 0, 10000, distribute=False)
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         domain.add_mortality(starks, test_mortality, 0, 0.1)
-        pd.solvers.discrete_explicit(domain, 0, 5).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 5).execute()
 
         tot_shouldbe = [1000, 900, 810, 729, 656.10004]
         mort_shouldbe = [0, 200, 450, 810, 0]
@@ -605,7 +606,7 @@ def rate_based_mortality():
         tot_pop, mort = [], []
         for year in range(1, 6):
             tot_pop.append(summary.total_population(domain, 'recipient', year).sum())
-            mort.append(np.squeeze(summary.total_mortality(domain, 'recipient', year, mortality_name='time based')))
+            mort.append(np.squeeze(summary.total_mortality(domain, 'recipient', year, mortality_name='time based')).item())
 
         if not np.allclose(tot_pop, tot_shouldbe) or not np.allclose(mort, mort_shouldbe):
             raise Exception('Population should be {}, got {}\nMortality should be {}, got {}'.format(
@@ -636,7 +637,7 @@ def conversion_and_transmission():
         domain.add_population(starks, 10000., 0, distribute_by_habitat=True)
         domain.add_mortality(starks, test_mortality, 0, 0.1)
         domain.add_population(recipient, 0, 10)
-        pd.solvers.discrete_explicit(domain, 0, 2).execute()
+        popdyn.solvers.discrete_explicit(domain, 0, 2).execute()
 
         Pi = 10 / 10000
         FOI = 0.1 * Pi
@@ -650,13 +651,20 @@ def conversion_and_transmission():
 
 
 if __name__ == '__main__':
+    import warnings
+    warnings.filterwarnings("ignore")
+
     antitests = [no_species, incorrect_ages, incorrect_species]
 
-    tests = [single_species, single_species_emigration, single_species_mvp, single_species_random_k,
-             single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
-             single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
-             species_as_carrying_capacity, circular_species, max_age, rate_based_mortality, global_n_interspecies,
-             conversion_and_transmission, reverse_conversion_at_birth]
+    tests = [
+        single_species, single_species_emigration, single_species_mvp, single_species_random_k,
+        single_species_sex, single_species_fecundity, single_species_dispersion, single_species_agegroups,
+        single_species_mask, single_species_mortality, single_species_recipient, species_as_mortality,
+        species_as_carrying_capacity, circular_species, max_age,
+        rate_based_mortality,
+        global_n_interspecies,
+        conversion_and_transmission, reverse_conversion_at_birth
+    ]
 
     error_check = 0
     now = time.time()
@@ -664,19 +672,19 @@ if __name__ == '__main__':
         try:
             test()
             print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                  "{}: FAIL:\nNo Exception raised\n"
-                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__))
+                "{}: FAIL:\nNo Exception raised\n"
+                "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__))
         except Exception as e:
-            if (isinstance(e, pd.solvers.SolverError) or
+            if (isinstance(e, popdyn.solvers.SolverError) or
                 isinstance(e, pd.PopdynError)):
                 error_check += 1
                 print("--------------------------------------\n"
-                      "{}: PASS\n"
-                      "--------------------------------------\n".format(test.__name__))
+                    "{}: PASS\n"
+                    "--------------------------------------\n".format(test.__name__))
             else:
                 print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                      "{}: FAIL:\n{}\n"
-                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
+                    "{}: FAIL:\n{}\n"
+                    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
         if os.path.isfile('seven_kingdoms.popdyn'):
             os.remove('seven_kingdoms.popdyn')
         else:
@@ -688,12 +696,12 @@ if __name__ == '__main__':
             test()
             function_check += 1
             print("--------------------------------------\n"
-                  "{}: PASS\n"
-                  "--------------------------------------\n".format(test.__name__))
+                "{}: PASS\n"
+                "--------------------------------------\n".format(test.__name__))
         except Exception as e:
             print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n"
-                  "{}: FAIL:\n{}\n"
-                  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
+                "{}: FAIL:\n{}\n"
+                "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n".format(test.__name__, e))
         if os.path.isfile('seven_kingdoms.popdyn'):
             os.remove('seven_kingdoms.popdyn')
         else:
@@ -706,8 +714,8 @@ if __name__ == '__main__':
     stars = ''.join(stars.ravel())
 
     print("{}"
-          "\n\n\n                Tests Completed in {} seconds\n\n"
-          "".format(stars, time.time() - now))
+        "\n\n\n                Tests Completed in {} seconds\n\n"
+        "".format(stars, time.time() - now))
     print("          {} of {} exception checks passed".format(error_check, len(antitests)))
     print("          {} of {} solver checks passed\n\n\n"
-          "___wv_____wwWww____vW___|____wWv___|_|____w____wwvWWv".format(function_check, len(tests)))
+        "___wv_____wwWww____vW___|____wWv___|_|____w____wwvWWv".format(function_check, len(tests)))

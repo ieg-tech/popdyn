@@ -211,7 +211,7 @@ def masked_density_flux(population, total_population, carrying_capacity, distanc
     :return: Redistributed population
     """
     # Check that there is a mask
-    if kwargs.get('mask', None) is None:
+    if kwargs.get('masked density-based dispersion', None) is None:
         raise DispersalError('Masked Density Flux requires a mask, which is not available')
     return density_flux(population, total_population, carrying_capacity, distance, csx, csy, **kwargs)
 
@@ -479,7 +479,7 @@ def migration(population, total, k, min_density, csx, csy, **kwargs):
 
     kwargs:
         source_weight da.Array:  Proportion of population to remove from an element. Bounded by `0` and `1`
-        target_weight da.Array:  Multiplier for carrying capacity at destination    
+        target_weight da.Array:  Multiplier for carrying capacity at destination
 
     :return: Redistributed population
     """
@@ -629,7 +629,7 @@ def minimum_viable_population(population, min_pop, area, csx, csy, domain_area, 
         if area > domain_area * .9:
             p = min(1., population.sum() / min_pop)
             ext = np.random.choice([0, 1], p=[1 - p, p])
-            return np.full(population.shape, ext, np.bool)
+            return np.full(population.shape, ext, bool)
 
         # Normalize population using gaussian kernel
         # ------------------------------------------
@@ -658,7 +658,7 @@ def minimum_viable_population(population, min_pop, area, csx, csy, domain_area, 
         return output.reshape(population.shape)
 
     # Note - this is delayed and not chunked. The entire arrays will be loaded into memory upon execution
-    output = da.from_delayed(_label(population), population.shape, np.bool)
+    output = da.from_delayed(_label(population), population.shape, np.bool_)
 
     return output.rechunk(chunks)
 
