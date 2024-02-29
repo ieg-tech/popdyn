@@ -37,10 +37,10 @@ for season in ['Calving', 'Fall', 'Spring Migration', 'Summer', 'Winter']:
             'flow_name': f'BA expRSF linear stretch - {season} - {scenario}',
         })
 
-    # indicators.append({
-    #     'indicator_name': f'BA expRSF linear stretch - {season}',
-    #     'flow_name': f'BA expRSF linear stretch - {season} - {scenario}',
-    # })
+    indicators.append({
+        'indicator_name': f'BA expRSF linear stretch - {season} constant',
+        'flow_name': f'BA expRSF linear stretch - {season} constant',
+    })
 
 # indicator_names = [
 #     'BA expRSF linear stretch - Calving##historic - empirical or loaded from outside data;CBGC High Development Scenario',
