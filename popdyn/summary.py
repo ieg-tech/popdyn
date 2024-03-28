@@ -216,7 +216,7 @@ class ModelSummary(object):
             pops_sum = pops.sum(axis=-1, keepdims=True)
             self.to_compute.append(
                 da.where(
-                    pops_sum > 0, np.int32(ages.keys()) * (pops / pops_sum), np.inf
+                    pops_sum > 0, np.array(list(ages.keys())).astype(np.int32) * (pops / pops_sum), np.inf
                 ).sum(axis=-1)
             )
 
@@ -976,7 +976,7 @@ class ModelSummary(object):
 
             # Compute and populate the species log
             print("Computing initial values")
-            keys = lcl_cmp.keys()
+            keys = list(lcl_cmp.keys())
             reduced_values = {key: [] for key in keys}
 
             for i in range(len(lcl_cmp[keys[0]])):

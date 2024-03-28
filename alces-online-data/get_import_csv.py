@@ -9,56 +9,98 @@ conn = psycopg2.connect(
     port="15567"
 )
 
+# # Development scenarios:
+# # CBGC High Development Scenario
+# # RCP 8.5 induced land cover shift 1.0%
+# indicator_names = [
+#     'Barren lands',
+#     'Sub-polar or polar barren-lichen-moss',
+#     'Sub-polar or polar shrubland-lichen-moss',
+#     'Temperate or sub-polar shrubland',
+#     'Mixed forest',
+#     'Sub-polar taiga needleleaf forest',
+#     'Temperate or sub-polar broadleaf deciduous forest',
+#     'Temperate or sub-polar needleleaf forest',
+#     'Waterbodies adjusted',
+#     'Watercourse',
+#     'Wetland',
+#     'CBGC Forest Age',
+#     'Moving window 10 km Linear Footprint',
+#     'Moving window 10 km Polygonal Footprint',
 
-indicator_category = 'BA RSF'
+#     'Snow and Ice',
+#     'Sub-polar or polar grassland-lichen-moss',
+#     'Temperate or sub-polar grassland',
+# ]
 
+# # Barren lands
+# # Mixed forest
+# # Sub-polar or polar barren-lichen-moss
+# # Sub-polar or polar shrubland-lichen-moss
+# # Sub-polar taiga needleleaf forest
+# # Temperate or sub-polar broadleaf deciduous forest
+# # Temperate or sub-polar needleleaf forest
+# # Temperate or sub-polar shrubland
+# # Watercourse
+# # Wetland
+
+
+# indicators = [
+#     {
+#         'indicator_name': name,
+#         'scenarios': [
+#             'CBGC High Development Scenario',
+#             # 'historic - empirical or loaded from outside data'
+#         ],
+#     } for name in indicator_names
+# ]
+
+# Climate scenarios:
+# CanESM2 RCP 8.5
+indicator_names = [
+    'BA Calving Slope z',
+    'BA Calving Aspect z',
+    'BA Summer Min Elev z',
+    'BA Summer Slope z',
+    'BA Summer Aspect z',
+    'BA Summer Min Temp z',
+    'BA Summer Evaporation z',
+    'BA Summer Precipitation z',
+    'BA Fall Min Elev z',
+    'BA Fall Slope z',
+    'BA Fall Aspect z',
+    'BA Fall Average Temperature z',
+    'BA Fall Evaporation z',
+    'BA Fall Precipitation z',
+    'BA Winter Slope z',
+    'BA Winter Aspect z',
+    'BA Winter Maximum Temperature z',
+]
 indicators = [
     {
-        'indicator_name': 'BAH seasonal cow mortality with climate change impact',
-    },
-    {
-        'indicator_name': 'BAH fecundity with climate change',
-    },
-    {
-        'indicator_name': 'BAH 300 adult harvest',
-    },
-    {
-        'indicator_name': 'BAH 300 bull harvest',
-    },
-    {
-        'indicator_name': 'BA initial spring migration noncalf population',
-    },
+        'indicator_name': name,
+        'scenarios': [
+            'CanESM2 RCP 8.5',
+            'historic - empirical or loaded from outside data'
+        ],
+    } for name in indicator_names
 ]
-for season in ['Calving', 'Fall', 'Spring Migration', 'Summer', 'Winter']:
-    for scenario in ['CBGC High Development Scenario', 'RCP 8.5 induced land cover shift 1.0%']:
-        indicators.append({
-            'indicator_name': f'BA expRSF linear stretch - {season}',
-            'scenarios': ['historic - empirical or loaded from outside data', scenario],  # need to include "historic - empirical or loaded from outside data"
-            'flow_name': f'BA expRSF linear stretch - {season} - {scenario}',
-        })
 
-    indicators.append({
-        'indicator_name': f'BA expRSF linear stretch - {season} constant',
-        'flow_name': f'BA expRSF linear stretch - {season} constant',
-    })
-
-# indicator_names = [
-#     'BA expRSF linear stretch - Calving##historic - empirical or loaded from outside data;CBGC High Development Scenario',
-#     'BA expRSF linear stretch - Calving##historic - empirical or loaded from outside data;RCP 8.5 induced land cover shift 1.0%',
-#     'BA expRSF linear stretch - Fall',
-#     'BA expRSF linear stretch - Spring Migration',
-#     'BA expRSF linear stretch - Summer',
-#     'BA expRSF linear stretch - Winter',
-#     'BA expRSF linear stretch - Calving constant',
-#     'BA expRSF linear stretch - Fall constant',
-#     'BA expRSF linear stretch - Spring Migration constant',
-#     'BA expRSF linear stretch - Summer constant',
-#     'BA expRSF linear stretch - Winter constant',
-#     'BAH seasonal cow mortality with climate change impact',
-#     'BAH fecundity with climate change',
-#     'BAH 300 adult harvest',
-#     'BAH 300 bull harvest',
-#     'BA initial spring migration noncalf population',
+# indicators = [
+#     {
+#         'indicator_name': name,
+#         'scenarios': [
+#             'CBGC High Development Scenario',
+#             # 'historic - empirical or loaded from outside data'
+#         ],
+#     } for name in [
+#         'BA RSF - Spring Migration',
+#         'BA RSF - Calving',
+#         'BA expRSF linear stretch - Calving',
+#         'BA RSF - Summer',
+#         'BA RSF - Fall',
+#         'BA RSF - Winter',
+#     ]
 # ]
 
 s3_client = boto3.Session(profile_name='ao').client('s3')
@@ -98,9 +140,12 @@ with open('import.csv', 'w') as f:
         flow_name = indicator.get('flow_name', indicator['indicator_name'])
         print(f'Query results for "{flow_name}": {cursor.rowcount}')
         for (year, db_code, filename) in cursor.fetchall():
+            resolution = 1000
+            # if flow_name == "Waterbodies adjusted":
+            #     resolution = 100
             presigned_get = s3_client.generate_presigned_url(
                 'get_object',
-                Params={'Bucket': 'rasters', 'Key': f'indicators_{db_code}_10000_{filename}'},
+                Params={'Bucket': 'rasters', 'Key': f'indicators_{db_code}_{resolution}_{filename}'},
                 ExpiresIn=72*3600
             )
             f.write(f"{flow_name},{year},{presigned_get}\n")
