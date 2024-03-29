@@ -86,6 +86,49 @@ conn = psycopg2.connect(
 #     } for name in indicator_names
 # ]
 
+# # Barren lands
+# # Mixed forest
+# # Sub-polar or polar barren-lichen-moss
+# # Sub-polar or polar shrubland-lichen-moss
+# # Sub-polar taiga needleleaf forest
+# # Temperate or sub-polar broadleaf deciduous forest
+# # Temperate or sub-polar needleleaf forest
+# # Temperate or sub-polar shrubland
+# # Watercourse
+# # Wetland
+
+
+# indicators = [
+#     {
+#         'indicator_name': name,
+#         'scenarios': [
+#             'CBGC High Development Scenario',
+#             # 'historic - empirical or loaded from outside data'
+#         ],
+#     } for name in indicator_names
+# ]
+
+# Climate scenarios:
+# CanESM2 RCP 8.5
+indicator_names = [
+    'BA Calving Slope z',
+    'BA Calving Aspect z',
+    'BA Summer Min Elev z',
+    'BA Summer Slope z',
+    'BA Summer Aspect z',
+    'BA Summer Min Temp z',
+    'BA Summer Evaporation z',
+    'BA Summer Precipitation z',
+    'BA Fall Min Elev z',
+    'BA Fall Slope z',
+    'BA Fall Aspect z',
+    'BA Fall Average Temperature z',
+    'BA Fall Evaporation z',
+    'BA Fall Precipitation z',
+    'BA Winter Slope z',
+    'BA Winter Aspect z',
+    'BA Winter Maximum Temperature z',
+]
 indicators = [
     {
         'indicator_name': name,
