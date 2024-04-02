@@ -152,7 +152,7 @@ def write_xlsx(domain, output_directory):
         if index < 26:
             return string.ascii_uppercase[index]
         else:
-            return (string.ascii_uppercase[(index - 26) / 26] +
+            return (string.ascii_uppercase[(index - 26) // 26] +
                     string.ascii_uppercase[(index - 26) % 26])
 
     for species_key, file_dict in domain_dict.items():
