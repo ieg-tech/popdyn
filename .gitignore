@@ -1,2 +1,9 @@
 .DS_Store
 *.pyc
+BA/
+CBA/
+TP/
+BNE/
+BNW/
+*.csv
+*.xlsx
