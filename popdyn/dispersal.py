@@ -9,7 +9,6 @@ import dask.array as da
 # import dafake as da
 from dask import delayed
 from numba import jit
-from numpy.lib.shape_base import kron
 from scipy import ndimage
 
 
