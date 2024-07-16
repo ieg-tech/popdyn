@@ -3,6 +3,7 @@ from collections import defaultdict
 from string import punctuation
 import numpy as np
 import dask.array as da
+import typing
 # import dafake as da
 
 # from dask import sharedict, core
@@ -242,3 +243,14 @@ def read_cwd_input(f):
 
     return out_direct_transmission, out_C
 
+
+def unique_items(objs):
+    already = set()
+    for obj in objs:
+        if isinstance(obj, typing.Hashable):
+            i = hash(obj)
+        else:
+            i = id(obj)
+        if i not in already:
+            yield obj
+        already.add(i)

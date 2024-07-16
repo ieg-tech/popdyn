@@ -9,10 +9,10 @@ import os
 import pickle
 import numpy as np
 from osgeo import gdal, osr
-from logger import Timer
-import dispersal
-import dynamic
-from util import *
+from .logger import Timer
+import popdyn.dispersal
+from .dynamic import collect_lookup
+from .util import *
 
 # import h5fake as h5py
 import h5py
@@ -188,7 +188,7 @@ class Domain(object):
                     # Projection must be a SRID or WKT
                     sr = osr.SpatialReference()
                     try:
-                        if isinstance(self.projection, basestring):
+                        if isinstance(self.projection, str):
                             sr.ImportFromWkt(self.projection)
                         else:
                             # Assume EPSG
@@ -364,7 +364,7 @@ class Domain(object):
     def _get_data_type(self, data):
         """Parse a data argument to retrieve a domain-shaped matrix"""
         # First, try for a file
-        if isinstance(data, basestring) and os.path.isfile(data):
+        if isinstance(data, str) and os.path.isfile(data):
             return self._data_from_raster(data)
 
         # Try and construct a matrix from data
@@ -610,11 +610,11 @@ class Domain(object):
 
         :param Species species: Species instance
         :param time: The time slice to insert fecundity
-        :param str dispersal_type: One of the ``dispersal.METHODS`` keywords
+        :param str dispersal_type: One of the ``popdyn.dispersal.METHODS`` keywords
         :param tuple args: Arguments to accompany the dispersal method
         :param dict kwargs: Datasets required as inputs
         """
-        if dispersal_type not in dispersal.METHODS.keys():
+        if dispersal_type not in popdyn.dispersal.METHODS.keys():
             raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
 
         self._introduce_species(species)  # Introduce the species
@@ -766,7 +766,7 @@ class Domain(object):
 
         groups = []
         is_instance(self.species[species_key])
-        return np.unique(groups)
+        return list(unique_items(groups))
 
     def _group_keys(self, species_key):
         """
@@ -784,7 +784,7 @@ class Domain(object):
 
         groups = []
         is_instance(self.species[species_key])
-        return np.unique(groups)
+        return list(unique_items(groups))
 
     @property
     def species_instances(self):
@@ -820,7 +820,7 @@ class Domain(object):
 
         instances = []
         is_instance(self.mortality)
-        return np.unique(instances).tolist()
+        return list(unique_items(instances))
 
     @property
     def fecundity_instances(self):
@@ -839,7 +839,7 @@ class Domain(object):
 
         instances = []
         is_instance(self.fecundity)
-        return np.unique(instances).tolist()
+        return list(unique_items(instances))
 
     @property
     def carrying_capacity_instances(self):
@@ -858,7 +858,7 @@ class Domain(object):
 
         instances = []
         is_instance(self.carrying_capacity)
-        return np.unique(instances).tolist()
+        return list(unique_items(instances))
 
     def discrete_ages(self, species_key, sex):
         """
@@ -1198,7 +1198,7 @@ class Domain(object):
         # Collect the dataset keys using inheritance
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
-                times = np.unique(self.dispersal[species_key][sex][group_key].keys())
+                times = np.unique(list(self.dispersal[species_key][sex][group_key].keys()))
 
                 delta = time - times
                 backwards = delta >= 0
@@ -1248,7 +1248,7 @@ class Domain(object):
         # Collect the dataset keys using inheritance
         def collect(species_key, time, sex, group_key):
             if snap_to_time:
-                times = self.masks[species_key][sex][group_key].keys()
+                times = list(self.masks[species_key][sex][group_key].keys())
 
                 if mask_key is not None:
                     times = [t for t in times if mask_key in self.masks[species_key][sex][group_key][t].keys()]
@@ -1358,7 +1358,7 @@ class Domain(object):
                 groups += [key for key in self.carrying_capacity[species_key][_sex].keys() if key is not None]
 
         # Duplicate group names may exist for males and females
-        groups = np.unique(groups)
+        groups = list(unique_items(groups))
 
         cc = []
         for _sex in sexes:
@@ -1423,7 +1423,7 @@ class Domain(object):
                 groups += [key for key in self.population[species_key][_sex].keys() if key is not None]
 
         # Duplicate group names may exist for males and females
-        groups = np.unique(groups)
+        groups = list(unique_items(groups))
 
         keys = []
         for _sex in sexes:
@@ -1520,13 +1520,13 @@ class Species(object):
 
         .. attention:: Current solvers apply dispersal in the order that they are applied through these calls
 
-        If full datasets are required arguments for dispersal methods, they must be 
+        If full datasets are required arguments for dispersal methods, they must be
         added as a mask using the key ``'dispersal__{dispersal method name}__{argument key (kwarg)}``
 
-        :param str dispersal_type: One of the ``dispersal.METHODS`` keywords
+        :param str dispersal_type: One of the ``popdyn.dispersal.METHODS`` keywords
         :param tuple args: Arguments to accompany the dispersal method
         """
-        if dispersal_type not in dispersal.METHODS.keys():
+        if dispersal_type not in popdyn.dispersal.METHODS.keys():
             raise PopdynError('The dispersal method {} has not been implemented'.format(dispersal_type))
 
         self.dispersal.append((dispersal_type, args))
@@ -1677,7 +1677,7 @@ class Parameter(object):
             raise PopdynError('Input parameter is not a species')
 
         self.species = species
-        self.species_table = dynamic.collect_lookup(lookup_table)
+        self.species_table = collect_lookup(lookup_table)
 
         population_types = ['total population', 'density', 'global population', 'global ratio']
         if population_type.lower() not in population_types:
@@ -1758,8 +1758,8 @@ class Fecundity(Parameter):
         self.multiplies = kwargs.get('multiplies', True)
 
         # The default fecundity lookup is inf (no males): 0., less: 1.
-        self.fecundity_lookup = dynamic.collect_lookup(kwargs.get('fecundity_lookup', None)) \
-            if kwargs.get('fecundity_lookup', False) else dynamic.collect_lookup([(0, 1.), (np.inf, 0.)])
+        self.fecundity_lookup = collect_lookup(kwargs.get('fecundity_lookup', None)) \
+            if kwargs.get('fecundity_lookup', False) else collect_lookup([(0, 1.), (np.inf, 0.)])
 
 
 class Mortality(Parameter):

@@ -1,2 +1,2 @@
-from popdyn import *
-import solvers
+from popdyn.popdyn import *
+import popdyn.solvers

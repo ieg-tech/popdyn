@@ -165,7 +165,7 @@ def inherit(domain, start_time, end_time):
                     "population", species, None, None, time, None
                 )  # Group, sex and age are None
             # Carrying capacity
-            if len(carrying_capacity) > 0 is not None and len(sex_keys) > 0:
+            if len(carrying_capacity) > 0 and len(sex_keys) > 0:
                 # Read the species-level carrying capacity data and remove from the domain
                 cc_ds = []
                 for cc in carrying_capacity:
@@ -1087,7 +1087,7 @@ class discrete_explicit(object):
                 kwarg_keys = [
                     mk.split("/")[-1]
                     for mk in masks
-                    if "dispersal__{}".format(dispersal_method) in mask_key
+                    if "dispersal__{}".format(dispersal_method) in mk
                 ]
                 for mask_key in kwarg_keys:
                     mask_ds = self.D.get_mask(
@@ -1271,6 +1271,8 @@ class discrete_explicit(object):
             # Make the rate 1 where there is an infinite density
             ddm_rate = da_where(da.isinf(params["Density"]), 1.0, ddm_rate)
 
+        total_population_count = dsum([params[f"Population - {age}"] for age in ages]).sum().compute()
+
         for age in ages:
             population = params["Population - {}".format(age)]
 
@@ -1302,6 +1304,7 @@ class discrete_explicit(object):
                 params,
                 output,
                 conversion_data,
+                total_population_count=total_population_count
             )
 
             # Apply conversion
@@ -1768,6 +1771,7 @@ class discrete_explicit(object):
         params,
         output,
         pre_existing_rate=None,
+        total_population_count=None
     ):
         """
         Accumulate an iterable of mortality
@@ -1809,7 +1813,10 @@ class discrete_explicit(object):
                     "{}/mortality/{}".format(param_prefix, mort_type.name)
                 ] = time_based_mortality
             else:
-                mortality_data.append(params[mort_type.name])
+                if getattr(mort_type, 'is_total_count', False):
+                    mortality_data.append(params[mort_type.name]/total_population_count)
+                else:
+                    mortality_data.append(params[mort_type.name])
 
         # Mortality must be scaled to not exceed 1
         if len(mortality_data) > 0:

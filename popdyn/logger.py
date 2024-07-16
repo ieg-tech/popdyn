@@ -9,7 +9,7 @@ import string
 import os
 import numpy as np
 import xlsxwriter
-import summary
+from .summary import ModelSummary
 from string import punctuation
 from datetime import datetime
 from dateutil.tz import tzlocal
@@ -132,7 +132,7 @@ def write_xlsx(domain, output_directory):
     os.mkdir(path)
 
     # Collect the summarize information from the domain
-    ms = summary.ModelSummary(domain)
+    ms = ModelSummary(domain)
     ms.model_summary()
     domain_dict = ms.summary
 
@@ -152,7 +152,7 @@ def write_xlsx(domain, output_directory):
         if index < 26:
             return string.ascii_uppercase[index]
         else:
-            return (string.ascii_uppercase[(index - 26) / 26] +
+            return (string.ascii_uppercase[(index - 26) // 26] +
                     string.ascii_uppercase[(index - 26) % 26])
 
     for species_key, file_dict in domain_dict.items():

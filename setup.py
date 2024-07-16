@@ -19,14 +19,12 @@ def is_installed(name):
         return False
 
 
-requires = ['cython', 'numpy==1.15', 'h5py==2.8.0', 'dask==1.2.2', 'llvmlite==0.31.0', 'numba==0.47', 'xlsxwriter==1.1.0', 'python-dateutil', 'toolz', 'scipy']
-
 setup(name='popdyn',
       version=version,
       description='popdyn is a population dynamics simulator that fits nicely in the python ecosystem',
       url='https://bitbucket.org/alceslanduse/popdyn',
       author='Devin Cairns',
-      install_requires=requires,
+      install_requires=[],
       author_email='dcairns@alces.ca',
       license='Copyright, ALCES',
       packages=['popdyn'],
