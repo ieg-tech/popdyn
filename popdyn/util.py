@@ -34,7 +34,7 @@ def dstack(dsts):
     if len(dsts) > 1:
         return da.dstack(dsts)
     else:
-        return da.atleast_3d(dsts[0])
+        return da.atleast_3d(list(dsts)[0])
 
 
 def dsum(dsts):
