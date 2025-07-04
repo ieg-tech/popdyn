@@ -7,3 +7,4 @@ BNE/
 BNW/
 *.csv
 *.xlsx
+*.egg-info
