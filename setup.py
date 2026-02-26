@@ -5,18 +5,7 @@ try:
 except ImportError:
     from distutils.core import setup
 
-import pkg_resources
-
-
 version = open('popdyn/VERSION', 'r').read().strip()
-
-
-def is_installed(name):
-    try:
-        pkg_resources.get_distribution(name)
-        return True
-    except:
-        return False
 
 
 setup(name='popdyn',
