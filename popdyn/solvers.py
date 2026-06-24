@@ -1462,8 +1462,17 @@ class discrete_explicit(object):
 
                 # Check if a multiplicative modifier mask exists (used to explicitly spatially
                 #   constrain inter-species mortality)
-                mort_mask = self.D.get_mask(species, time, sex, group, instance.name)
-                if mort_mask is not None:
+                mask_ds = self.D.get_mask(species, time, sex, group, instance.name)
+                if mask_ds is not None:
+                    # get_mask returns the HDF5 dataset KEY — dereference it to data (cached
+                    # in self.dsts), mirroring the dispersal mask path above.
+                    try:
+                        mort_mask = self.dsts[mask_ds]
+                    except KeyError:
+                        self.dsts[mask_ds] = da.from_array(
+                            self.D[mask_ds], self.D.chunks
+                        )
+                        mort_mask = self.dsts[mask_ds]
                     # Enforce a maximum of 1
                     parameters[instance.name] *= da_where(
                         mort_mask > 1.0, 1.0, mort_mask
