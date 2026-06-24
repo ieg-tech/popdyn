@@ -161,7 +161,11 @@ def write_xlsx(domain, output_directory):
 
         species_path = os.path.join(path, '{}_{}.xlsx'.format(species_key, strftime))
 
-        wb = xlsxwriter.Workbook(species_path)
+        # nan_inf_to_errors: write NaN/Inf cells as Excel errors (#NUM!) instead of
+        # raising. A species whose population legitimately sums to zero (e.g. the domain
+        # does not overlap its ranges) yields NaN/Inf in derived ratios; without this the
+        # whole diagnostics write — and the batch job — crashes.
+        wb = xlsxwriter.Workbook(species_path, {'nan_inf_to_errors': True})
         bold = wb.add_format({'bold': True})
         grey = wb.add_format()
         grey.set_pattern(1)  # This is optional when using a solid fill.
