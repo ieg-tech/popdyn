@@ -1015,9 +1015,12 @@ class discrete_explicit(object):
                     cc_arrays.append(ds)
 
         if len(cc_arrays) == 0:
-            array = da_zeros(self.D.shape, self.D.chunks)
-        else:
-            array = dsum(cc_arrays)
+            # No static KC — inter-species coefficients are the KC themselves.
+            if len(cc_coeff) == 0:
+                return da_zeros(self.D.shape, self.D.chunks)
+            return dmean(cc_coeff)
+
+        array = dsum(cc_arrays)
 
         if len(cc_coeff) == 0:
             coeff = 1.0
