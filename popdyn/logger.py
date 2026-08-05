@@ -161,7 +161,7 @@ def write_xlsx(domain, output_directory):
 
         species_path = os.path.join(path, '{}_{}.xlsx'.format(species_key, strftime))
 
-        wb = xlsxwriter.Workbook(species_path)
+        wb = xlsxwriter.Workbook(species_path, {'nan_inf_to_errors': True})
         bold = wb.add_format({'bold': True})
         grey = wb.add_format()
         grey.set_pattern(1)  # This is optional when using a solid fill.
@@ -663,8 +663,13 @@ def write_xlsx(domain, output_directory):
 
             female_rate = round(female_rate, 1)
             male_rate = round(male_rate, 1)
-
-            afw.write(12, col + 4, male_rate, purple)
+            
+            try:
+                afw.write(12, col + 4, male_rate, purple)
+            except:
+                print(f"{male_rate=}")
+                print(f"{type(male_rate)=}")
+                raise
             afw.write(13, col + 4, female_rate, purple)
             afw.write(14, col + 4, '=AVERAGE({0}13:{0}14)'.format(index_to_char(col + 4)), green)
         afw.write(11, len(male_age_groups) + 4, 'Average', black)
